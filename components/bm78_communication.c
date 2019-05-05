@@ -17,7 +17,7 @@
 struct {
     uint8_t index;       // Sent index.
     uint8_t tail;        // Tail index.
-    uint8_t queue[0xFF]; // Transmission message type queue.
+    uint8_t queue[BMC_QUEUE_SIZE]; // Transmission message type queue.
 } tx = {0, 0, 0};
 
 bool (*BMC_NextMessageHandler)(uint8_t);
@@ -32,8 +32,9 @@ void BMC_transmit(uint8_t what) {
         // Will be transmitted in the future, don't add again.
         if (tx.queue[index++] == what) return;
     }
-    // FIXME: We are relying here that the queue will never be overfilled.
-    tx.queue[tx.tail++] = what;
+    if ((tx.tail + 1) != tx.index) { // Do nothing if queue is full.
+        tx.queue[tx.tail++] = what;
+    }
 }
 
 void BMC_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
@@ -102,6 +103,7 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
     bool repeated;
     //POC_bm78TransparentDataHandler(start, length, data);
     switch(*(data)) {
+#ifdef SM_MEM_ADDRESS
         case BM78_MESSAGE_KIND_SM_CONFIGURATION: // SM checksum requested
             BMC_transmit(BMC_SMT_TRANSMIT_STATE_MACHINE_CHECKSUM);
             break;
@@ -194,16 +196,17 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                 }
             }
             break;
+#endif
         case BM78_MESSAGE_KIND_PLAIN:
-            if (length > 1) {
-                char message[SM_VALUE_MAX_SIZE];
-                for (i = 1; i < length; i++) {
-                    if ((i - 1) < SM_VALUE_MAX_SIZE) {
-                        message[i - 1] = *(data + i);
-                    }
-                }
-                LCD_displayString(message, 0);
-            }
+//            if (length > 1) {
+//                char message[20];
+//                for (i = 1; i < length; i++) {
+//                    if ((i - 1) < BMC_MAX_PLAIN_MESSAGE_SIZE) {
+//                        message[i - 1] = *(data + i);
+//                    }
+//                }
+//                LCD_displayString(message, 0);
+//            }
             break;
     }
 }

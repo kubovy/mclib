@@ -24,19 +24,19 @@ extern "C" {
 #define WS281x_LED_COUNT 32 // Number of LEDs
 #endif
 
+#ifndef WS281x_TIMER_PERIOD
+#ifdef TIMER_PERIOD
+#define WS281x_TIMER_PERIOD TIMER_PERIOD
+#endif
+#endif
+
 #define WS281x_PATTERN_LIGHT 0x00       // Simple light
+#ifdef WS281x_TIMER_PERIOD
 #define WS281x_PATTERN_BLINK 0x01       // Blink 50/50
 #define WS281x_PATTERN_FADE_IN 0x02     // Fade in 0>1
 #define WS281x_PATTERN_FADE_OUT 0x03    // Fade out 1>0
 #define WS281x_PATTERN_FADE_TOGGLE 0x04 // Fade toggle 0>1>0
-
-/**
- * Initialize WS281x LEDs
- * 
- * @param ledCount LED count.
- * @param period Timer period in ms.
- */    
-void WS281x_init(uint16_t period);
+#endif
 
 /**
  * Sets switcher to turn the LED strip on or off.
@@ -50,6 +50,7 @@ void WS281x_setSwitcher(void (* Switcher)(bool));
  */
 extern inline void WS281x_show(void);
 
+#ifdef WS281x_TIMER_PERIOD
 /**
  * Update configuration buffer.
  * 
@@ -57,6 +58,7 @@ extern inline void WS281x_show(void);
  * should match WS281x_TIMER_PERIOD constant.
  */
 void WS281x_update(void);
+#endif
 
 /**
  * Turns WS281x LED strip off.
@@ -118,6 +120,7 @@ void WS281x_set(uint8_t led, uint8_t pattern, uint8_t r, uint8_t g, uint8_t b,
  */
 void WS281x_RGB(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
 
+#ifdef WS281x_TIMER_PERIOD
 /**
  * Sets the given LED to a blinking color.
  * 
@@ -179,6 +182,7 @@ void WS281x_fadeToggle(uint8_t led, uint8_t r, uint8_t g, uint8_t b,
  * @param b Blue color component
  */
 void WS281x_all(uint8_t r, uint8_t g, uint8_t b);
+#endif
 
 #endif
 

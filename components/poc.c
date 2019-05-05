@@ -5,148 +5,138 @@
 #include "poc.h"
 #include "../../config.h"
 #include "../lib/common.h"
+#include "../modules/bm78.h"
 #include "../modules/memory.h"
 #include "../modules/mcp23017.h"
 
 #ifdef DHT11_PORT
-#include "modules/dht11.h"
+#include "../modules/dht11.h"
 #endif
 
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
 
+#ifdef RGB_R_DUTY_CYCLE
+#include "../modules/rgb.h"
+#endif
+
 #ifdef WS281x_BUFFER
 #include "../modules/ws281x.h"
 #endif
 
+uint8_t POC_i, POC_j, POC_byte;
+
+#ifdef LCD_ADDRESS
+
 #ifdef DHT11_PORT
 void POC_testDHT11(void) {
     DHT11_Result dht11 = DHT11_measure();
-    char message[LCD_COLS + 1] = "DHT11 (X retries)";
-    message[7] = 48 + dht11.retries;
 
     LCD_init();
     LCD_setBacklight(true);
-
-    LCD_displayString(message, 0);
-    LCD_displayString("--------------------", 2);
+    LCD_setString("DHT11 (X retries)", 0, false);
+    LCD_replaceChar(48 + dht11.retries, 7, 0, true);
+    LCD_setString("--------------------", 1, true);
     
 
     if (dht11.status == DHT11_OK) {
-        char message1[LCD_COLS + 1] = "Temp:      ?C\0";
-        message1[10] = 48 + ((dht11.temp / 10) % 10);
-        message1[11] = 48 + (dht11.temp % 10);
-        LCD_displayString(message1, 2);
+        LCD_setString("Temp:      ?C\0", 2, false);
+        LCD_replaceChar(48 + (dht11.temp / 10 % 10), 10, 2, false);
+        LCD_replaceChar(48 + (dht11.temp % 10), 11, 2, true);
 
-        char message2[LCD_COLS + 1] = "Humidity:  ?%\0";
-        message2[10] = 48 + ((dht11.rh / 10) % 10);
-        message2[11] = 48 + (dht11.rh % 10);
-        LCD_displayString(message2, 3);
+        LCD_setString("Humidity:  ?%\0", 2, false);
+        LCD_replaceChar(48 + (dht11.rh / 10 % 10), 10, 2, false);
+        LCD_replaceChar(48 + (dht11.rh % 10), 11, 2, true);
     } else switch(dht11.status) {
         case DHT11_ERR_CHKSUM:
-            LCD_displayString("|c|Checksum mismatch!", 2);
+            LCD_setString("|c|Checksum mismatch!", 2, true);
             break;
         case DHT11_ERR_NO_RESPONSE:
-            LCD_displayString("|c|No response!", 2);
+            LCD_setString("|c|No response!", 2, true);
             break;
         default:
-            LCD_displayString("|c|Unknown error!", 2);
+            LCD_setString("|c|Unknown error!", 2, true);
             break;
     }
 }
 #endif
 
-#ifdef LCD_ADDRESS
 void POC_bm78InitializationHandler(char *deviceName, char *pin) {
-    LCD_displayString("Device name:", 0);
-    LCD_displayString(deviceName, 1);
-    LCD_displayString("PIN:", 2);
-    LCD_displayString(pin, 3);
+    LCD_setString("Device name:", 0, true);
+    LCD_setString(deviceName, 1, true);
+    LCD_setString("PIN:", 2, true);
+    LCD_setString(pin, 3, true);
 }
 
+#ifdef BM78_ENABLED
 void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data) {
-    uint16_t i;
-    //                                     11 11 11 12
-    //                               45 78 01 34 67 90
-    char message[LCD_COLS + 1] = "                    \0";
-
     switch (response.op_code) {
         case BM78_OPC_DISCONNECTION_COMPLETE:
-            LCD_displayString("|c|BT Disconnected", 1);
+            LCD_setString("|c|BT Disconnected", 1, true);
             break;
         case BM78_OPC_SPP_CONNECTION_COMPLETE:
             if (response.SPPConnectionComplete_0x74.status == BM78_COMMAND_SUCCEEDED) {
-                LCD_displayString("|c|BT Connected", 1);
-                message[0] = '|';
-                message[1] = 'c';
-                message[2] = '|';
-                for (i = 0; i < 6; i++) {
-                    message[i + 3] = dec2hex(response.SPPConnectionComplete_0x74.peer_address[i]);
+                LCD_setString("|c|BT Connected", 1, true);
+                LCD_setString(" ##:##:##:##:##:##  ", 2, false);
+                for (POC_i = 0; POC_i < 6; POC_i++) {
+                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[POC_i] / 16 % 16), POC_i * 3 + 1, 2, false);
+                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[POC_i] % 16), POC_i * 3 + 2, 2, false);
                 }
+                LCD_displayLine(2);
             } else {
-                LCD_displayString("|c|BT Conn Failed", 1);
+                LCD_setString("|c|BT Conn Failed", 1, true);
             }
             break;
         case BM78_OPC_COMMAND_COMPLETE:
             switch(response.CommandComplete_0x80.command) {
                 case BM78_CMD_READ_LOCAL_INFORMATION:
-                    message[0] = 'S';
-                    message[1] = 'T';
-                    message[2] = ':';
-                    message[3] = dec2hex(response.op_code / 16 % 16);
-                    message[4] = dec2hex(response.op_code % 16);
-                    message[5] = ',';
-                    message[6] = dec2hex(response.CommandComplete_0x80.command / 16 % 16);
-                    message[7] = dec2hex(response.CommandComplete_0x80.command % 16);
-                    message[8] = ',';
-                    message[9] = dec2hex(response.CommandComplete_0x80.status / 16 % 16);
-                    message[10] = dec2hex(response.CommandComplete_0x80.status % 16);
-                    for (i = 11; i < 20; i++) message[i] = ' ';
-                    LCD_displayString(message, 0);
+                    LCD_setString("ST:##,##,##         ", 0, false);
+                    LCD_replaceChar(dec2hex(response.op_code / 16 % 16), 3, 0, false);
+                    LCD_replaceChar(dec2hex(response.op_code % 16), 4, 0, false);
+                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command / 16 % 16), 6, 0, false);
+                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command % 16), 7, 0, false);
+                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status / 16 % 16), 9, 0, false);
+                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status % 16), 10, 0, false);
+                    LCD_displayLine(0);
 
-                    message[0] = 'V';
-                    message[1] = ' ';
-                    for (i = 0; i < 5; i++) { // BT Address
-                        message[3 + i * 2] = dec2hex(data[i] / 16 % 16);
-                        message[4 + i * 2] = dec2hex(data[i] % 16);
+                    LCD_setString("V                   ", 1, false);
+                    for (POC_i = 0; POC_i < 5; POC_i++) { // BT Address
+                        LCD_replaceChar(dec2hex(data[POC_i] / 16 % 16), 3 + POC_i * 2, 1, false);
+                        LCD_replaceChar(dec2hex(data[POC_i] % 16), 4 + POC_i * 2, 1, false);
                     }
-                    for (i = 12; i < 20; i++) message[i] = ' ';
-                    LCD_displayString(message, 1);
+                    LCD_displayLine(1);
 
-                    message[0] = 'B';
-                    message[1] = 'T';
-                    for (i = 0; i < 6; i++) { // BT Address
-                        message[2 + (5-i) * 3] = ':';
-                        message[3 + (5-i) * 3] = dec2hex(data[5 + i] / 16 % 16);
-                        message[4 + (5-i) * 3] = dec2hex(data[5 + i] % 16);
+                    LCD_setString("BT:##:##:##:##:##:##", 2, false);
+                    for (POC_i = 0; POC_i < 6; POC_i++) { // BT Address
+                        LCD_replaceChar(dec2hex(data[5 + POC_i] / 16 % 16), 3 + (5 - POC_i) * 3, 2, false);
+                        LCD_replaceChar(dec2hex(data[5 + POC_i] % 16), 4 + (5 - POC_i) * 3, 2, false);
                     }
-                    LCD_displayString(message, 2);
-                    __delay_ms(1000);
+                    LCD_displayLine(2);
                     break;
                 case BM78_CMD_READ_DEVICE_NAME:
-                    LCD_displayString("Device name:", 0);
-                    LCD_displayString((char *)data, 1);
+                    LCD_setString("Device name:", 0, true);
+                    LCD_setString((char *)data, 1, true);
                     break;
                 case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
                     LCD_clear();
-                    for (i = 0; i < BM78.pairedDevicesCount; i++) {
-                        if (i < 4) {
-                            message[0] = BM78.pairedDevices[i].index / 10 % 10 + 48;
-                            message[1] = BM78.pairedDevices[i].index % 10 + 48;
+                    for (POC_i = 0; POC_i < BM78.pairedDevicesCount; POC_i++) {
+                        if (POC_i < 4) {
+                            LCD_setString("XX:##:##:##:##:##:##", POC_i, false);
+                            LCD_replaceChar(BM78.pairedDevices[POC_i].index / 10 % 10 + 48, 0, POC_i, false);
+                            LCD_replaceChar(BM78.pairedDevices[POC_i].index % 10 + 48, 1, POC_i, false);
                             
-                            for (uint8_t j = 0; j < 6; j++) {
-                                if (j > 0) message[j * 3 + 2] = ':';
-                                message[j * 3 + 3] = dec2hex(BM78.pairedDevices[i].address[j] / 16 % 16);
-                                message[j * 3 + 4] = dec2hex(BM78.pairedDevices[i].address[j] % 16);
+                            for (POC_j = 0; POC_j < 6; POC_j++) {
+                                LCD_replaceChar(dec2hex(BM78.pairedDevices[POC_i].address[POC_j] / 16 % 16), POC_j * 3 + 3, POC_i, false);
+                                LCD_replaceChar(dec2hex(BM78.pairedDevices[POC_i].address[POC_j] % 16), POC_j * 3 + 4, POC_i, false);
                             }
-                            LCD_displayString(message, i);
+                            LCD_displayLine(POC_i);
                         }
                     }
                     break;
                 case BM78_CMD_READ_PIN_CODE:
-                    LCD_displayString("PIN:", 0);
-                    LCD_displayString((char *) data, 1);
+                    LCD_setString("PIN:", 0, true);
+                    LCD_setString((char *) data, 1, true);
                     break;
                 default:
                     break;
@@ -155,31 +145,31 @@ void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data) {
         case BM78_OPC_BM77_STATUS_REPORT:
             switch(response.StatusReport_0x81.status) {
                 case BM78_STATUS_POWER_ON:
-                    LCD_displayString("|c|BT Power On", 3);
+                    LCD_setString("|c|BT Power On", 3, true);
                     break;
                 case BM78_STATUS_PAGE_MODE:
-                    LCD_displayString("|c|BT Page Mode", 3);
+                    LCD_setString("|c|BT Page Mode", 3, true);
                     break;
                 case BM78_STATUS_STANDBY_MODE:
-                    LCD_displayString("|c|BT Stand-By", 3);
+                    LCD_setString("|c|BT Stand-By", 3, true);
                     break;
                 case BM78_STATUS_LINK_BACK_MODE:
-                    LCD_displayString("|c|BT Link Back", 3);
+                    LCD_setString("|c|BT Link Back", 3, true);
                     break;
                 case BM78_STATUS_SPP_CONNECTED_MODE:
-                    LCD_displayString("|c|BT SPP Connected", 3);
+                    LCD_setString("|c|BT SPP Connected", 3, true);
                     break;
                 case BM78_STATUS_LE_CONNECTED_MODE:
-                    LCD_displayString("|c|BT LE Connected", 3);
+                    LCD_setString("|c|BT LE Connected", 3, true);
                     break;
                 case BM78_STATUS_IDLE_MODE:
-                    LCD_displayString("|c|BT Idle", 3);
+                    LCD_setString("|c|BT Idle", 3, true);
                     break;
                 case BM78_STATUS_SHUTDOWN_MODE:
-                    LCD_displayString("|c|BT Shut down", 3);
+                    LCD_setString("|c|BT Shut down", 3, true);
                     break;
                 default:
-                    LCD_displayString("|c|BT Unknown Mode", 3);
+                    LCD_setString("|c|BT Unknown Mode", 3, true);
                     break;
             }
             break;
@@ -187,137 +177,133 @@ void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data) {
         case BM78_OPC_RECEIVED_SPP_DATA:
             break;
         default:
-            LCD_displayString("|c|BT Unknown MSG", 0);
+            LCD_setString("|c|BT Unknown MSG", 0, true);
             break;
     }
 }
 
 void POC_bm78TransparentDataHandler(uint8_t start, uint8_t length, uint8_t *data) {
-    uint8_t i;
-    char message[LCD_COLS + 1] = "                    \0";
-    uint8_t feedback[23];
+    //uint8_t feedback[23];
 
     switch(*(data + start)) {
         case BM78_MESSAGE_KIND_PLAIN:
-            feedback[0] = 0x00;
+            //feedback[0] = 0x00;
             LCD_clear();
-            for(i = 0; i < length; i++) {
-                if (i < 20) {
-                    message[i] = *(data + start + i);
-                    feedback[i + 1] = *(data + start + i);
-                    feedback[i + 2] = '\n';
+            LCD_setString("                    ", 2, false);
+            for(POC_i = 0; POC_i < length; POC_i++) {
+                if (POC_i < 20) {
+                    LCD_replaceChar(*(data + start + POC_i), POC_i, 2, false);
+                    //feedback[i + 1] = *(data + start + i);
+                    //feedback[i + 2] = '\n';
                 }
             }
-            LCD_displayString("|c|BT Message:", 0);
-            LCD_displayString(message, 2);
-            BM78_data(BM78_CMD_SEND_TRANSPARENT_DATA, i + 2, feedback);
+            LCD_setString("|c|BT Message:", 0, true);
+            LCD_displayLine(2);
+            //BM78_data(BM78_CMD_SEND_TRANSPARENT_DATA, i + 2, feedback);
             break;
     }
 }
 
 void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
     uint8_t i;
-    //                                     11 11 11 12
-    //                               45 78 01 34 67 90
-    char message[LCD_COLS + 1] = "  :                 \0";
-
-    message[0] = 'E';
-    message[1] = 'R';
-    message[3] = dec2hex(response.op_code / 16 % 16);
-    message[4] = dec2hex(response.op_code % 16);
-    message[5] = ',';
-    message[6] = dec2hex(response.CommandComplete_0x80.command / 16 % 16);
-    message[7] = dec2hex(response.CommandComplete_0x80.command % 16);
-    message[8] = ',';
-    message[9] = dec2hex(response.CommandComplete_0x80.status / 16 % 16);
-    message[10] = dec2hex(response.CommandComplete_0x80.status % 16);
-    for (i = 11; i < 20; i++) message[i] = ' ';
-    LCD_displayString(message, 3);
+    //                      11 11 11 12
+    //                45 78 01 34 67 90
+    LCD_setString("ER:  ,  ,           ", 3, false);
+    LCD_replaceChar(dec2hex(response.op_code / 16 % 16), 3, 3, false);
+    LCD_replaceChar(dec2hex(response.op_code % 16), 4, 3, false);
+    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command / 16 % 16), 6, 3, false);
+    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command % 16), 7, 3, false);
+    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status / 16 % 16), 9, 3, false);
+    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status % 16), 10, 3, false);
+    LCD_displayLine(3);
 }
+#endif
 
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data) {
-    uint8_t i, j, regHigh, regLow, byte;
-    char message[20] = "XXXX: ## ## ## ##\0";
-    
     LCD_clear();
 
-    for (i = 0; i < 4; i++) {
-        regHigh = (address + (i * 4)) >> 8;
-        message[0] = dec2hex(regHigh / 16 % 16);
-        message[1] = dec2hex(regHigh % 16);
+    for (POC_i = 0; POC_i < 4; POC_i++) {
+        LCD_setString("XXXX:            ", POC_i % 4, false);
 
-        regLow = (address + (i * 4)) & 0xFF;
-        message[2] = dec2hex(regLow / 16 % 16);
-        message[3] = dec2hex(regLow % 16);
+        POC_byte = (address + (POC_i * 4)) >> 8;
+        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 0, POC_i % 4, false);
+        LCD_replaceChar(dec2hex(POC_byte % 16), 1, POC_i % 4, false);
 
-        for (j = 0; j < 4; j++) {
-            if (length >= (i * 4) + j) {
-                byte = *(data + (i * 4) + j);
-                message[5 + (3 * j) + 1] = dec2hex(byte / 16 % 16);
-                message[5 + (3 * j) + 2] = dec2hex(byte % 16);
-            } else {
-                message[5 + (3 * j) + 1] = ' ';
-                message[5 + (3 * j) + 2] = ' ';
+        POC_byte = (address + (POC_i * 4)) & 0xFF;
+        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 2, POC_i % 4, false);
+        LCD_replaceChar(dec2hex(POC_byte % 16), 3, POC_i % 4, false);
+
+        for (POC_j = 0; POC_j < 4; POC_j++) {
+            if (length >= (POC_i * 4) + POC_j) {
+                POC_byte = *(data + (POC_i * 4) + POC_j);
+                LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 5 + (3 * POC_j) + 1, POC_i % 4, false);
+                LCD_replaceChar(dec2hex(POC_byte % 16), 5 + (3 * POC_j) + 2, POC_i % 4, false);
             }
         }
-
-        LCD_displayString(message, (i % 4));
+        LCD_displayLine(POC_i % 4);
     }
 }
 
 #ifdef MEM_ADDRESS
 void POC_testMem(uint16_t address) {
-    uint8_t data[16];
-    uint8_t i, j, regHigh, regLow;
-    for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
-            regHigh = (address + (i * 4) + j) >> 8;
-            regLow = (address + (i * 4) + j) & 0xFF;
-            data[(i * 4) + j] = MEM_read(MEM_ADDRESS, regHigh, regLow);
-        }
-    }
-    POC_displayData(address, 16, data);
-}
-
-void POC_testMemPage(void) {
-    uint8_t i, l, byte;
-    uint8_t data[MEM_PAGE_SIZE];
-    char message[20] = "XXY: ###\0";
-
     LCD_clear();
 
-    for (i = 0; i < 2; i++) {
-        if (i > 0) __delay_ms(1000);
-        MEM_write_page(MEM_ADDRESS, 0x00, 0x00, 4, 1 * (i + 2), 2 * (i + 2), 3 * (i + 2), 4 * (i + 2));
+    for (POC_i = 0; POC_i < 4; POC_i++) {
+        LCD_setString("XXXX:            ", POC_i % 4, false);
 
-        MEM_read_page(MEM_ADDRESS, 0x00, 0x00, MEM_PAGE_SIZE, data);
-        for (l = 0; l < 4; l++) {
-            byte = l + 1;
-            message[0] = 48 + (byte / 10 % 10);
-            message[1] = 48 + (byte % 10);
-            message[2] = 65 + i;
+        POC_byte = (address + (POC_i * 4)) >> 8;
+        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 0, POC_i % 4, false);
+        LCD_replaceChar(dec2hex(POC_byte % 16), 1, POC_i % 4, false);
 
-            byte = *(data + l);
-            message[5] = 48 + (byte / 100 % 10);
-            message[6] = 48 + (byte / 10 % 10);
-            message[7] = 48 + (byte / 1 % 10);
-            LCD_displayString(message, (l % 4));
+        POC_byte = (address + (POC_i * 4)) & 0xFF;
+        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 2, POC_i % 4, false);
+        LCD_replaceChar(dec2hex(POC_byte % 16), 3, POC_i % 4, false);
+
+        for (POC_j = 0; POC_j < 4; POC_j++) {
+            POC_byte = MEM_read(MEM_ADDRESS,
+                    (address + (POC_i * 4) + POC_j) >> 8,
+                    (address + (POC_i * 4) + POC_j) & 0xFF);
+            LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 5 + (3 * POC_j) + 1, POC_i % 4, false);
+            LCD_replaceChar(dec2hex(POC_byte % 16), 5 + (3 * POC_j) + 2, POC_i % 4, false);
         }
+        LCD_displayLine(POC_i % 4);
     }
 }
+
+//void POC_testMemPage(void) {
+//    uint8_t byte;
+//    uint8_t data[MEM_PAGE_SIZE];
+//    char message[20] = "XXY: ###\0";
+//
+//    LCD_clear();
+//
+//    for (i = 0; i < 2; i++) {
+//        if (i > 0) __delay_ms(1000);
+//        MEM_write_page(MEM_ADDRESS, 0x00, 0x00, 4, 1 * (i + 2), 2 * (i + 2), 3 * (i + 2), 4 * (i + 2));
+//
+//        MEM_read_page(MEM_ADDRESS, 0x00, 0x00, MEM_PAGE_SIZE, data);
+//        for (l = 0; l < 4; l++) {
+//            byte = l + 1;
+//            message[0] = 48 + (byte / 10 % 10);
+//            message[1] = 48 + (byte % 10);
+//            message[2] = 65 + i;
+//
+//            byte = *(data + l);
+//            message[5] = 48 + (byte / 100 % 10);
+//            message[6] = 48 + (byte / 10 % 10);
+//            message[7] = 48 + (byte / 1 % 10);
+//            LCD_displayString(message, (l % 4));
+//        }
+//    }
+//}
 #endif
 
 void POC_testDisplay(void) {
-    LED1_LAT = 0;
-    LED2_LAT = 0;
-    LED3_LAT = 0;
-    LED4_LAT = 0;
-
     LCD_init();
     LCD_setBacklight(true);
-    LCD_displayString("|d|100|....................\0", 0);
+    LCD_setString("|d|100|....................\0", 0, true);
     
-    LCD_displayString("|c|hello world\0", 2);
+    LCD_setString("|c|hello world\0", 2, true);
     
     __delay_ms(1000);
 
@@ -325,80 +311,75 @@ void POC_testDisplay(void) {
 
     __delay_ms(1000);
     
-    LCD_displayString("|r|how are you?\0", 3);
-
-    LED4_LAT = 1;
+    LCD_setString("|r|how are you?\0", 3, true);
 
     __delay_ms(500);
     LCD_setBacklight(true);
     __delay_ms(1000);
 
     LCD_clear();
-    LCD_displayString("|c|01234567890123456789012\n|l|abcdefghijklmnopqrstuvwxyz\n|r|abcdefghijklmnopqrstuvwxyz\n|r|01234567890123456789012\0", 0);
+    LCD_setString("|c|01234567890123456789012\n|l|abcdefghijklmnopqrstuvwxyz\n|r|abcdefghijklmnopqrstuvwxyz\n|r|01234567890123456789012\0", 0, true);
 
     __delay_ms(1000);
     
     LCD_clear();
-    LCD_displayString("|c|center\n|l|left\n|r|right\nEND\0", 0);
+    LCD_setString("|c|center\n|l|left\n|r|right\nEND\0", 0, true);
 }
 
 void POC_showKeypad(uint8_t address, uint8_t port) {
-    char message[LCD_COLS + 1] = "|c|KEY: ?\0";
-    message[8] = MCP_read_keypad_char(address, port);
-    if (message[8] > 0x00) {
-        LCD_displayString(message, 1);
-    }
+    POC_byte = MCP_read_keypad_char(address, port);
+    //if (POC_byte > 0x00) {
+        //LCD_setString("       KEY: ?       ", 1, false);
+        //LCD_replaceChar(POC_byte, 12, 1, true);
+    //}
 }
 
 void POC_testMCP23017Input(uint8_t address) {
-    LCD_displayString("MCP23017: 0xXX", 0);
-    LCD_replaceChar(dec2hex(address / 16), 12, 0);
-    LCD_replaceChar(dec2hex(address % 16), 13, 0);
+    LCD_setString("MCP23017: 0xXX", 0, true);
+    LCD_replaceChar(dec2hex(address / 16), 12, 0, true);
+    LCD_replaceChar(dec2hex(address % 16), 13, 0, true);
 
-    for (uint8_t i = 0; i < sizeof(MCP_GPIOS); i++) {
-        uint8_t byte = MCP_read(address, MCP_GPIOS[i]);
+    for (POC_i = 0; POC_i < sizeof(MCP_GPIOS); POC_i++) {
+        POC_byte = MCP_read(address, MCP_GPIOS[POC_i]);
         
-        char message[LCD_COLS + 1] = "GPIOx: 0b";
-        message[4] = 'A' + i;
-        for (uint8_t i = 0; i < 8; i++) {
-            message[i + 9] = (byte & 0b10000000) ? '1' : '0';
-            byte <<= 1;
+        LCD_setString("GPIOx: 0b           ", POC_i + 1, false);
+        LCD_replaceChar('A' + 1, 4, POC_i + 1, false);
+        for (POC_j = 0; POC_j < 8; POC_j++) {
+            LCD_replaceChar((POC_byte & 0b10000000) ? '1' : '0', POC_j + 9, POC_i + 1, false);
+            POC_byte <<= 1;
         }
-        message[9 + 8] = '\0';
-        LCD_displayString(message, i + 1);
+        LCD_displayLine(POC_i + 1);
     }
 }
 
 void POC_testMCP23017Output(uint8_t address, uint8_t port) {
     uint8_t original = MCP_read(address, MCP_GPIOA + port);
 
-    LCD_displayString("MCP23017: 0xXX", 0);
-    LCD_replaceChar(dec2hex(address / 16), 12, 0);
-    LCD_replaceChar(dec2hex(address % 16), 13, 0);
+    LCD_setString("MCP23017: 0xXX", 0, true);
+    LCD_replaceChar(dec2hex(address / 16), 12, 0, true);
+    LCD_replaceChar(dec2hex(address % 16), 13, 0, true);
 
-    char message[LCD_COLS + 1] = "GPIOx: ";
-    message[4] = 'A' + port;
+    LCD_setString("GPIOx: 0b           ", 1, false);
+    LCD_replaceChar('A' + 1, 4, 1, false);
 
     
     MCP_write(address, MCP_OLATA + port, 0b10101010);
-    uint8_t byte = MCP_read(address, MCP_GPIOA + port);
-    for (uint8_t i = 0; i < 8; i++) {
-        message[i + 7] = (byte & 0b10000000) ? '1' : '0';
-        byte <<= 1;
+    POC_byte = MCP_read(address, MCP_GPIOA + port);
+    for (POC_i = 0; POC_i < 8; POC_i++) {
+        LCD_replaceChar((POC_byte & 0b10000000) ? '1' : '0', POC_i + 9, 1, false);
+        POC_byte <<= 1;
     }
-    message[7 + 8] = '\0';
-    LCD_displayString(message, 1);
+    LCD_displayLine(1);
 
     __delay_ms(1000);
 
     MCP_write(address, MCP_OLATA + port, 0b01010101);
-    byte = MCP_read(address, MCP_GPIOA + port);
-    for (uint8_t i = 0; i < 8; i++) {
-        message[i + 7] = (byte & 0b10000000) ? '1' : '0';
-        byte <<= 1;
+    POC_byte = MCP_read(address, MCP_GPIOA + port);
+    for (POC_i = 0; POC_i < 8; POC_i++) {
+        LCD_replaceChar((POC_byte & 0b10000000) ? '1' : '0', POC_i + 9, 1, false);
+        POC_byte <<= 1;
     }
-    message[7 + 8] = '\0';
-    LCD_displayString(message, 1);
+    LCD_displayLine(1);
     
     __delay_ms(1000);
     
@@ -407,9 +388,38 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
 
 #endif
 
+#ifdef RGB_ENABLED
+void POC_testRGB(void) {
+    RGB_set(RGB_PATTERN_LIGHT, 255, 255, 255, 500, 128, 255, RGB_INDEFINED);
+    __delay_ms(1000);
+    RGB_set(RGB_PATTERN_BLINK, 255, 0, 0, 500, 128, 255, RGB_INDEFINED);
+    __delay_ms(2000);
+    RGB_set(RGB_PATTERN_FADE_IN, 0, 255, 0, 10, 0, 255, RGB_INDEFINED);
+    __delay_ms(3000);
+    RGB_set(RGB_PATTERN_FADE_OUT, 0, 0, 255, 10, 0, 255, RGB_INDEFINED);
+    __delay_ms(3000);
+    RGB_set(RGB_PATTERN_FADE_TOGGLE, 255, 255, 0, 10, 0, 255, RGB_INDEFINED);
+    __delay_ms(3000);
+    RGB_set(RGB_PATTERN_FADE_IN, 255, 0, 255, 10, 0, 255, 1);
+    __delay_ms(2000);
+    RGB_set(RGB_PATTERN_FADE_IN, 128, 0, 128, 10, 0, 255, 2);
+    __delay_ms(2000);
+    RGB_set(RGB_PATTERN_FADE_OUT, 0, 255, 255, 10, 0, 255, 1);
+    __delay_ms(2000);
+    RGB_set(RGB_PATTERN_FADE_OUT, 0, 128, 128, 10, 0, 255, 2);
+    __delay_ms(2000);
+    RGB_set(RGB_PATTERN_FADE_TOGGLE, 128, 128, 128, 10, 0, 255, 1);
+    __delay_ms(3000);
+    RGB_set(RGB_PATTERN_FADE_TOGGLE, 64, 64, 64, 10, 0, 255, 2);
+    __delay_ms(5000);
+}
+#endif
+
+
 #ifdef WS281x_BUFFER
 void POC_demoWS281x(void) {
     WS281x_off();
+    WS281x_RGB(2, 128, 0, 128);
     WS281x_blink(3, 255, 0, 0, 250);
     WS281x_fadeIn(4, 0, 255, 0, 10, 0, 50);
     WS281x_fadeOut(5, 0, 0, 255, 10, 0, 50);
@@ -423,36 +433,28 @@ void POC_testWS281x(void) {
     LCD_clear();
 #endif
 
-    LED4_LAT = 1;
 #ifdef LCD_ADDRESS
-    LCD_displayString("|c|RED", 1);
+    LCD_setString("|c|RED", 1, true);
 #endif
     WS281x_all(0xFF, 0x00, 0x00);
-    WS281x_show();
     __delay_ms(500);
 
-    LED3_LAT = 1;
 #ifdef LCD_ADDRESS
-    LCD_displayString("|c|GREEN", 1);
+    LCD_setString("|c|GREEN", 1, true);
 #endif
     WS281x_all(0x00, 0xFF, 0x00);
-    WS281x_show();
     __delay_ms(500);
 
-    LED2_LAT = 1;
 #ifdef LCD_ADDRESS
-    LCD_displayString("|c|BLUE", 1);
+    LCD_setString("|c|BLUE", 1, true);
 #endif
     WS281x_all(0x00, 0x00, 0xFF);
-    WS281x_show();
     __delay_ms(500);
 
-    LED1_LAT = 1;
 #ifdef LCD_ADDRESS
     LCD_clear();
 #endif
     WS281x_all(0x00, 0x00, 0x00);
-    WS281x_show();
     
     //POC_demoWS281x();
 }

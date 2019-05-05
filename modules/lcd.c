@@ -3,15 +3,26 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "lcd.h"
+#include "memory.h"
 
 #ifdef LCD_ADDRESS
 
-void _LCD_clearContent(void) {
-    for (uint8_t r = 0; r < LCD_ROWS; r++) {
-        for (uint8_t c = 0; c < LCD_COLS; c++) {
-            LCD_content[r][c] = ' ';
+#ifdef MEM_LCD_CACHE_START
+uint16_t LCD_memAddr;
+#else
+char LCD_cache[LCD_ROWS][LCD_COLS];
+#endif
+
+uint8_t LCD_r, LCD_c;
+uint8_t LCD_nibbleUpper, LCD_nibbleLower;
+uint8_t LCD_data[4];
+
+
+inline void LCD_clearContent(void) {
+    for (LCD_r = 0; LCD_r < LCD_ROWS; LCD_r++) {
+        for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
+            LCD_setCache(LCD_r, LCD_c, ' ');
         }
-        LCD_content[r][LCD_COLS] = '\0';
     }
 }
 
@@ -32,63 +43,32 @@ void LCD_init(void) {
     LCD_sendCommand(LCD_CLEARDISPLAY); // 0b00000001 (0x01)
     LCD_sendCommand(LCD_RETURNHOME); // 0b00000010 (0x02)
     LCD_setBacklight(false);
+    LCD_clear();
 }
 
-void LCD_clear(void) {
+inline void LCD_clear(void) {
     LCD_sendCommand(LCD_CLEARDISPLAY);
     LCD_sendCommand(LCD_RETURNHOME);
     __delay_ms(200);
-    _LCD_clearContent();   
+    LCD_clearContent();  
 }
 
-void LCD_reset(void) {
-    LCD_init();
-    LCD_setBacklight(true);
-    for (uint8_t i = 0; i < LCD_ROWS; i++) {
-        LCD_displayString(LCD_content[i], i);
-    }
+inline char LCD_getCache(uint8_t row, uint8_t column) {
+#ifdef MEM_LCD_CACHE_START
+    LCD_memAddr = MEM_LCD_CACHE_START + (row * LCD_COLS) + column;
+    return MEM_read(MEM_ADDRESS, LCD_memAddr >> 8, LCD_memAddr & 0xFF);
+#else
+    return LCD_cache[row][column];
+#endif
 }
 
-void LCD_setBacklight(bool on) {
-    uint8_t value = on ? LCD_BACKLIGHT : LCD_NOBACKLIGHT;
-    if (value != LCD_backlight) {
-        LCD_backlight = value;
-        I2C_write_byte(LCD_ADDRESS, LCD_backlight);
-    }
-}
-
-void LCD_sendCommand(uint8_t command) {
-    unsigned char nibble_lower, nibble_upper;
-    // Select lower nibble by moving it to the upper nibble position
-    nibble_lower = (command << 4) & 0xF0;
-    // Select upper nibble
-    nibble_upper = command & 0xF0;      
- 
-    uint8_t data[4] = {
-        nibble_upper | LCD_backlight | En,
-        nibble_upper | LCD_backlight,
-        nibble_lower | LCD_backlight | En,
-        nibble_lower | LCD_backlight
-    };
-
-    I2C_write_data(LCD_ADDRESS, data, 4);
-}
-
-void LCD_sendData(uint8_t data) {
-    unsigned char nibble_lower, nibble_upper;
-    // Select lower nibble by moving it to the upper nibble position
-    nibble_lower = (data<<4) & 0xF0;
-    // Select upper nibble
-    nibble_upper = data & 0xF0;
- 
-    uint8_t raw[8] = {
-        nibble_upper | LCD_backlight | En | Rs,
-        nibble_upper | LCD_backlight | Rs,
-        nibble_lower | LCD_backlight | En | Rs,
-        nibble_lower | LCD_backlight | Rs
-    };
-
-    I2C_write_data(LCD_ADDRESS, raw, 4);
+inline void LCD_setCache(uint8_t row, uint8_t column, char ch) {
+#ifdef MEM_LCD_CACHE_START
+    LCD_memAddr = MEM_LCD_CACHE_START + (row * LCD_COLS) + column;
+    MEM_write(MEM_ADDRESS, LCD_memAddr >> 8, LCD_memAddr & 0xFF, (uint8_t) ch);
+#else
+    LCD_cache[row][column] = ch;
+#endif
 }
 
 inline void LCD_selectLine(uint8_t line) {
@@ -108,11 +88,70 @@ inline void LCD_selectLine(uint8_t line) {
     }
 }
 
-void LCD_displayString(char *str, uint8_t line) {
+void LCD_displayCache(void) {
+    for (LCD_r = 0; LCD_r < LCD_ROWS; LCD_r++) {
+        LCD_selectLine(LCD_r);
+        for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
+            LCD_sendData(LCD_getCache(LCD_r, LCD_c));
+        }
+    }
+}
+
+inline void LCD_reset(void) {
+    LCD_init();
+    LCD_setBacklight(true);
+    LCD_displayCache();
+}
+
+void LCD_setBacklight(bool on) {
+    if ((on ? LCD_BACKLIGHT : LCD_NOBACKLIGHT) != LCD_backlight) {
+        LCD_backlight = on ? LCD_BACKLIGHT : LCD_NOBACKLIGHT;
+        I2C_writeByte(LCD_ADDRESS, LCD_backlight);
+    }
+}
+
+void LCD_sendCommand(uint8_t command) {
+    // Select lower nibble by moving it to the upper nibble position
+    LCD_nibbleLower = (command << 4) & 0xF0;
+    // Select upper nibble
+    LCD_nibbleUpper = command & 0xF0;      
+ 
+    LCD_data[0] = LCD_nibbleUpper | LCD_backlight | En;
+    LCD_data[1] = LCD_nibbleUpper | LCD_backlight;
+    LCD_data[2] = LCD_nibbleLower | LCD_backlight | En;
+    LCD_data[3] = LCD_nibbleLower | LCD_backlight;
+
+    I2C_writeData(LCD_ADDRESS, LCD_data, 4);
+}
+
+void LCD_sendData(uint8_t data) {
+    // Select lower nibble by moving it to the upper nibble position
+    LCD_nibbleLower = (data<<4) & 0xF0;
+    // Select upper nibble
+    LCD_nibbleUpper = data & 0xF0;
+ 
+    LCD_data[0] = LCD_nibbleUpper | LCD_backlight | En | Rs;
+    LCD_data[1] = LCD_nibbleUpper | LCD_backlight | Rs;
+    LCD_data[2] = LCD_nibbleLower | LCD_backlight | En | Rs;
+    LCD_data[3] = LCD_nibbleLower | LCD_backlight | Rs;
+
+    I2C_writeData(LCD_ADDRESS, LCD_data, 4);
+}
+
+void LCD_displayLine(uint8_t line) {
+    LCD_selectLine(line);
+    for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
+        LCD_sendData(LCD_getCache(line, LCD_c));
+    }
+}
+
+void LCD_setString(char *str, uint8_t line, bool display) {
+    uint8_t prefix;
+    uint16_t i, delay;
+
     while (*str && line < LCD_ROWS) {
-        LCD_selectLine(line);
-        uint8_t column, prefix = 0;
-        uint16_t i, delay = -1;
+        prefix = 0;
+        delay = -1;
         
         if (*str == '|' && *(str + 2) == '|') {
             // Starting with |c| will center the message
@@ -138,25 +177,26 @@ void LCD_displayString(char *str, uint8_t line) {
             }
         }
         
+        if (display) LCD_selectLine(line);
         for (i = 0; i < prefix; i++) {
-            LCD_content[line][i] = ' ';
-            LCD_sendData(' ');
+            LCD_setCache(line, i, ' ');
+            if (display) LCD_sendData(' ');
         }
-        column = prefix;
-        while (*str && *str != '\n' && column < LCD_COLS) {
-            LCD_content[line][column] = *str;
-            LCD_sendData(*str);
+        LCD_c = prefix;
+        while (*str && *str != '\n' && LCD_c < LCD_COLS) {
+            LCD_setCache(line, LCD_c, *str);
+            if (display) LCD_sendData(*str);
             if (delay == -1) __delay_us(500);
             else for(i = 0; i < delay; i++) __delay_ms(1);
-            column++;
+            LCD_c++;
             str++;
         }
         // Ignore rest of the line or string.
-        if (column >= LCD_COLS) while (*str && *str != '\n') str++;
+        if (LCD_c >= LCD_COLS) while (*str && *str != '\n') str++;
         
-        for (i = column; i < LCD_COLS; i++) {
-            LCD_content[line][column] = ' ';
-            LCD_sendData(' ');
+        for (i = LCD_c; i < LCD_COLS; i++) {
+            LCD_setCache(line, i, ' ');
+            if (display) LCD_sendData(' ');
         }
 
         if (*str == '\n') str++; // Skip new line character
@@ -165,19 +205,29 @@ void LCD_displayString(char *str, uint8_t line) {
     }
 }
 
-void LCD_replaceChar(char c, uint8_t position, uint8_t line) {
+void LCD_replaceChar(char c, uint8_t position, uint8_t line, bool display) {
     if (line < LCD_ROWS && position < LCD_COLS) {
-        LCD_content[line][position] = c;
-        LCD_displayString(LCD_content[line], line);
+        LCD_setCache(line, position, c);
+        if (display) {
+            LCD_selectLine(line);
+            for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
+                LCD_sendData(LCD_getCache(line, LCD_c));
+            }
+        }
     }
 }
 
-void LCD_replaceString(char *str, uint8_t position, uint8_t line) {
+void LCD_replaceString(char *str, uint8_t position, uint8_t line, bool display) {
     if (line < LCD_ROWS) {
-        while (*str && position < LCD_COLS) {
-            LCD_content[line][position++] = *str++;
+        while (*str && *str != '\n' && position < LCD_COLS) {
+            LCD_setCache(line, position++, *str++);
         }
-        LCD_displayString(LCD_content[line], line);
+        if (display) {
+            LCD_selectLine(line);
+            for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
+                LCD_sendData(LCD_getCache(line, LCD_c));
+            }
+        }
     }
 }
 

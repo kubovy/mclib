@@ -24,6 +24,7 @@ extern "C" {
 #include "modules/lcd.h"
 #include "modules/mcp23017.h"
 #include "modules/memory.h"
+#include "modules/rgb.h"
 #include "modules/state_machine.h"
 #include "modules/ws281x.h"
 // Components
@@ -33,6 +34,7 @@ extern "C" {
 #include "components/state_machine_interaction.h"
 #include "components/state_machine_transfer.h"
 #include "components/setup_mode.h"
+#include "components/tester.h"
 // MCC
 #include "../mcc_generated_files/mcc.h"
 

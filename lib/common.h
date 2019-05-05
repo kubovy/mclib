@@ -82,7 +82,7 @@ void watchDogTrigger(uint8_t *counter, uint8_t period, void (* Trigger)(void));
  * @param value Current progress value.
  * @param max Maximum value to be reached.
  */
-void printProgress(char* title, uint16_t value, uint16_t max);
+void printProgress(char* title, uint16_t value, uint16_t RGB_max);
 
 /**
  * Waiting loader with dots animation.

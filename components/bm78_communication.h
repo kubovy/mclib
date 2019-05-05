@@ -20,6 +20,9 @@ extern "C" {
 
 #ifdef BM78_ENABLED // Needs BM78 module
 
+#define BMC_QUEUE_SIZE 10
+#define BMC_MAX_PLAIN_MESSAGE_SIZE 20
+    
 #ifndef BMC_NOTHING_TO_TRANSMIT
 #define BMC_NOTHING_TO_TRANSMIT 0xFF
 #endif

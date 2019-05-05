@@ -33,17 +33,19 @@ extern "C" {
 // PIN Configuration:
 #ifdef BM78_SW_BTN_PORT     // Output
 #ifdef BM78_RST_N_PORT      // Output (start high)
-#ifdef BM78_WAKE_UP_PORT    // Output (start high)
-#ifdef BM78_DISCONNECT_PORT // Output (start high)
+//#ifdef BM78_WAKE_UP_PORT    // Output (start high)
+//#ifdef BM78_DISCONNECT_PORT // Output (start high)
 #ifdef BM78_P2_0_PORT       // Output (start high)
 #ifdef BM78_P2_4_PORT       // Output (start high)
 #ifdef BM78_EAN_PORT        // Output
+#ifndef BM78_DISABLE
 #define BM78_ENABLED
 #endif
 #endif
 #endif
 #endif
-#endif
+//#endif
+//#endif
 #endif
 #endif
 
@@ -67,7 +69,9 @@ extern "C" {
 #define BM78_STATUS_MISS_MAX_COUNT 5 // Number of status refresh attempts before reseting the device.
 #endif
 
-#define BM78_BUFFER_SIZE 0xFF
+#ifndef BM78_DATA_PACKET_MAX_SIZE
+#define BM78_DATA_PACKET_MAX_SIZE 32
+#endif
 #define BM78_EEPROM_SIZE 0x1FF0
 
 // Message kinds:
@@ -263,20 +267,18 @@ typedef enum {
 
 // Single event states
 typedef enum {
-    BM78_EVENT_STATE_IDLE = 0x00,
+    BM78_STATE_IDLE = 0x00,
     BM78_EVENT_STATE_LENGTH_HIGH = 0x01,
     BM78_EVENT_STATE_LENGTH_LOW = 0x02,
     BM78_EVENT_STATE_OP_CODE = 0x03,
-    BM78_EVENT_STATE_ADDITIONAL = 0x04
-} BM78_EventState_t;
+    BM78_EVENT_STATE_ADDITIONAL = 0x04,
 
-// Command in test-mode response state
-typedef enum {
-    BM78_COMMAND_RESPONSE_STATE_IDLE = 0x00,
-    BM78_COMMAND_RESPONSE_STATE_INIT = 0x01,
-    BM78_COMMAND_RESPONSE_STATE_LENGTH = 0x02,
-    BM78_COMMAND_RESPONSE_STATE_DATA = 0x03
-} BM78_CommandResponseState_t;
+    BM78_COMMAND_RESPONSE_STATE_INIT = 0x81,
+    BM78_COMMAND_RESPONSE_STATE_LENGTH = 0x82,
+    BM78_COMMAND_RESPONSE_STATE_DATA = 0x83,
+
+    BM78_STATE_SENDING = 0xFF
+} BM78_State_t;
 
 // Modes
 typedef enum {
@@ -397,9 +399,15 @@ struct {
     BM78_PairingMode_t pairingMode;        // Pairing mode.
     uint8_t pairedDevicesCount;            // Paired devices count.
     BM78_PairedDevice_t pairedDevices[16]; // Paired devices MAC addresses.
-    char deviceName[17];                   // Device name.
+    char deviceName[16];                   // Device name.
     char pin[7];                           // PIN.
 } BM78 = {BM78_MODE_INIT, BM78_STATUS_POWER_ON, true, BM78_PAIRING_PIN, 0};
+
+void BM78_init(uint8_t (* isRXReady)(void),
+               uint8_t (* isTXReady)(void),
+               uint8_t (* isTXDone)(void),
+               uint8_t (* read)(void),
+               void (* write)(uint8_t));
 
 /**
  * Powers the device on or off.
@@ -533,14 +541,14 @@ void BM78_GetAdvData(uint8_t *data);
  * @param store Whether to store or not (BM78_EEPROM_IGNORE/BM78_EEPROM_STORE)
  * @param value Pointer to the value
  */
-void BM78_write(uint8_t command, uint8_t store, uint8_t *value);
+void BM78_write(uint8_t command, uint8_t store, uint8_t length, uint8_t *value);
 
 /**
  * Executes command on the module.
  * 
  * @param command Command to execute
- * @param length Length of additional parameters
- * @param ... Additional parameters
+ * @param length Length of additional parameters (0-4)
+ * @param ... Additional parameters (max 4)
  */
 void BM78_execute(uint8_t command, uint16_t length, ...);
 
@@ -552,14 +560,6 @@ void BM78_execute(uint8_t command, uint16_t length, ...);
  * @param data Data pointer
  */
 void BM78_data(uint8_t command, uint16_t length, uint8_t *data);
-
-/**
- * Sends data to module.
- * 
- * @param length Length of the data
- * @param ... Data
- */
-void BM78_send(uint8_t length, ...);
 
 /** Whether still awaiting confirmation for last command. */
 bool BM78_awatingConfirmation(void);

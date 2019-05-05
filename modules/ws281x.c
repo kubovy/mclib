@@ -14,18 +14,11 @@ uint8_t ledTempG[WS281x_LED_COUNT];
 uint8_t ledTempB[WS281x_LED_COUNT];
 uint8_t ledPattern[WS281x_LED_COUNT];
 uint8_t ledDelay[WS281x_LED_COUNT];
-uint8_t ledCounter[WS281x_LED_COUNT];
 uint8_t ledMin[WS281x_LED_COUNT];
 uint8_t ledMax[WS281x_LED_COUNT];
-uint16_t timerPeriod = 10;
-uint8_t counter = 0;
 
+uint16_t WS281x_counter = 0;
 void (*WS281x_Switcher)(bool);
-
-void WS281x_init(uint16_t period) {
-    timerPeriod = period;
-    WS281x_off();
-}
 
 void WS281x_setSwitcher(void (* Switcher)(bool)) {
     WS281x_Switcher = Switcher;
@@ -42,50 +35,39 @@ void WS281x_show(void) {
     }
 }
 
+#ifdef WS281x_TIMER_PERIOD
 void WS281x_update(void) {
-    bool on;
     uint8_t percent;
     for (uint8_t led = 0; led < WS281x_LED_COUNT; led++) {
-        if (ledPattern[led] > WS281x_PATTERN_LIGHT) {
-            if (counter % ledDelay[led] == 0) {
-                switch(ledPattern[led]) {
-                    case WS281x_PATTERN_BLINK:
-                        on = ledCounter[led] % 2;
-                        ledTempR[led] = on ? ledDataR[led] : 0x00;
-                        ledTempG[led] = on ? ledDataG[led] : 0x00;
-                        ledTempB[led] = on ? ledDataB[led] : 0x00;
-                        ledCounter[led] = ledCounter[led] ? 0 : 1;
-                        break;
-                    case WS281x_PATTERN_FADE_IN:
-                        percent = ((uint16_t) (ledMax[led] - ledMin[led]) * ledCounter[led]) / 100  + ledMin[led];
-                        ledTempR[led] = ((uint16_t) ledDataR[led]) * percent / 100;
-                        ledTempG[led] = ((uint16_t) ledDataG[led]) * percent / 100;
-                        ledTempB[led] = ((uint16_t) ledDataB[led]) * percent / 100;
-                        ledCounter[led] = (ledCounter[led] + 1) % 100;
-                        break;
-                    case WS281x_PATTERN_FADE_OUT:
-                        percent = ledMax[led] - ((uint16_t) (ledMax[led] - ledMin[led]) * ledCounter[led]) / 100;
-                        ledTempR[led] = ((uint16_t) ledDataR[led]) * percent / 100;
-                        ledTempG[led] = ((uint16_t) ledDataG[led]) * percent / 100;
-                        ledTempB[led] = ((uint16_t) ledDataB[led]) * percent / 100;
-                        ledCounter[led] = (ledCounter[led] + 1) % 100;
-                        break;
-                    case WS281x_PATTERN_FADE_TOGGLE:
-                        percent = ledCounter[led] > 100 ? 200 - ledCounter[led] : ledCounter[led];
-                        percent = (ledMax[led] - ledMin[led]) * percent / 100 + ledMin[led];
-                        ledTempR[led] = ((uint16_t) ledDataR[led]) * percent / 100;
-                        ledTempG[led] = ((uint16_t) ledDataG[led]) * percent / 100;
-                        ledTempB[led] = ((uint16_t) ledDataB[led]) * percent / 100;
-                        ledCounter[led] = (ledCounter[led] + 1) % 200;
-                        break;
-                }
-            }
+        switch(ledPattern[led]) {
+            case WS281x_PATTERN_LIGHT:
+                percent = 255;
+                break;
+            case WS281x_PATTERN_BLINK:
+                percent = (WS281x_counter / ledDelay[led]) % 2 ? ledMax[led] : ledMin[led];
+                break;
+            case WS281x_PATTERN_FADE_IN:
+                percent = (WS281x_counter / ledDelay[led]) % 100;
+                percent = ((uint16_t) (ledMax[led] - ledMin[led]) * percent) / 99  + ledMin[led];
+                break;
+            case WS281x_PATTERN_FADE_OUT:
+                percent = (WS281x_counter / ledDelay[led]) % 100;
+                percent = ledMax[led] - ((uint16_t) (ledMax[led] - ledMin[led]) * percent) / 99;
+                break;
+            case WS281x_PATTERN_FADE_TOGGLE:
+                percent = (WS281x_counter / ledDelay[led]) % 200;
+                percent = percent > 100 ? 200 - percent : percent;
+                percent = (ledMax[led] - ledMin[led]) * percent / 100 + ledMin[led];
+                break;
         }
+        ledTempR[led] = ledDataR[led] * percent / 255;
+        ledTempG[led] = ledDataG[led] * percent / 255;
+        ledTempB[led] = ledDataB[led] * percent / 255;
     }
-    counter++;
-    if (counter >= 200) counter = 0;
+    WS281x_counter++;
     WS281x_show();
 }
+#endif
 
 uint8_t WS281x_getPattern(uint8_t led) {
     return ledPattern[led];
@@ -119,11 +101,14 @@ void WS281x_set(uint8_t led, uint8_t pattern, uint8_t r, uint8_t g, uint8_t b,
     ledTempG[led] = g;
     ledTempB[led] = b;
 
-    ledDelay[led] = delay / timerPeriod;
-    ledCounter[led] = 0;
+#ifdef WS281x_TIMER_PERIOD
+    ledDelay[led] = delay / WS281x_TIMER_PERIOD;
+#endif
+    //ledCounter[led] = 0;
     
     ledMin[led] = min;
     ledMax[led] = max;
+    WS281x_show();
 }
 
 void WS281x_off(void) {
@@ -141,8 +126,9 @@ void WS281x_RGB(uint8_t led, uint8_t r, uint8_t g, uint8_t b) {
     WS281x_set(led, WS281x_PATTERN_LIGHT, r, g, b, 0, 0, 0);
 }
 
+#ifdef WS281x_TIMER_PERIOD
 void WS281x_blink(uint8_t led, uint8_t r, uint8_t g, uint8_t b, uint16_t delay) {
-    WS281x_set(led, WS281x_PATTERN_BLINK, r, g, b, delay, 0, 0);
+    WS281x_set(led, WS281x_PATTERN_BLINK, r, g, b, delay, 0, 255);
 }
 
 void WS281x_fadeIn(uint8_t led, uint8_t r, uint8_t g, uint8_t b, uint16_t delay,
@@ -165,5 +151,6 @@ void WS281x_all(uint8_t r, uint8_t g, uint8_t b) {
         WS281x_RGB(led, r, g, b);
     }
 }
+#endif
 
 #endif

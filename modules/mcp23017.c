@@ -3,14 +3,15 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "mcp23017.h"
+#include "../../config.h"
 #include "i2c.h"
 
 uint8_t MCP_read(uint8_t address, uint8_t reg) {
-    return I2C_read_register(address, reg);
+    return I2C_readRegister(address, reg);
 }
 
 void MCP_write(uint8_t address, uint8_t reg, uint8_t data) {
-    I2C_write_register(address, reg, data);
+    I2C_writeRegister(address, reg, data);
 }
 
 void MCP_init_keypad(uint8_t address, uint8_t port) {
@@ -32,6 +33,10 @@ uint8_t MCP_read_keypad(uint8_t address, uint8_t port) {
     MCP_write(address, MCP_OLATA + port, 0b00000000); // Ground all outputs
                 
     cols = (MCP_read(address, MCP_INTCAPA + port) | MCP_read(address, MCP_GPIOA + port)) & 0xF0;
+#ifdef MCP_KEYPAD_INVERSE
+    cols >>= 4;
+    rows <<= 4;
+#endif
     combination = cols | rows;
     
     MCP_write(address, MCP_IODIRA + port, 0b00001111); // GPIOB 0-3 input, 4-7 output

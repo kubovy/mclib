@@ -23,21 +23,25 @@ extern "C" {
 void POC_testDHT11(void);
 #endif
 #ifdef LCD_ADDRESS
+#ifdef BM78_ENABLED
 void POC_bm78InitializationHandler(char *deviceName, char *pin);
 void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data);
 void POC_bm78TransparentDataHandler(uint8_t start, uint8_t length, uint8_t *data);
 void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
+#endif
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data);
 #ifdef MEM_ADDRESS
 void POC_testMem(uint16_t address);
-void POC_testMemPage(void);
+//void POC_testMemPage(void);
 #endif
 void POC_testDisplay(void);
 void POC_showKeypad(uint8_t address, uint8_t port);
 void POC_testMCP23017Input(uint8_t address);
 void POC_testMCP23017Output(uint8_t address, uint8_t port);
 #endif
-
+#ifdef RGB_ENABLED
+void POC_testRGB(void);
+#endif
 #ifdef WS281x_BUFFER
 void POC_demoWS281x(void);
 void POC_testWS281x(void);

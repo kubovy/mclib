@@ -16,9 +16,9 @@ extern "C" {
 #include "../../config.h"
 
 /* Configuration */
-#ifndef MEM_PAGE_SIZE
-#define MEM_PAGE_SIZE 64
-#endif
+//#ifndef MEM_PAGE_SIZE
+//#define MEM_PAGE_SIZE 64
+//#endif
 
 /**
  * Read byte from memory.
@@ -39,8 +39,8 @@ uint8_t MEM_read(uint8_t address, uint8_t regHigh, uint8_t regLow);
  * @param length Number of bytes to read.
  * @param page Read page of bytes.
  */
-void MEM_read_page(uint8_t address, uint8_t regHigh, uint8_t regLow,
-                   uint8_t length, uint8_t *page);
+//void MEM_read_page(uint8_t address, uint8_t regHigh, uint8_t regLow,
+//                   uint8_t length, uint8_t *page);
 
 /**
  * Write byte to memory.
@@ -61,8 +61,8 @@ void MEM_write(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t byte);
  * @param length Number of bytes to write.
  * @param ... Data to write.
  */
-void MEM_write_page(uint8_t address, uint8_t regHigh, uint8_t regLow,
-                    uint8_t length, ...);
+//void MEM_write_page(uint8_t address, uint8_t regHigh, uint8_t regLow,
+//                    uint8_t length, ...);
 
 #ifdef	__cplusplus
 }

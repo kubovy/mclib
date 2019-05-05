@@ -98,7 +98,9 @@ extern "C" {
 #include <stdint.h>
 #include "../../config.h"
 
-// Configuration
+#ifdef SM_MEM_ADDRESS
+
+    // Configuration
 #ifndef SM_MAX_SIZE
 #ifdef MEM_SIZE
 #define SM_MAX_SIZE MEM_SIZE
@@ -111,7 +113,6 @@ extern "C" {
 #endif
 #endif
 
-#ifdef SM_MEM_ADDRESS
 #ifdef SM_MAX_SIZE
 #ifdef SM_CHECK_DELAY
     

@@ -82,9 +82,6 @@ extern "C" {
 #define Rw 0b00000010                // Read/Write bit
 #define Rs 0b00000001                // Register select bit
 
-/** LCD content cache. */
-char LCD_content[LCD_ROWS][LCD_COLS + 1];
-
 /** LCD backlight. */
 uint8_t LCD_backlight = LCD_BACKLIGHT;
 
@@ -99,10 +96,16 @@ uint8_t LCD_backlight = LCD_BACKLIGHT;
 void LCD_init(void);
 
 /** Clear the content of the LCD. */
-void LCD_clear(void);
+inline void LCD_clear(void);
+
+inline char LCD_getCache(uint8_t row, uint8_t column);
+
+inline void LCD_setCache(uint8_t row, uint8_t column, char ch);
+
+void LCD_displayCache(void);
 
 /** Resets the LCD preserving its content. */
-void LCD_reset(void);
+inline void LCD_reset(void);
 
 /**
  * Turn LCD's backlight on or off.
@@ -125,6 +128,8 @@ void LCD_sendCommand(uint8_t command);
  */
 void LCD_sendData(uint8_t data); 
 
+void LCD_displayLine(uint8_t line);
+
 /**
  * Send string to the LCD.
  * 
@@ -140,25 +145,28 @@ void LCD_sendData(uint8_t data);
  * 
  * @param str String to be sent.
  * @param line Line the string should be display on or begin at in case of multi-line string.
+ * @param display Whether display right away or not.
  */
-void LCD_displayString(char*, uint8_t);
+void LCD_setString(char* str, uint8_t line, bool display);
 
 /**
  * Replace character on position of a line.
  * 
  * @param c Character to use.
  * @param position Position on a line.
- * @param line Line (0-based)
+ * @param line Line (0-based).
+ * @param display Whether display right away or not.
  */
-void LCD_replaceChar(char c, uint8_t position, uint8_t line);
+void LCD_replaceChar(char c, uint8_t position, uint8_t line, bool display);
 
 /**
  * Replace string on position of a line.
  * @param str String to use.
  * @param position Position to start.
  * @param line Line (0-based)
+ * @param display Whether display right away or not.
  */
-void LCD_replaceString(char *str, uint8_t position, uint8_t line);
+void LCD_replaceString(char *str, uint8_t position, uint8_t line, bool display);
 
 #endif
 

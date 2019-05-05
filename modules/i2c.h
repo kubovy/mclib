@@ -14,23 +14,27 @@ extern "C" {
 #include <stdarg.h>
 #include "../../config.h"
 
-void I2C_setup(void (* Reader)(uint8_t, uint8_t *, uint8_t), void (* Writer)(uint8_t, uint8_t*, uint8_t));
+//#if defined I2C || defined I2C_MSSP || defined I2C_MSSP_FOUNDATION
 
-uint8_t I2C_read_register(uint8_t address, uint8_t reg);
+#if defined I2C_MSSP
+#define I2C_MAX_RETRIES 100
+#endif
+    
+inline void I2C_init(void);
 
-uint8_t I2C_read_2register(uint8_t address, uint8_t regHigh, uint8_t regLow);
+inline uint8_t I2C_readRegister(uint8_t address, uint8_t reg);
 
-void I2C_read_data_register(uint8_t address, uint8_t reg, uint8_t *data, uint8_t len);
+inline uint8_t I2C_readRegister2(uint8_t address, uint8_t regHigh, uint8_t regLow);
 
-void I2C_read_data_2register(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t *data, uint8_t len) ;
+inline void I2C_writeByte(uint8_t address, uint8_t byte);
 
-void I2C_write_byte(uint8_t address, uint8_t byte);
+inline void I2C_writeRegister(uint8_t address, uint8_t reg, uint8_t byte);
 
-void I2C_write_register(uint8_t address, uint8_t reg, uint8_t byte);
+inline void I2C_writeRegister2(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t byte);
 
-void I2C_write_2register(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t byte);
+inline void I2C_writeData(uint8_t address, uint8_t *data, uint8_t len);
 
-void I2C_write_data(uint8_t address, uint8_t *data, uint8_t len);
+//#endif
 
 #ifdef	__cplusplus
 }

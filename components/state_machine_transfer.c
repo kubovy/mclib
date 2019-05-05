@@ -58,7 +58,7 @@ bool SMT_bmcNextMessageSentHandler(uint8_t what) {
     } else {
         switch (what) {
             case BMC_SMT_TRANSMIT_STATE_MACHINE_CHECKSUM:
-                BM78_send(2, BM78_MESSAGE_KIND_SM_CONFIGURATION, SM_checksum());
+                BM78_transmit(2, BM78_MESSAGE_KIND_SM_CONFIGURATION, 1, &SM_checksum());
                 break;
             case BMC_SMT_TRANSMIT_STATE_MACHINE:
                 SMT_startTrasmission();
