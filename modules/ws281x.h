@@ -30,13 +30,26 @@ extern "C" {
 #endif
 #endif
 
-#define WS281x_PATTERN_LIGHT 0x00       // Simple light
-#ifdef WS281x_TIMER_PERIOD
-#define WS281x_PATTERN_BLINK 0x01       // Blink 50/50
-#define WS281x_PATTERN_FADE_IN 0x02     // Fade in 0>1
-#define WS281x_PATTERN_FADE_OUT 0x03    // Fade out 1>0
-#define WS281x_PATTERN_FADE_TOGGLE 0x04 // Fade toggle 0>1>0
+typedef enum {
+#ifndef WS281x_TIMER_PERIOD
+    WS281x_PATTERN_LIGHT = 0x00       // Simple light
+#else
+    WS281x_PATTERN_LIGHT = 0x00,      // Simple light
+    WS281x_PATTERN_BLINK = 0x01,      // Blink 50/50
+    WS281x_PATTERN_FADE_IN = 0x02,    // Fade in 0>1
+    WS281x_PATTERN_FADE_OUT = 0x03,   // Fade out 1>0
+    WS281x_PATTERN_FADE_TOGGLE = 0x04 // Fade toggle 0>1>0
 #endif
+} WS281x_Pattern_t;
+
+uint8_t WS281x_ledRed[WS281x_LED_COUNT];
+uint8_t WS281x_ledGreen[WS281x_LED_COUNT];
+uint8_t WS281x_ledBlue[WS281x_LED_COUNT];
+uint8_t WS281x_ledPattern[WS281x_LED_COUNT];
+uint8_t WS281x_ledDelay[WS281x_LED_COUNT];
+uint8_t WS281x_ledMin[WS281x_LED_COUNT];
+uint8_t WS281x_ledMax[WS281x_LED_COUNT];
+
 
 /**
  * Sets switcher to turn the LED strip on or off.
@@ -66,34 +79,6 @@ void WS281x_update(void);
 void WS281x_off(void);
 
 /**
- * Gets a pattern of a LED.
- * @param led LED ID.
- * @return Pattern.
- */
-uint8_t WS281x_getPattern(uint8_t led);
-
-/**
- * Gets a red component of a LED.
- * @param led LED ID.
- * @return Red component.
- */
-uint8_t WS281x_getRed(uint8_t led);
-
-/**
- * Gets a green component of a LED.
- * @param led LED ID.
- * @return Green component.
- */
-uint8_t WS281x_getGreen(uint8_t led);
-
-/**
- * Gets a blue component of a LED.
- * @param led LED ID.
- * @return Blue component.
- */
-uint8_t WS281x_getBlue(uint8_t led);
-
-/**
  * Sets the given LED to specified color and pattern.
  * 
  * @param led LED ID
@@ -107,72 +92,8 @@ uint8_t WS281x_getBlue(uint8_t led);
  * @param min Minimum value  (pattern specific)
  * @param max Maximum value  (pattern specific)
  */
-void WS281x_set(uint8_t led, uint8_t pattern, uint8_t r, uint8_t g, uint8_t b, 
-                uint16_t delay, uint8_t min, uint8_t max);
-
-/**
- * Sets the given LED to a specific color.
- * 
- * @param led LED ID
- * @param r Red color component
- * @param g Green  color component
- * @param b Blue color component
- */
-void WS281x_RGB(uint8_t led, uint8_t r, uint8_t g, uint8_t b);
-
-#ifdef WS281x_TIMER_PERIOD
-/**
- * Sets the given LED to a blinking color.
- * 
- * @param led LED ID
- * @param r Red color component
- * @param g Green  color component
- * @param b Blue color component
- * @param delay Delay between on and off
- */
-void WS281x_blink(uint8_t led, uint8_t r, uint8_t g, uint8_t b, uint16_t delay);
-
-/**
- * Sets the given LED to a fade-in color
- * 
- * @param led LED ID
- * @param r Red color component
- * @param g Green  color component
- * @param b Blue color component
- * @param delay Delay between 1% step
- * @param min Minimum %
- * @param max Maximum %
- */
-void WS281x_fadeIn(uint8_t led, uint8_t r, uint8_t g, uint8_t b, uint16_t delay, 
-                   uint8_t min, uint8_t max);
-
-/**
- * Sets the given LED to a fade-out color.
- * 
- * @param led LED ID
- * @param r Red color component
- * @param g Green  color component
- * @param b Blue color component
- * @param delay Delay between 1% step
- * @param min Minimum %
- * @param max Maximum %
- */
-void WS281x_fadeOut(uint8_t led, uint8_t r, uint8_t g, uint8_t b,
-                    uint16_t delay,uint8_t min, uint8_t max);
-
-/**
- * Sets the given LED to a fade-in/fade-out toggle color
- * 
- * @param led LED ID
- * @param r Red color component
- * @param g Green  color component
- * @param b Blue color component
- * @param delay Delay between 1% step 
- * @param min Minimum %
- * @param max Maximum %
- */
-void WS281x_fadeToggle(uint8_t led, uint8_t r, uint8_t g, uint8_t b,
-                       uint16_t delay, uint8_t min, uint8_t max);
+void WS281x_set(uint8_t led, WS281x_Pattern_t pattern, uint8_t r, uint8_t g,
+                uint8_t b, uint16_t delay, uint8_t min, uint8_t max);
 
 /**
  * Set all LEDs to a specific color.
@@ -181,8 +102,7 @@ void WS281x_fadeToggle(uint8_t led, uint8_t r, uint8_t g, uint8_t b,
  * @param g Green  color component
  * @param b Blue color component
  */
-void WS281x_all(uint8_t r, uint8_t g, uint8_t b);
-#endif
+inline void WS281x_all(uint8_t r, uint8_t g, uint8_t b);
 
 #endif
 
