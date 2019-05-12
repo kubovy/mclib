@@ -17,14 +17,14 @@ extern "C" {
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
-
+    
 /**
  * Converts an integer to HEX ASCII character.
  * 
  * @param dec Decimal number between 0 (inclusive) and 16 (exclusive)
  * @return Hexadecimal ASCII character.
  */
-unsigned char dec2hex(uint8_t dec);
+inline unsigned char dec2hex(uint8_t dec);
 
 /**
  * Converts a hexadecimal ASCII character to integer.
@@ -32,7 +32,11 @@ unsigned char dec2hex(uint8_t dec);
  * @param hex Hexadecimal ASCII character (0-9A-F).
  * @return Integer representing the HEX value.
  */
-uint8_t hex2dec(unsigned char hex);
+inline uint8_t hex2dec(unsigned char hex);
+
+inline uint8_t min(uint8_t a, uint8_t b);
+
+inline uint8_t max(uint8_t a, uint8_t b);
 
 /**
  * Calculates length of the string. A string must be terminated by a '\0' (NUL).
@@ -49,7 +53,7 @@ uint8_t strlen(char *str);
  * @param str2 String 2.
  * @return Returns true if both strings are equal till first terminating char.
  */
-bool strcmp(char *str1, char *str2);
+bool strcmp(char *str1, char *str2, uint8_t len);
 
 /**
  * Copy all character from "src" to "dst" until first terminating character or
@@ -73,6 +77,8 @@ void strcpy(char *dest, char* src, uint8_t len);
  */
 void watchDogTrigger(uint8_t *counter, uint8_t period, void (* Trigger)(void));
 
+inline void printStatus(char *line);
+
 #ifdef LCD_ADDRESS // Needs LCD
 
 /**
@@ -84,15 +90,14 @@ void watchDogTrigger(uint8_t *counter, uint8_t period, void (* Trigger)(void));
  */
 void printProgress(char* title, uint16_t value, uint16_t RGB_max);
 
-/**
- * Waiting loader with dots animation.
- */
-void watingLoaderDots(void);
+/** Waiting loader with dots animation. */
+void waitingLoaderDots(void);
 
-/**
- * Waiting loader with wave animation.
- */
-void watingLoaderWave(void);
+/** Waiting loader rotating fan animation. */
+void waitingLoaderFan(void);
+
+/** Waiting loader with wave animation. */
+void waitingLoaderWave(void);
 
 #endif
 
