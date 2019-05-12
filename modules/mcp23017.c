@@ -3,8 +3,6 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "mcp23017.h"
-#include "../../config.h"
-#include "i2c.h"
 
 uint8_t MCP_read(uint8_t address, uint8_t reg) {
     return I2C_readRegister(address, reg);
@@ -26,9 +24,9 @@ void MCP_init_keypad(uint8_t address, uint8_t port) {
 
 uint8_t MCP_read_keypad(uint8_t address, uint8_t port) {
     uint8_t cols, combination;
-    uint8_t rows = MCP_read(address, MCP_INTCAPA + port) & 0x0F;
+    uint8_t rows = (MCP_read(address, MCP_INTCAPA + port) | MCP_read(address, MCP_GPIOA + port)) & 0x0F;
     
-    MCP_write(address, MCP_GPINTENA + port, 0b00000000); // Disable interrupt on GPIOB
+    MCP_write(address, MCP_GPINTENA + port, 0b00000000); // Disable interrupt on GPIOx
     MCP_write(address, MCP_IODIRA + port, 0b11110000); // GPIOx 0-3 output, 4-7 inputs
     MCP_write(address, MCP_OLATA + port, 0b00000000); // Ground all outputs
                 
@@ -40,15 +38,13 @@ uint8_t MCP_read_keypad(uint8_t address, uint8_t port) {
     combination = cols | rows;
     
     MCP_write(address, MCP_IODIRA + port, 0b00001111); // GPIOB 0-3 input, 4-7 output
-    //MCP_write(address, MCP_IPOLA + port, 0b11111111); // Reverse polarity on GPIOB
-    //MCP_write(address, MCP_GPPUA + port, 0b11111111); // Enable pull-up on GPIOB
-    //MCP_write(address, MCP_GPINTENA + port, 0b11111111); // Enable interrupt on GPIOB
-    //MCP_write(address, MCP_INTCONA + port, 0b00000000); // Interrupt-on-change (default)
+    MCP_write(address, MCP_IPOLA + port, 0b11111111); // Reverse polarity on GPIOx
+    MCP_write(address, MCP_GPPUA + port, 0b11111111); // Enable pull-up on GPIOx
+    MCP_write(address, MCP_GPINTENA + port, 0b11111111); // Enable interrupt on GPIOx
+    MCP_write(address, MCP_INTCONA + port, 0b00000000); // Interrupt-on-change (default)
     MCP_write(address, MCP_OLATA + port, 0b00000000); // Ground all outputs
-    
     MCP_read(address, MCP_INTCAPA + port); // Read to clear interrupt
-    MCP_write(address, MCP_GPINTENA + port, 0b00001111); // Enable interrupt on GPIOx
-
+    
     return combination;
 }
 

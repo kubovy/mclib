@@ -13,7 +13,8 @@ extern "C" {
 
 #include <stdint.h>
 #include "../../config.h"
-
+#include "i2c.h"
+    
 #define MCP_START_ADDRESS 0x20
 #define MCP_END_ADDRESS 0x27
     
