@@ -3,11 +3,25 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "bm78_pairing.h"
+#include "../lib/common.h"
 
 #ifdef BM78_ENABLED
 
+#define BMP_CMD_TIMEOUT BM78_INITIALIZATION_TIMEOUT / TIMER_PERIOD
+
 bool BMP_waitingForPasskeyConfirmation = false;
 uint8_t BMP_passkeyCodeIndex = 0xFF;
+
+typedef enum {
+    BMP_CMD_TYPE_NOTHING = 0x00,
+    BMP_CMD_TYPE_REMOVE_ALL_PAIRED_DEVICES = 0x01
+} BMP_CommandType_t;
+
+struct {
+    BMP_CommandType_t type;
+    uint8_t step;
+    uint16_t timeout;
+} BMP_progress = {0, 0, 0};
 
 bool BMP_waiting(void) {
     return BMP_passkeyCodeIndex < 0xFF || BMP_waitingForPasskeyConfirmation;
@@ -59,9 +73,47 @@ void BMP_processKey(uint8_t key) {
     }
 }
 
-void BMP_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
+void BMP_retryTrigger(void) {
+    if (BMP_progress.type > 0) {
+        BMP_progress.timeout--;
+        if (BMP_progress.timeout == 0) {
+            BMP_progress.timeout = BMP_CMD_TIMEOUT;
+            switch (BMP_progress.type) { // remove all paired devices
+                case BMP_CMD_TYPE_REMOVE_ALL_PAIRED_DEVICES:
+                    switch (BMP_progress.step) {
+                        case 0:
+                            BM78_execute(BM78_CMD_READ_STATUS, 0);
+                            break;
+                        case 1:
+                            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_LEAVE);
+                            break;
+                        case 2:
+                            BM78_execute(BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO, 0);
+                            break;
+                        case 3: 
+                            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER);
+                            break;
+                    }
+                    break;
+            }
+        }
+    }
+}
+
+void BMP_removeAllPairedDevices(void) {
+    BMP_progress.type = 1;
+    BMP_progress.step = 0;
+    BMP_progress.timeout = BMP_CMD_TIMEOUT;
+    printStatus("        .           ");
+    if (BM78.enforceState) {
+        BM78.enforceState = BM78_STANDBY_MODE_LEAVE;
+        BM78_execute(BM78_CMD_READ_STATUS, 0);
+    }
+}
+
+inline void BMP_bm78PairingEventHandler(BM78_Response_t response, uint8_t *data) {
     switch (response.op_code) {
-        case BM78_OPC_PASSKEY_ENTRY_REQ:
+        case BM78_EVENT_PASSKEY_ENTRY_REQ:
 #ifdef LCD_ADDRESS
             LCD_clear();
             LCD_setString("New Pairing Request", 0, true);
@@ -72,18 +124,18 @@ void BMP_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
             BMP_cancel();
             BMP_passkeyCodeIndex = 0;
             break;
-        case BM78_OPC_PAIRING_COMPLETE:
+        case BM78_EVENT_PAIRING_COMPLETE:
 #ifdef LCD_ADDRESS
             LCD_clear();
             switch(response.PairingComplete_0x61.result) {
                 case BM78_PAIRING_RESULT_COMPLETE:
-                    LCD_setString("|c|New Device Paired", 1, true);
+                    LCD_setString(" New Device Paired  ", 1, true);
                     break;
                 case BM78_PAIRING_RESULT_FAIL:
-                    LCD_setString("|c|Pairing Failed!", 1, true);
+                    LCD_setString("  Pairing Failed!   ", 1, true);
                     break;
                 case BM78_PAIRING_RESULT_TIMEOUT:
-                    LCD_setString("|c|Pairing Timed Out!", 1, true);
+                    LCD_setString(" Pairing Timed Out! ", 1, true);
                     break;
                 default:
                     break;
@@ -91,7 +143,7 @@ void BMP_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
 #endif
             BMP_cancel();
             break;
-        case BM78_OPC_PASSKEY_DISPLAY_YES_NO_REQ:
+        case BM78_EVENT_PASSKEY_DISPLAY_YES_NO_REQ:
 #ifdef LCD_ADDRESS
             LCD_clear();
             LCD_setString("New Pairing Request", 1, true);
@@ -104,12 +156,85 @@ void BMP_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
             BMP_cancel();
             BMP_waitingForPasskeyConfirmation = true;
             break;
-        case BM78_OPC_DISCONNECTION_COMPLETE:
+        case BM78_EVENT_DISCONNECTION_COMPLETE:
             BMP_cancel();
             break;
         default:
             break;
     }
+}
+
+inline void BMP_bm78DeleteAllPairedDevicesEventHandler(BM78_Response_t response, uint8_t *data) {
+    if (BMP_progress.type == 1) switch (response.op_code) {
+        case BM78_EVENT_COMMAND_COMPLETE:
+            if (response.CommandComplete_0x80.status == BM78_COMMAND_SUCCEEDED) {
+                switch (response.CommandComplete_0x80.command) {
+                    case BM78_CMD_INVISIBLE_SETTING:
+                        if (BMP_progress.step == 1) {
+                            printStatus("        ...         ");
+                            BMP_progress.step = 2;
+                            BMP_progress.timeout = BMP_CMD_TIMEOUT;
+                            BM78_execute(BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO, 0);
+                        }
+                        if (BMP_progress.step == 3) {
+                            printStatus("                    ");
+                            BMP_progress.type = 0;
+                            BMP_progress.step = 0;
+                            BMP_progress.timeout = BMP_CMD_TIMEOUT;
+                        }
+                        break;
+                    case BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO:
+                        if (BMP_progress.step == 2) {
+                            printStatus("        ....        ");
+                            BM78.pairedDevicesCount = 0;
+                            BMP_progress.step = 3;
+                            BMP_progress.timeout = BMP_CMD_TIMEOUT;
+                            BM78.enforceState = BM78_STANDBY_MODE_ENTER;
+                            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER);
+                        }
+                        break;
+                }
+            } else {
+                switch (response.CommandComplete_0x80.command) {
+                    case BM78_CMD_INVISIBLE_SETTING:
+                        if (BMP_progress.step == 1) {
+                            printStatus("        ..x         ");
+                            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_LEAVE);
+                        }
+                        if (BMP_progress.step == 3) {
+                            printStatus("        ....x       ");
+                            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER);
+                        }
+                        break;
+                    case BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO:
+                        if (BMP_progress.step == 2) {
+                            printStatus("        ...x        ");
+                            BM78_execute(BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO, 0);
+                        }
+                        break;
+                }
+            }
+            break;
+        case BM78_EVENT_BM77_STATUS_REPORT:
+            if (BMP_progress.step == 0) {
+                if (response.StatusReport_0x81.status == BM78_STATUS_IDLE_MODE) {
+                    BMP_progress.step = 2;
+                    printStatus("        ...         ");
+                    BMP_progress.timeout = BMP_CMD_TIMEOUT;
+                    BM78_execute(BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO, 0);
+                } else {
+                    printStatus("        ..          ");
+                    BMP_progress.step = 1;
+                    BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_LEAVE);
+                }
+            }
+            break;
+    }
+}
+
+void BMP_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
+    BMP_bm78PairingEventHandler(response, data);
+    BMP_bm78DeleteAllPairedDevicesEventHandler(response, data);
 }
 
 #endif

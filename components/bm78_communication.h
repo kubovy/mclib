@@ -15,7 +15,6 @@ extern "C" {
 #endif
 
 #include <stdint.h>
-#include "../../config.h"
 #include "../modules/bm78.h"
 
 #ifdef BM78_ENABLED // Needs BM78 module
@@ -27,13 +26,15 @@ extern "C" {
 #define BMC_NOTHING_TO_TRANSMIT 0xFF
 #endif
 
+typedef bool (*BMC_NextMessageHandler_t)(uint8_t);
+
 /**
  * Next message handler setter. This handler should implement sending a 
  * particular message depending on the parameter.
  * 
  * @param NextMessageHandler The handler.
  */
-void BMC_setNextMessageHandler(bool (* NextMessageHandler)(uint8_t));
+void BMC_setNextMessageHandler(BMC_NextMessageHandler_t nextMessageHandler);
 
 /**
  * Add definition to transmission queue.
@@ -48,7 +49,7 @@ void BMC_transmit(uint8_t what);
  * @param response BM78 response.
  * @param data BM78 additional response data.
  */
-void BMC_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data);
+void BMC_bm78EventHandler(BM78_Response_t response, uint8_t *data);
 
 /** Called when a BT message was sent. */
 void BMC_bm78MessageSentHandler(void);

@@ -28,39 +28,39 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include "../lib/types.h"
 #include "../../config.h"
 
 // PIN Configuration:
-#ifdef BM78_SW_BTN_PORT     // Output
-#ifdef BM78_RST_N_PORT      // Output (start high)
-//#ifdef BM78_WAKE_UP_PORT    // Output (start high)
-//#ifdef BM78_DISCONNECT_PORT // Output (start high)
-#ifdef BM78_P2_0_PORT       // Output (start high)
-#ifdef BM78_P2_4_PORT       // Output (start high)
-#ifdef BM78_EAN_PORT        // Output
-#ifndef BM78_DISABLE
+#if defined BM78_SW_BTN_PORT && defined BM78_RST_N_PORT && defined BM78_P2_0_PORT && defined BM78_P2_4_PORT && defined BM78_EAN_PORT && ! defined BM78_DISABLE
 #define BM78_ENABLED
 #endif
-#endif
-#endif
-#endif
-//#endif
-//#endif
-#endif
-#endif
+//BM78_SW_BTN_PORT     // Output
+//BM78_RST_N_PORT      // Output (start high)
+//BM78_WAKE_UP_PORT    // Output (start high)
+//BM78_DISCONNECT_PORT // Output (start high)
+//BM78_P2_0_PORT       // Output (start high)
+//BM78_P2_4_PORT       // Output (start high)
+//BM78_EAN_PORT        // Output
 
 #ifdef BM78_ENABLED
 
+#ifndef BM78_INITIAL_DEVICE_PIN
+#define BM78_INITIAL_DEVICE_PIN "123456"
+#endif
+#ifndef BM78_INITIAL_PAIRING_MODE
+#define BM78_INITIAL_PAIRING_MODE BM78_PAIRING_JUST_WORK
+#endif
+#ifndef BM78_TRIGGER_PERIOD
 #ifdef TIMER_PERIOD
 #define BM78_TRIGGER_PERIOD TIMER_PERIOD // Timer period in ms.
-#else
-#define BM78_TRIGGER_PERIOD 10 // Timer period in ms.
+#endif
 #endif
 #ifndef BM78_RESEND_DELAY
 #define BM78_RESEND_DELAY 3000
 #endif
-#ifndef BM78_INITIALIZATION_TIMOUT
-#define BM78_INITIALIZATION_TIMOUT 1500 // Time to let the device setup itself in ms.
+#ifndef BM78_INITIALIZATION_TIMEOUT
+#define BM78_INITIALIZATION_TIMEOUT 1500 // Time to let the device setup itself in ms.
 #endif
 #ifndef BM78_STATUS_CHECK_TIMEOUT
 #define BM78_STATUS_CHECK_TIMEOUT 3000 // Time to let the device refresh its status in ms.
@@ -124,25 +124,25 @@ typedef enum {
     BM78_CMD_READ_PIN_CODE = 0x50,                // F (Configuration Mode)         I (Idle Mode)
     BM78_CMD_WRITE_PIN_CODE = 0x51,               // F (Configuration Mode)         I (Idle Mode)
     BM78_CMD_LEAVE_CONFIGURE_MODE = 0x52          // F (Configuration Mode)
-} BM78_Command_t;
+} BM78_CommanddOpCode_t;
 
 typedef enum {
     // Pairing Events
-    BM78_OPC_PASSKEY_ENTRY_REQ = 0x60,
-    BM78_OPC_PAIRING_COMPLETE = 0x61,
-    BM78_OPC_PASSKEY_DISPLAY_YES_NO_REQ = 0x62,
+    BM78_EVENT_PASSKEY_ENTRY_REQ = 0x60,
+    BM78_EVENT_PAIRING_COMPLETE = 0x61,
+    BM78_EVENT_PASSKEY_DISPLAY_YES_NO_REQ = 0x62,
     // GAP Events
-    BM78_OPC_LE_CONNECTION_COMPLETE = 0x71,
-    BM78_OPC_DISCONNECTION_COMPLETE = 0x72,
-    BM78_OPC_SPP_CONNECTION_COMPLETE = 0x74,
+    BM78_EVENT_LE_CONNECTION_COMPLETE = 0x71,
+    BM78_EVENT_DISCONNECTION_COMPLETE = 0x72,
+    BM78_EVENT_SPP_CONNECTION_COMPLETE = 0x74,
     // Common Events
-    BM78_OPC_COMMAND_COMPLETE = 0x80,
-    BM78_OPC_BM77_STATUS_REPORT = 0x81,
-    BM78_OPC_CONFIGURE_MODE_STATUS = 0x8F,
+    BM78_EVENT_COMMAND_COMPLETE = 0x80,
+    BM78_EVENT_BM77_STATUS_REPORT = 0x81,
+    BM78_EVENT_CONFIGURE_MODE_STATUS = 0x8F,
     // SPP/GATT Transparent Event
-    BM78_OPC_RECEIVED_TRANSPARENT_DATA = 0x9A,
-    BM78_OPC_RECEIVED_SPP_DATA = 0x9B
-} BM78_OPCode_t;
+    BM78_EVENT_RECEIVED_TRANSPARENT_DATA = 0x9A,
+    BM78_EVENT_RECEIVED_SPP_DATA = 0x9B
+} BM78_EventOpCode_t;
     
 // EEPROM
 typedef enum {
@@ -208,7 +208,10 @@ typedef enum {
 // Stand-By mode action
 typedef enum {
     BM78_STANDBY_MODE_LEAVE = 0x00,
-    BM78_STANDBY_MODE_ENTER = 0x01
+    BM78_STANDBY_MODE_ENTER = 0x01,
+    BM78_STANDBY_MODE_ENTER_ONLY_TRUSTED = 0x02,
+    BM78_STANDBY_BEACON_MODE_ENTER = 0x81,
+    BM78_STANDBY_BEACON_MODE_ENTER_ONLY_TRUSTED = 0x82
 } BM78_StandByMode_t;
     
 // Error codes
@@ -275,9 +278,9 @@ typedef enum {
 
     BM78_COMMAND_RESPONSE_STATE_INIT = 0x81,
     BM78_COMMAND_RESPONSE_STATE_LENGTH = 0x82,
-    BM78_COMMAND_RESPONSE_STATE_DATA = 0x83,
+    BM78_COMMAND_RESPONSE_STATE_DATA = 0x83
 
-    BM78_STATE_SENDING = 0xFF
+    //BM78_STATE_SENDING = 0xFF
 } BM78_State_t;
 
 // Modes
@@ -297,33 +300,33 @@ typedef enum {
 typedef union {
     struct {
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
     };
     struct { // Passkey Entry Req (0x60)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
     } PasskeyEntryReq_0x60;
     struct { // Pairing Complete (0x61)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         BM78_PairingResult_t result;
     } PairingComplete_0x61;
     struct { // Passkey Display YesNo Req (0x62)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         uint8_t passkey;
     } PasskeyDisplayYesNoReq_0x62;
     struct { // LE Connection Complete (0x71)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         uint8_t status;
@@ -337,7 +340,7 @@ typedef union {
     } LEConnectionComplete_0x71;
     struct { // Disconnection Complete (0x72)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         uint8_t connection_handle;
@@ -345,7 +348,7 @@ typedef union {
     } DisconnectionComplete_0x72;
     struct { // SPP Connection Complete (0x74)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         BM78_StatusCode_t status;
@@ -354,30 +357,30 @@ typedef union {
     } SPPConnectionComplete_0x74;
     struct { // Command Complete (0x80)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
-        BM78_Command_t command;
+        BM78_CommanddOpCode_t command;
         BM78_StatusCode_t status;
         // return parameters (x bytes)
     } CommandComplete_0x80;
     struct { // BM77 Status Report (0x81)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         uint8_t status;
     } StatusReport_0x81;
     struct { // Configure Mode Status (0x8F)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         uint8_t status;
     } ConfigureModeStatus_0x8F;
     struct { // Received Transparent Data (0x9A)
         uint16_t length;
-        BM78_OPCode_t op_code;
+        BM78_EventOpCode_t op_code;
         uint8_t checksum_calculated;
         uint8_t checksum_received;
         uint8_t reserved;
@@ -394,20 +397,48 @@ typedef struct {
 struct {
     BM78_Mode_t mode;                      // Dongle mode.
     BM78_Status_t status;                  // Application mode status.
-    bool enforceStandBy;                   // Whether to enforce Stand-By mode
+    uint8_t enforceState;                  // Whether to enforce Stand-By mode
                                            // on disconnect or idle.
     BM78_PairingMode_t pairingMode;        // Pairing mode.
     uint8_t pairedDevicesCount;            // Paired devices count.
     BM78_PairedDevice_t pairedDevices[16]; // Paired devices MAC addresses.
-    char deviceName[16];                   // Device name.
+    char deviceName[17];                   // Device name.
     char pin[7];                           // PIN.
-} BM78 = {BM78_MODE_INIT, BM78_STATUS_POWER_ON, true, BM78_PAIRING_PIN, 0};
+} BM78 = {BM78_MODE_INIT, BM78_STATUS_POWER_ON, BM78_STANDBY_MODE_ENTER, BM78_PAIRING_PIN, 0};
 
-void BM78_init(uint8_t (* isRXReady)(void),
-               uint8_t (* isTXReady)(void),
-               uint8_t (* isTXDone)(void),
-               uint8_t (* read)(void),
-               void (* write)(uint8_t));
+uint8_t BM78_advData[22];
+
+typedef void (*BM78_SetupAttemptHandler_t)(uint8_t attempt, uint8_t stage);
+typedef void (*BM78_SetupHandler_t)(char* deviceName, char* pin);
+typedef void (*BM78_EventHandler_t)(BM78_Response_t, uint8_t*);
+typedef void (*BM78_DataHandler_t)(uint8_t, uint8_t*);
+
+/**
+ * BM78 Initialization.
+ * 
+ * @param keep Keep BM78's device name, PIN and pairing mode.
+ * @param deviceName Device name to check and set or get.
+ * @param pin PIN number to check and set or get.
+ * @param pairingMode Pairing mode to check and set or get.
+ * @param setupAttemptHandler Triggered on each setup attempt.
+ * @param setupHandler Triggered on setup success. The takes 2 parameters: 
+ *                     the device's name and pin.
+ * @param eventHandler Triggered on successful event.
+ * @param testModeResponseHandler Triggered on command response in test mode.
+ * @param transparentDataHandler Triggered on transparent data in addition and
+ *                               before the defined eventHandler.
+ * @param messageSentHandler Triggered on successful message sent.
+ * @param errorHandler Triggered in event retrieval error.
+ */
+void BM78_initialize(bool keep, char *deviceName, char *pin,
+               BM78_PairingMode_t pairingMode,
+               BM78_SetupAttemptHandler_t setupAttemptHandler,
+               BM78_SetupHandler_t setupHandler,
+               BM78_EventHandler_t eventHandler,
+               BM78_DataHandler_t testModeResponseHandler,
+               BM78_DataHandler_t transparentDataHandler,
+               Procedure_t messageSentHandler,
+               BM78_EventHandler_t errorHandler);
 
 /**
  * Powers the device on or off.
@@ -438,6 +469,10 @@ void BM78_resetToTestMode(void);
 /** Reset the unit and enter the Application mode */
 void BM78_resetToAppMode(void);
 
+/** Setup BM78 */
+void BM78_setup(bool keep, char *deviceName, char *pin,
+                BM78_PairingMode_t pairingMode);
+
 /** Opens EEPROM */
 void BM78_openEEPROM(void);
 
@@ -461,22 +496,12 @@ void BM78_readEEPROM(uint16_t address, uint8_t length);
  */
 void BM78_writeEEPROM(uint16_t address, uint8_t length, uint8_t *data);
 
-/** Sets the device up. */
-void BM78_setup(void);
-
 /**
  * Checks the device's state and react on it.
  * 
  * This function should be called periodically, e.g. by a timer.
  */
 void BM78_checkState(void);
-
-/**
- * Sets the function to be called when setup is triggered.
- * 
- * @param SetupHandler The handler.
- */
-void BM78_setSetupHandler(void (* SetupHandler)(void));
 
 /**
  * Sets the function to be called when initialization is complete.
@@ -529,11 +554,8 @@ void BM78_setTransparentDataHandler(void (* TransparentDataHandler)(uint8_t, uin
  */
 void BM78_setMessageSentHandler(void (* MessageSentHandler)(void));
 
-/**
- * Get Advertising data.
- * @param data Advertising data.
- */
-void BM78_GetAdvData(uint8_t *data);
+/** Get Advertising data. */
+void BM78_GetAdvData(void);
 
 /**
  * Writes value to EEPROM.
@@ -547,10 +569,10 @@ void BM78_write(uint8_t command, uint8_t store, uint8_t length, uint8_t *value);
  * Executes command on the module.
  * 
  * @param command Command to execute
- * @param length Length of additional parameters (0-4)
- * @param ... Additional parameters (max 4)
+ * @param length Length of additional parameters
+ * @param ... Additional parameters
  */
-void BM78_execute(uint8_t command, uint16_t length, ...);
+void BM78_execute(uint8_t command, uint8_t length, ...);
 
 /**
  * Sends data to the module.
@@ -559,10 +581,19 @@ void BM78_execute(uint8_t command, uint16_t length, ...);
  * @param length Length of the data
  * @param data Data pointer
  */
-void BM78_data(uint8_t command, uint16_t length, uint8_t *data);
+void BM78_data(uint8_t command, uint8_t length, uint8_t *data);
 
 /** Whether still awaiting confirmation for last command. */
 bool BM78_awatingConfirmation(void);
+
+
+inline void BM78_addDataByte(uint8_t position, uint8_t byte);
+
+inline void BM78_addDataByte2(uint8_t position, uint16_t byte);
+
+inline void BM78_addDataBytes(uint8_t position, uint8_t length, uint8_t *data);
+
+void BM78_commitData(uint8_t length);
 
 /**
  * Transmit transparent data over the bluetooth module.
@@ -570,7 +601,7 @@ bool BM78_awatingConfirmation(void);
  * @param length Length of the data
  * @param data Data pointer
  */
-void BM78_transmit(uint16_t length, uint8_t *data);
+void BM78_transmit(uint8_t length, uint8_t *data);
 
 /**
  * Transparent data transmission retry trigger.
@@ -595,7 +626,7 @@ void BM78_resetChecksum(void);
 /**
  * Checks new data asynchronously.
  * 
- * This function should be called periodically, e.g. by a timer.
+ * This function should be called periodically.
  * 
  * Data examples:
  * Ready

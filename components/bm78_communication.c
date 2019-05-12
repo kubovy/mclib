@@ -8,7 +8,9 @@
 
 #include "../lib/common.h"
 #include "../modules/memory.h"
+#include "../modules/rgb.h"
 #include "../modules/state_machine.h"
+#include "../modules/ws281x.h"
 
 /** 
  * Queue of message types to be send out over BT. Should be cleared when 
@@ -20,10 +22,12 @@ struct {
     uint8_t queue[BMC_QUEUE_SIZE]; // Transmission message type queue.
 } tx = {0, 0, 0};
 
-bool (*BMC_NextMessageHandler)(uint8_t);
+BMC_NextMessageHandler_t BMC_nextMessageHandler;
 
-void BMC_setNextMessageHandler(bool (* NextMessageHandler)(uint8_t)) {
-    BMC_NextMessageHandler = NextMessageHandler;
+uint8_t BMC_i, BMC_j;
+
+void BMC_setNextMessageHandler(BMC_NextMessageHandler_t nextMessageHandler) {
+    BMC_nextMessageHandler = nextMessageHandler;
 }
 
 void BMC_transmit(uint8_t what) {
@@ -37,20 +41,20 @@ void BMC_transmit(uint8_t what) {
     }
 }
 
-void BMC_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
+void BMC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
     switch (response.op_code) {
         // Pairing Events
-        case BM78_OPC_PASSKEY_ENTRY_REQ:
-        case BM78_OPC_PAIRING_COMPLETE:
-        case BM78_OPC_PASSKEY_DISPLAY_YES_NO_REQ:
+        case BM78_EVENT_PASSKEY_ENTRY_REQ:
+        case BM78_EVENT_PAIRING_COMPLETE:
+        case BM78_EVENT_PASSKEY_DISPLAY_YES_NO_REQ:
             break;
         // GAP Events
-        case BM78_OPC_LE_CONNECTION_COMPLETE:
-        case BM78_OPC_DISCONNECTION_COMPLETE:
-        case BM78_OPC_SPP_CONNECTION_COMPLETE:
+        case BM78_EVENT_LE_CONNECTION_COMPLETE:
+        case BM78_EVENT_DISCONNECTION_COMPLETE:
+        case BM78_EVENT_SPP_CONNECTION_COMPLETE:
             break;
         // Common Events
-        case BM78_OPC_COMMAND_COMPLETE:
+        case BM78_EVENT_COMMAND_COMPLETE:
             switch(response.CommandComplete_0x80.command) {
                 case BM78_CMD_READ_LOCAL_INFORMATION:
                 case BM78_CMD_READ_DEVICE_NAME:
@@ -60,7 +64,7 @@ void BMC_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
                     break;
             }
             break;
-        case BM78_OPC_BM77_STATUS_REPORT:
+        case BM78_EVENT_BM77_STATUS_REPORT:
             switch(response.StatusReport_0x81.status) {
                 case BM78_STATUS_STANDBY_MODE:
                 case BM78_STATUS_SPP_CONNECTED_MODE:
@@ -74,11 +78,11 @@ void BMC_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
                     break;
             }
             break;
-        case BM78_OPC_CONFIGURE_MODE_STATUS:
+        case BM78_EVENT_CONFIGURE_MODE_STATUS:
             break;
         // SPP/GATT Transparent Event
-        case BM78_OPC_RECEIVED_TRANSPARENT_DATA:
-        case BM78_OPC_RECEIVED_SPP_DATA:
+        case BM78_EVENT_RECEIVED_TRANSPARENT_DATA:
+        case BM78_EVENT_RECEIVED_SPP_DATA:
         // Unknown
         default:
             break;
@@ -87,9 +91,9 @@ void BMC_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
 
 void BMC_bm78MessageSentHandler(void) {
     if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !BM78_awatingConfirmation()) {
-        if (BMC_NextMessageHandler) {
+        if (BMC_nextMessageHandler) {
             uint8_t what = tx.index != tx.tail ? tx.queue[tx.index] : BMC_NOTHING_TO_TRANSMIT;
-            if (BMC_NextMessageHandler(what) && what != BMC_NOTHING_TO_TRANSMIT) tx.index++;
+            if (BMC_nextMessageHandler(what) && what != BMC_NOTHING_TO_TRANSMIT) tx.index++;
         }
     } else if (BM78.status != BM78_STATUS_SPP_CONNECTED_MODE) {
         // Reset transmit queue if connection lost.
@@ -99,10 +103,83 @@ void BMC_bm78MessageSentHandler(void) {
 }
 
 void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
-    uint8_t i, j;
     bool repeated;
     //POC_bm78TransparentDataHandler(start, length, data);
     switch(*(data)) {
+        case BM78_MESSAGE_KIND_SETTINGS:
+            if (length == 24) {
+                BM78.pairingMode = *(data + 1);
+                for (BMC_i = 0; BMC_i < 6; BMC_i++) {
+                    BM78.pin[BMC_i] = *(data + BMC_i + 2);
+                }
+                for (BMC_i = 0; BMC_i < 16; BMC_i++) {
+                    BM78.deviceName[BMC_i] = *(data + BMC_i + 8);
+                }
+                BM78_setup(false, BM78.deviceName, BM78.pin, BM78.pairingMode);
+            } else if (length == 1) {
+                BM78_addDataByte(0, BM78_MESSAGE_KIND_SETTINGS);
+                BM78_addDataByte(1, BM78.pairingMode);
+                BM78_addDataBytes(2, 6, BM78.pin);
+                BM78_addDataBytes(8, 16, BM78.deviceName);
+                BM78_commitData(24);
+            }
+            break;
+#ifdef RGB_ENABLED
+        case BM78_MESSAGE_KIND_RGB:
+            if (length == 10) { // set RGB
+                // pattern, red, green, blue, delayH, delayL, min, max, count
+                RGB_set(*(data + 1),                      // Pattern
+                        *(data + 2),                      // Red
+                        *(data + 3),                      // Green
+                        *(data + 4),                      // Blue
+                        (*(data + 5) << 8) | *(data + 6), // Delay (High | Low)
+                        *(data + 7),                      // Min
+                        *(data + 8),                      // Max
+                        *(data + 9));                     // Count
+            } else if (length == 1) { // get RGB
+                BM78_addDataByte(0, BM78_MESSAGE_KIND_RGB);
+                BM78_addDataByte(1, RGB.pattern);         // Pattern
+                BM78_addDataByte(2, RGB.red);             // Red
+                BM78_addDataByte(3, RGB.green);           // Green
+                BM78_addDataByte(4, RGB.blue);            // Blue
+                BM78_addDataByte2(5, RGB.delay * RGB_TIMER_PERIOD);
+                BM78_addDataByte(7, RGB.min);             // Min
+                BM78_addDataByte(8, RGB.max);             // Max
+                BM78_addDataByte(9, RGB.count);           // Count
+                BM78_commitData(10);
+            }
+            break;
+#endif
+#ifdef WS281x_BUFFER
+        case BM78_MESSAGE_KIND_WS281x:
+            if (length == 10) { // set WS281x
+                // led, pattern, red, green, blue, delayH, delayL, min, max
+                WS281x_set(*(data + 1),                   // LED
+                        *(data + 2),                      // Pattern
+                        *(data + 3),                      // Red
+                        *(data + 4),                      // Green
+                        *(data + 5),                      // Blue
+                        (*(data + 6) << 8) | *(data + 7), // Delay
+                        *(data + 8),                      // Min
+                        *(data + 9));                     // Max
+            } else if (length == 4) { // set all WS281x LEDs
+                WS281x_all(*(data + 1), *(data + 2), *(data + 3));
+            } else if (length == 2 && *(data + 1) < WS281x_LED_COUNT) { // get
+                BM78_addDataByte(0, BM78_MESSAGE_KIND_WS281x);
+                BM78_addDataByte(1, *(data + 1));                   // LED
+                BM78_addDataByte(2, WS281x_ledPattern[*(data + 1)]);// Pattern
+                BM78_addDataByte(3, WS281x_ledRed[*(data + 1)]);    // Red
+                BM78_addDataByte(4, WS281x_ledGreen[*(data + 1)]);  // Green
+                BM78_addDataByte(5, WS281x_ledBlue[*(data + 1)]);   // Blue
+                BM78_addDataByte2(6, WS281x_ledDelay[*(data + 1)] * WS281x_TIMER_PERIOD);
+                BM78_addDataByte(8, WS281x_ledMin[*(data + 1)]);    // Min
+                BM78_addDataByte(9, WS281x_ledMax[*(data + 1)]);    // Max
+                BM78_commitData(10);
+            } else if (length == 1) { // get all
+                // TODO
+            }
+            break;
+#endif
 #ifdef SM_MEM_ADDRESS
         case BM78_MESSAGE_KIND_SM_CONFIGURATION: // SM checksum requested
             BMC_transmit(BMC_SMT_TRANSMIT_STATE_MACHINE_CHECKSUM);
@@ -121,15 +198,15 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                 regLow = *(data + 4);
                 uint16_t startReg = (regHigh << 8) | (regLow & 0xFF);
 
-                for(i = 5; i < length; i++) {
-                    regHigh = (startReg + i - 5) >> 8;
-                    regLow = (startReg + i - 5) & 0xFF;
+                for(BMC_i = 5; BMC_i < length; BMC_i++) {
+                    regHigh = (startReg + BMC_i - 5) >> 8;
+                    regLow = (startReg + BMC_i - 5) & 0xFF;
 
                     // Make sure 1st 2 bytes are 0xFF -> disable state machine
                     if (regHigh == 0x00 && regLow == 0x00) {
                         byte = SM_STATUS_DISABLED;
                     } else {
-                        byte = *(data + i);
+                        byte = *(data + BMC_i);
                     }
 
                     read = MEM_read(SM_MEM_ADDRESS, regHigh, regLow);
@@ -142,7 +219,7 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                     }
                 }
 
-                printProgress("|c|Uploading", startReg + length - 5, size);
+                printProgress("     Uploading      ", startReg + length - 5, size);
 
                 // Finished
                 if (startReg + length - 5 >= size) {
@@ -169,7 +246,7 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
             if (length > 1) {
                 uint8_t count = *(data + 1);
                 uint8_t index = 2;
-                for (i = 0; i < count; i++) {
+                for (BMC_i = 0; BMC_i < count; BMC_i++) {
                     uint8_t device = *(data + index);
                     uint8_t size = *(data + index + 1);
                     if (device < 32 && size == 1) {
@@ -184,12 +261,12 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
             if (SM_executeAction && length > 1) {
                 uint8_t count = *(data + 1);
                 uint8_t index = 2;
-                for (i = 0; i < count; i++) {
+                for (BMC_i = 0; BMC_i < count; BMC_i++) {
                     uint8_t device = *(data + index);
                     uint8_t size = *(data + index + 1);
                     uint8_t value[SM_VALUE_MAX_SIZE];
-                    for (j = 0; j < size; j++) if (j < SM_VALUE_MAX_SIZE) {
-                        value[j] = *(data + index + j + 2);
+                    for (BMC_j = 0; BMC_j < size; BMC_j++) if (BMC_j < SM_VALUE_MAX_SIZE) {
+                        value[BMC_j] = *(data + index + BMC_j + 2);
                     }
                     SM_executeAction(device, size, value);
                     index += size + 2;
@@ -197,23 +274,25 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
             }
             break;
 #endif
+#ifdef LCD_ADDRESS
         case BM78_MESSAGE_KIND_PLAIN:
-//            if (length > 1) {
-//                char message[20];
-//                for (i = 1; i < length; i++) {
-//                    if ((i - 1) < BMC_MAX_PLAIN_MESSAGE_SIZE) {
-//                        message[i - 1] = *(data + i);
-//                    }
-//                }
-//                LCD_displayString(message, 0);
-//            }
+            LCD_clear();
+            LCD_setString("                    ", 2, false);
+            for(BMC_i = 0; BMC_i < length; BMC_i++) {
+                if (BMC_i < 20) {
+                    LCD_replaceChar(*(data + BMC_i), BMC_i, 2, false);
+                }
+            }
+            LCD_setString("    BT Message:     ", 0, true);
+            LCD_displayLine(2);
             break;
+#endif
     }
 }
 
 void BMC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
     switch (response.op_code) {
-        case BM78_OPC_COMMAND_COMPLETE:
+        case BM78_EVENT_COMMAND_COMPLETE:
             switch(response.CommandComplete_0x80.command) {
                 case BM78_CMD_DISCONNECT:
                     switch (response.CommandComplete_0x80.status) {

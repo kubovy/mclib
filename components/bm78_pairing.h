@@ -14,7 +14,6 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../config.h"
 #include "../modules/bm78.h"
 
 #ifdef BM78_ENABLED
@@ -36,13 +35,25 @@ void BMP_cancel(void);
  */
 void BMP_processKey(uint8_t key);
 
+/** 
+ * Retry trigger.
+ * 
+ * Should be called in TIMER_PERIOD intervals from the main loop.
+ */
+void BMP_retryTrigger(void);
+
+/**
+ * Initiates removal of all paired devices.
+ */
+void BMP_removeAllPairedDevices(void);
+
 /**
  * Response handler catching BM78 pairing events.
  * 
  * @param response BM78 event response.
  * @param data Additional event data.
  */
-void BMP_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data);
+void BMP_bm78EventHandler(BM78_Response_t response, uint8_t *data);
 
 #endif
 
