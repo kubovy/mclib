@@ -50,13 +50,13 @@ void POC_testDHT11(void) {
         LCD_replaceChar(48 + (dht11.rh % 10), 11, 2, true);
     } else switch(dht11.status) {
         case DHT11_ERR_CHKSUM:
-            LCD_setString("|c|Checksum mismatch!", 2, true);
+            LCD_setString(" Checksum mismatch! ", 2, true);
             break;
         case DHT11_ERR_NO_RESPONSE:
-            LCD_setString("|c|No response!", 2, true);
+            LCD_setString("    No response!    ", 2, true);
             break;
         default:
-            LCD_setString("|c|Unknown error!", 2, true);
+            LCD_setString("   Unknown error!   ", 2, true);
             break;
     }
 }
@@ -70,14 +70,14 @@ void POC_bm78InitializationHandler(char *deviceName, char *pin) {
 }
 
 #ifdef BM78_ENABLED
-void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data) {
+void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
     switch (response.op_code) {
-        case BM78_OPC_DISCONNECTION_COMPLETE:
-            LCD_setString("|c|BT Disconnected", 1, true);
+        case BM78_EVENT_DISCONNECTION_COMPLETE:
+            LCD_setString("  BT Disconnected   ", 1, true);
             break;
-        case BM78_OPC_SPP_CONNECTION_COMPLETE:
+        case BM78_EVENT_SPP_CONNECTION_COMPLETE:
             if (response.SPPConnectionComplete_0x74.status == BM78_COMMAND_SUCCEEDED) {
-                LCD_setString("|c|BT Connected", 1, true);
+                LCD_setString("    BT Connected    ", 1, true);
                 LCD_setString(" ##:##:##:##:##:##  ", 2, false);
                 for (POC_i = 0; POC_i < 6; POC_i++) {
                     LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[POC_i] / 16 % 16), POC_i * 3 + 1, 2, false);
@@ -85,10 +85,10 @@ void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data) {
                 }
                 LCD_displayLine(2);
             } else {
-                LCD_setString("|c|BT Conn Failed", 1, true);
+                LCD_setString("BT Connection Failed", 1, true);
             }
             break;
-        case BM78_OPC_COMMAND_COMPLETE:
+        case BM78_EVENT_COMMAND_COMPLETE:
             switch(response.CommandComplete_0x80.command) {
                 case BM78_CMD_READ_LOCAL_INFORMATION:
                     LCD_setString("ST:##,##,##         ", 0, false);
@@ -142,62 +142,62 @@ void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data) {
                     break;
             }
             break;
-        case BM78_OPC_BM77_STATUS_REPORT:
+        case BM78_EVENT_BM77_STATUS_REPORT:
             switch(response.StatusReport_0x81.status) {
                 case BM78_STATUS_POWER_ON:
-                    LCD_setString("|c|BT Power On", 3, true);
+                    LCD_setString("    BT Power On     ", 3, true);
                     break;
                 case BM78_STATUS_PAGE_MODE:
-                    LCD_setString("|c|BT Page Mode", 3, true);
+                    LCD_setString("    BT Page Mode    ", 3, true);
                     break;
                 case BM78_STATUS_STANDBY_MODE:
-                    LCD_setString("|c|BT Stand-By", 3, true);
+                    LCD_setString("    BT Stand-By     ", 3, true);
                     break;
                 case BM78_STATUS_LINK_BACK_MODE:
-                    LCD_setString("|c|BT Link Back", 3, true);
+                    LCD_setString("    BT Link Back    ", 3, true);
                     break;
                 case BM78_STATUS_SPP_CONNECTED_MODE:
-                    LCD_setString("|c|BT SPP Connected", 3, true);
+                    LCD_setString("  BT SPP Connected  ", 3, true);
                     break;
                 case BM78_STATUS_LE_CONNECTED_MODE:
-                    LCD_setString("|c|BT LE Connected", 3, true);
+                    LCD_setString("  BT LE Connected   ", 3, true);
                     break;
                 case BM78_STATUS_IDLE_MODE:
-                    LCD_setString("|c|BT Idle", 3, true);
+                    LCD_setString("      BT Idle       ", 3, true);
                     break;
                 case BM78_STATUS_SHUTDOWN_MODE:
-                    LCD_setString("|c|BT Shut down", 3, true);
+                    LCD_setString("    BT Shut down    ", 3, true);
                     break;
                 default:
-                    LCD_setString("|c|BT Unknown Mode", 3, true);
+                    LCD_setString("  BT Unknown Mode   ", 3, true);
                     break;
             }
             break;
-        case BM78_OPC_RECEIVED_TRANSPARENT_DATA:
-        case BM78_OPC_RECEIVED_SPP_DATA:
+        case BM78_EVENT_RECEIVED_TRANSPARENT_DATA:
+        case BM78_EVENT_RECEIVED_SPP_DATA:
             break;
         default:
-            LCD_setString("|c|BT Unknown MSG", 0, true);
+            LCD_setString("   BT Unknown MSG   ", 0, true);
             break;
     }
 }
 
-void POC_bm78TransparentDataHandler(uint8_t start, uint8_t length, uint8_t *data) {
+void POC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
     //uint8_t feedback[23];
 
-    switch(*(data + start)) {
+    switch(*(data)) {
         case BM78_MESSAGE_KIND_PLAIN:
             //feedback[0] = 0x00;
             LCD_clear();
             LCD_setString("                    ", 2, false);
             for(POC_i = 0; POC_i < length; POC_i++) {
                 if (POC_i < 20) {
-                    LCD_replaceChar(*(data + start + POC_i), POC_i, 2, false);
-                    //feedback[i + 1] = *(data + start + i);
+                    LCD_replaceChar(*(data + POC_i), POC_i, 2, false);
+                    //feedback[i + 1] = *(data + i);
                     //feedback[i + 2] = '\n';
                 }
             }
-            LCD_setString("|c|BT Message:", 0, true);
+            LCD_setString("    BT Message:     ", 0, true);
             LCD_displayLine(2);
             //BM78_data(BM78_CMD_SEND_TRANSPARENT_DATA, i + 2, feedback);
             break;
@@ -225,22 +225,22 @@ void POC_displayData(uint16_t address, uint8_t length, uint8_t *data) {
     for (POC_i = 0; POC_i < 4; POC_i++) {
         LCD_setString("XXXX:            ", POC_i % 4, false);
 
-        POC_byte = (address + (POC_i * 4)) >> 8;
-        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 0, POC_i % 4, false);
-        LCD_replaceChar(dec2hex(POC_byte % 16), 1, POC_i % 4, false);
+//        POC_byte = (address + (POC_i * 4)) >> 8;
+//        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 0, POC_i % 4, false);
+//        LCD_replaceChar(dec2hex(POC_byte % 16), 1, POC_i % 4, false);
+//
+//        POC_byte = (address + (POC_i * 4)) & 0xFF;
+//        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 2, POC_i % 4, false);
+//        LCD_replaceChar(dec2hex(POC_byte % 16), 3, POC_i % 4, false);
 
-        POC_byte = (address + (POC_i * 4)) & 0xFF;
-        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 2, POC_i % 4, false);
-        LCD_replaceChar(dec2hex(POC_byte % 16), 3, POC_i % 4, false);
-
-        for (POC_j = 0; POC_j < 4; POC_j++) {
-            if (length >= (POC_i * 4) + POC_j) {
-                POC_byte = *(data + (POC_i * 4) + POC_j);
-                LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 5 + (3 * POC_j) + 1, POC_i % 4, false);
-                LCD_replaceChar(dec2hex(POC_byte % 16), 5 + (3 * POC_j) + 2, POC_i % 4, false);
-            }
-        }
-        LCD_displayLine(POC_i % 4);
+//        for (POC_j = 0; POC_j < 4; POC_j++) {
+//            if (length >= (POC_i * 4) + POC_j) {
+//                POC_byte = *(data + (POC_i * 4) + POC_j);
+//                LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 5 + (3 * POC_j) + 1, POC_i % 4, false);
+//                LCD_replaceChar(dec2hex(POC_byte % 16), 5 + (3 * POC_j) + 2, POC_i % 4, false);
+//            }
+//        }
+//        LCD_displayLine(POC_i % 4);
     }
 }
 
@@ -390,28 +390,63 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
 
 #ifdef RGB_ENABLED
 void POC_testRGB(void) {
+#ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("    White light     ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_LIGHT, 255, 255, 255, 500, 128, 255, RGB_INDEFINED);
     __delay_ms(1000);
+#ifdef LCD_ADDRESS
+    LCD_setString("    Blinking Red    ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_BLINK, 255, 0, 0, 500, 128, 255, RGB_INDEFINED);
     __delay_ms(2000);
+#ifdef LCD_ADDRESS
+    LCD_setString("   Fade-In Green    ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_IN, 0, 255, 0, 10, 0, 255, RGB_INDEFINED);
     __delay_ms(3000);
+#ifdef LCD_ADDRESS
+    LCD_setString("   Fade-Out Blue    ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_OUT, 0, 0, 255, 10, 0, 255, RGB_INDEFINED);
     __delay_ms(3000);
+#ifdef LCD_ADDRESS
+    LCD_setString(" Fade-Toggle Yellow ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_TOGGLE, 255, 255, 0, 10, 0, 255, RGB_INDEFINED);
     __delay_ms(3000);
+#ifdef LCD_ADDRESS
+    LCD_setString(" Fade-In Magenta 1x ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_IN, 255, 0, 255, 10, 0, 255, 1);
     __delay_ms(2000);
+#ifdef LCD_ADDRESS
+    LCD_setString(" Fade-In Magenta 2x ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_IN, 128, 0, 128, 10, 0, 255, 2);
     __delay_ms(2000);
+#ifdef LCD_ADDRESS
+    LCD_setString("  Fade-Out Cyan 1x  ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_OUT, 0, 255, 255, 10, 0, 255, 1);
     __delay_ms(2000);
+#ifdef LCD_ADDRESS
+    LCD_setString("  Fade-Out Cyan 2x  ", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_OUT, 0, 128, 128, 10, 0, 255, 2);
     __delay_ms(2000);
+#ifdef LCD_ADDRESS
+    LCD_setString("Fade-Toggle White 1x", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_TOGGLE, 128, 128, 128, 10, 0, 255, 1);
     __delay_ms(3000);
+#ifdef LCD_ADDRESS
+    LCD_setString("Fade-Toggle White 2x", 1, true);
+#endif
     RGB_set(RGB_PATTERN_FADE_TOGGLE, 64, 64, 64, 10, 0, 255, 2);
-    __delay_ms(5000);
+    __delay_ms(2500);
+    __delay_ms(2500);
 }
 #endif
 
@@ -419,34 +454,29 @@ void POC_testRGB(void) {
 #ifdef WS281x_BUFFER
 void POC_demoWS281x(void) {
     WS281x_off();
-    WS281x_RGB(2, 128, 0, 128);
-    WS281x_blink(3, 255, 0, 0, 250);
-    WS281x_fadeIn(4, 0, 255, 0, 10, 0, 50);
-    WS281x_fadeOut(5, 0, 0, 255, 10, 0, 50);
-    WS281x_fadeToggle(6, 255, 255, 0, 10, 0, 50);
+    WS281x_set(2, WS281x_PATTERN_LIGHT,       0x80, 0x00, 0x80,   0, 0,   0);
+    WS281x_set(3, WS281x_PATTERN_BLINK,       0xFF, 0x00, 0x00, 250, 0, 255);
+    WS281x_set(4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  10, 0,  50);
+    WS281x_set(5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  10, 0,  50);
+    WS281x_set(6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  10, 0,  50);
 }
 
 void POC_testWS281x(void) {
 #ifdef LCD_ADDRESS
-    LCD_init();
-    LCD_setBacklight(true);
     LCD_clear();
-#endif
-
-#ifdef LCD_ADDRESS
-    LCD_setString("|c|RED", 1, true);
+    LCD_setString("        RED         ", 1, true);
 #endif
     WS281x_all(0xFF, 0x00, 0x00);
     __delay_ms(500);
 
 #ifdef LCD_ADDRESS
-    LCD_setString("|c|GREEN", 1, true);
+    LCD_setString("       GREEN        ", 1, true);
 #endif
     WS281x_all(0x00, 0xFF, 0x00);
     __delay_ms(500);
 
 #ifdef LCD_ADDRESS
-    LCD_setString("|c|BLUE", 1, true);
+    LCD_setString("        BLUE        ", 1, true);
 #endif
     WS281x_all(0x00, 0x00, 0xFF);
     __delay_ms(500);

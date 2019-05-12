@@ -41,9 +41,9 @@ void SMT_cancelTransmission(void) {
 
 void SMT_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
     switch (response.op_code) {
-        case BM78_OPC_LE_CONNECTION_COMPLETE:
-        case BM78_OPC_DISCONNECTION_COMPLETE:
-        case BM78_OPC_SPP_CONNECTION_COMPLETE:
+        case BM78_EVENT_LE_CONNECTION_COMPLETE:
+        case BM78_EVENT_DISCONNECTION_COMPLETE:
+        case BM78_EVENT_SPP_CONNECTION_COMPLETE:
             SMT_cancelTransmission();
             break;
         default:
@@ -105,10 +105,10 @@ void SMT_transmitNextBlock(void) {
             }
             //block[2] = size;
             BM78_transmit(size, block);
-            printProgress("|c|Downloading", addr, smTX.length);
+            printProgress("    Downloading     ", addr, smTX.length);
         } else if (smTX.length > 0) {
             SMT_cancelTransmission();
-            printProgress("|c|Downloading", 0, 0);
+            printProgress("    Downloading     ", 0, 0);
         }
     } else if (BM78.status != BM78_STATUS_SPP_CONNECTED_MODE) {
         SMT_cancelTransmission();
@@ -165,10 +165,10 @@ void SMT_transmitRGBs(void) {
         for (i = 0; i < WS281x_LED_COUNT; i++) {
             data[index++] = i + 0x28;             // Device
             data[index++] = 0x04;                 // Length
-            data[index++] = WS281x_getPattern(i); // Pattern
-            data[index++] = WS281x_getRed(i);     // Red component
-            data[index++] = WS281x_getGreen(i);   // Green component
-            data[index++] = WS281x_getBlue(i);    // Blue component
+            data[index++] = WS281x_ledPattern[i]; // Pattern
+            data[index++] = WS281x_ledRed[i];     // Red component
+            data[index++] = WS281x_ledGreen[i];   // Green component
+            data[index++] = WS281x_ledBlue[i];    // Blue component
         }
 
         BM78_transmit(index, data);

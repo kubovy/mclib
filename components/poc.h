@@ -25,8 +25,8 @@ void POC_testDHT11(void);
 #ifdef LCD_ADDRESS
 #ifdef BM78_ENABLED
 void POC_bm78InitializationHandler(char *deviceName, char *pin);
-void POC_bm78ResponseHandler(BM78_Response_t response, uint8_t *data);
-void POC_bm78TransparentDataHandler(uint8_t start, uint8_t length, uint8_t *data);
+void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data);
+void POC_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
 void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
 #endif
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data);

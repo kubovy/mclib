@@ -34,7 +34,6 @@ extern "C" {
 #include "components/state_machine_interaction.h"
 #include "components/state_machine_transfer.h"
 #include "components/setup_mode.h"
-#include "components/tester.h"
 // MCC
 #include "../mcc_generated_files/mcc.h"
 

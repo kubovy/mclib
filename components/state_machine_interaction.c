@@ -25,8 +25,8 @@ void SMI_enterState(uint8_t stateId) {
     if (!SM_enter(stateId)) {
 #ifdef LCD_ADDRESS
         LCD_clear();
-        LCD_setString("|c|No State Machine!", 1, true);
-        LCD_setString("|c|Please upload one.", 2, true);
+        LCD_setString(" No State Machine!  ", 1, true);
+        LCD_setString(" Please upload one. ", 2, true);
 #endif
     }
 }
@@ -118,9 +118,9 @@ void SMI_errorHandler(uint8_t error) {
     switch (error) {
         case SM_ERROR_LOOP:
             LCD_clear();
-            LCD_setString("|c|ERROR", 0, true);
-            LCD_setString("|c|Loop Detected!", 1, true);
-            LCD_setString("|c|Execution Halted", 3, true);
+            LCD_setString("       ERROR        ", 0, true);
+            LCD_setString("   Loop Detected!   ", 1, true);
+            LCD_setString("  Execution Halted  ", 3, true);
             break;
         default:
             break;
