@@ -6,13 +6,18 @@
 
 //#if defined I2C || defined I2C_MSSP || defined I2C_MSSP_FOUNDATION
 
-#if defined I2C_MSSP
+#if defined I2C
+#include "../../mcc_generated_files/i2c1.h"
+#elif defined I2C_MSSP
+#include "../../mcc_generated_files/i2c1.h"
 uint8_t writeBuffer[3];
+#elif defined I2C_MSSP_FOUNDATION
+#include "../../mcc_generated_files/i2c1.h"
 #endif
 
 inline void I2C_init(void) {
 #if defined I2C_MSSP
-    I2C1_Initialize();  
+    //I2C1_Initialize();  
 #elif defined I2C_MSSP_FOUNDATION
     i2c1_driver_open();
 #else
