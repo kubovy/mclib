@@ -28,7 +28,8 @@ extern "C" {
  * @param regLow Memory registry low byte.
  * @return Byte at register.
  */
-uint8_t MEM_read(uint8_t address, uint8_t regHigh, uint8_t regLow);
+inline uint8_t MEM_read(uint8_t address, uint8_t regHigh, uint8_t regLow);
+inline uint8_t MEM_read16(uint8_t address, uint16_t reg);
 
 /**
  * Read page from memory.
@@ -50,7 +51,8 @@ uint8_t MEM_read(uint8_t address, uint8_t regHigh, uint8_t regLow);
  * @param regLow Memory registry low byte.
  * @param byte Byte to write.
  */
-void MEM_write(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t byte);
+inline void MEM_write(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t byte);
+inline void MEM_write16(uint8_t address, uint16_t reg, uint8_t byte);
 
 /**
  * Write page to memory.
