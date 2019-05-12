@@ -31,59 +31,91 @@ extern "C" {
 #endif
 
 // Commands
-#define LCD_CLEARDISPLAY 0x01        // 0b00000001
-#define LCD_RETURNHOME 0x02          // 0b00000010
-#define LCD_ENTRYMODESET 0x04        // 0b00000100
-#define LCD_DISPLAYCONTROL 0x08      // 0b00001000
-#define LCD_CURSORSHIFT 0x10         // 0b00010000
-#define LCD_FUNCTIONSET 0x20         // 0b00100000
-#define LCD_SETCGRAMADDR 0x40        // 0b01000000
-#define LCD_SETDDRAMADDR 0x80        // 0b10000000
+#define LCD_CLEARDISPLAY   0b00000001 // 0   0   0   0   0   0   0   1
+                                      // Clears entire display and sets DDRAM 
+                                      // address 0 in address counter.
 
-// Flags for display entry mode
-#define LCD_ENTRYRIGHT 0x00
-#define LCD_ENTRYLEFT 0x02           // 0b00000010
-#define LCD_ENTRYSHIFTINCREMENT 0x01
-#define LCD_ENTRYSHIFTDECREMENT 0x00
+#define LCD_RETURNHOME     0b00000010 // 0   0   0   0   0   0   1   -
+                                      // Sets DDRAM address 0 in address counter.
+                                      // Also returns display from being shifted
+                                      // to original position. DDRAM contents
+                                      // remain unchanged.
 
-// Flags for display on/off control
-#define LCD_DISPLAYON 0x04           // 0b00000100
-#define LCD_DISPLAYOFF 0x00          // 0b00000000
-#define LCD_CURSORON 0x02            // 0b00000010
-#define LCD_CURSOROFF 0x00           // 0b00000000
-#define LCD_BLINKON 0x01             // 0b00000001
-#define LCD_BLINKOFF 0x00            // 0b00000000
+#define LCD_ENTRYMODESET   0b00000100 // 0   0   0   0   0   1 I/D   S
+                                      // Sets cursor move direction and 
+                                      // specifies display shift. These 
+                                      // operations are performed during data 
+                                      // write and read.
+#define LCD_ENTRY_LEFT     0b00000010 // I/D=1: Increment
+#define LCD_ENTRY_RIGHT    0b00000000 // I/D=0: Decrement
+#define LCD_ENTRY_SHIFT    0b00000001 // S  =1: Accompanies display shift
+#define LCD_ENTRY_NOSHIFT  0b00000000 // S  =0: Withoud display shift
 
-// Flags for display/cursor shift
-#define LCD_DISPLAYMOVE 0x08         // 0b00001000
-#define LCD_CURSORMOVE 0x00          // 0b00000000
-#define LCD_MOVERIGHT 0x04           // 0b00000100
-#define LCD_MOVELEFT 0x00            // 0b00000000
+#define LCD_DISPLAYCONTROL 0b00001000 // 0   0   0   0   1   D   C   B
+                                      // Sets entire display (D) on/off, cursor 
+                                      // on/off (C), and blinking of cursor
+                                      // position character (B).
+#define LCD_DISPLAYON      0b00000100 // D=1: Entire display on
+#define LCD_DISPLAYOFF     0b00000000 // D=0: Entire display off
+#define LCD_CURSORON       0b00000010 // C=1: Cursor on
+#define LCD_CURSOROFF      0b00000000 // C=0: Cursor off
+#define LCD_BLINKON        0b00000001 // B=1: Blinking of cursor position character on
+#define LCD_BLINKOFF       0b00000000 // B=0: Blinking of cursor position character off
 
-// Flags for function set
-#define LCD_8BITMODE 0x10            // 0b00010000
-#define LCD_4BITMODE 0x00            // 0b00000000
-#define LCD_2LINE 0x08               // 0b00001000
-#define LCD_1LINE 0x00               // 0b00000000
-#define LCD_5x10DOTS 0x04            // 0b00000100
-#define LCD_5x8DOTS 0x00             // 0b00000000
+#define LCD_CURSORSHIFT    0b00010000 // 0   0   0   1 S/C R/L   -   -
+                                      // Moves cursor and shifts display without
+                                      // changing DDRAM contents.
+#define LCD_DISPLAYSHIFT   0b00001000 // S/C=1: Display shift
+#define LCD_CURSORMOVE     0b00000000 // S/C=0: Cursor move
+#define LCD_MOVERIGHT      0b00000100 // R/L=1: Shift to the right
+#define LCD_MOVELEFT       0b00000000 // R/L=0: Shift to the left
+
+#define LCD_FUNCTIONSET    0b00100000 // 0   0   1  DL   N   F   -   -
+                                      // Sets interface data length (DL), number
+                                      // of display lines (N), and character
+                                      // font (F).
+#define LCD_8BITMODE       0b00010000 // DL=1: 8bits
+#define LCD_4BITMODE       0b00000000 // DL=0: 4bits
+#define LCD_2LINE          0b00001000 // N =1: 2lines
+#define LCD_1LINE          0b00000000 // N =0: 1line
+#define LCD_5x10DOTS       0b00000100 // F =1: 5×10dots
+#define LCD_5x8DOTS        0b00000000 // F =0: 5×8dots
+
+#define LCD_SETCGRAMADDR   0b01000000 // 0   1 ACG ACG ACG ACG ACG ACG
+                                      // Sets CGRAM address. CGRAM data is sent 
+                                      // and received after this setting.
+
+#define LCD_SETDDRAMADDR   0b10000000 // 1 ADD ADD ADD ADD ADD ADD ADD
+                                      // Sets DDRAM address. DDRAM data is sent 
+                                      // and received after this setting.
 
 // Flags for backlight
-#define LCD_BACKLIGHT 0x08           // 0b00001000
-#define LCD_NOBACKLIGHT 0x00         // 0b00000000
+#define LCD_BACKLIGHT      0b00001000 // Backlight on
+#define LCD_NOBACKLIGHT    0b00000000 // Backlight off
 
-// Lines
-#define LCD_LINE1 0x80               // 0b10000000
-#define LCD_LINE2 0xC0               // 0b11000000
-#define LCD_LINE3 0x94               // 0b10010100
-#define LCD_LINE4 0xD4               // 0b11010100
+// Line selection commands
+#define LCD_LINE1          0b10000000 // Line 1, start at 0x00 (0b00000000)
+#define LCD_LINE2          0b11000000 // Line 2, start at 0x40 (0b01000000)
+#define LCD_LINE3          0b10010100 // Line 1, start at 0x14 (0b00010100)
+#define LCD_LINE4          0b11010100 // line 2, start at 0x54 (0b01010100)
     
-#define En 0b00000100                // Enable bit
-#define Rw 0b00000010                // Read/Write bit
-#define Rs 0b00000001                // Register select bit
+#define En                 0b00000100 // Enable bit
+#define Rw                 0b00000010 // Read/Write bit
+#define Rs                 0b00000001 // Register select bit
 
 /** LCD backlight. */
 uint8_t LCD_backlight = LCD_BACKLIGHT;
+
+const uint8_t LCD_CHAR_BACKSLASH[8] = {
+  0b00000000,
+  0b00010000,
+  0b00001000,
+  0b00000100,
+  0b00000010,
+  0b00000001,
+  0b00000000,
+  0b00000000
+};
 
 /**
  * LCD module intialization.
@@ -128,7 +160,7 @@ void LCD_sendCommand(uint8_t command);
  */
 void LCD_sendData(uint8_t data); 
 
-void LCD_displayLine(uint8_t line);
+inline void LCD_displayLine(uint8_t line);
 
 /**
  * Send string to the LCD.
@@ -167,6 +199,9 @@ void LCD_replaceChar(char c, uint8_t position, uint8_t line, bool display);
  * @param display Whether display right away or not.
  */
 void LCD_replaceString(char *str, uint8_t position, uint8_t line, bool display);
+
+
+void LCD_createChar(uint8_t location, uint8_t charmap[]);
 
 #endif
 
