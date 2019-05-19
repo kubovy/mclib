@@ -2,8 +2,6 @@
  * File:   rgb.c
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
-#include <stdbool.h>
-#include <stdint.h>
 #include "rgb.h"
 
 #ifdef RGB_ENABLED

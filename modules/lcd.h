@@ -16,17 +16,19 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../config.h"
-#include "i2c.h"
+#include "../lib/requirements.h"
 
 #ifdef LCD_ADDRESS
+#include "i2c.h"
 
 // Configuration with default values (change this according to your setup)
 //#define LCD_ADDRESS 0x27 // Needs to be defined in order to enable LCD
 #ifndef LCD_COLS
+#warning "LCD: Numer of columns defaults to 20"
 #define LCD_COLS 20
 #endif
 #ifndef LCD_ROWS
+#warning "LCD: Numer of rows defaults to 20"
 #define LCD_ROWS 4
 #endif
 
@@ -130,10 +132,24 @@ void LCD_init(void);
 /** Clear the content of the LCD. */
 inline void LCD_clear(void);
 
+/**
+ * Get a character displayed on certain coordinates.
+ * 
+ * @param row Row.
+ * @param column Column.
+ */
 inline char LCD_getCache(uint8_t row, uint8_t column);
 
+/**
+ * Set a character to the cache.
+ * 
+ * @param row Row.
+ * @param column Column.
+ * @param ch Character.
+ */
 inline void LCD_setCache(uint8_t row, uint8_t column, char ch);
 
+/** Display the content of the cache to the LCD. */
 void LCD_displayCache(void);
 
 /** Resets the LCD preserving its content. */
@@ -200,7 +216,11 @@ void LCD_replaceChar(char c, uint8_t position, uint8_t line, bool display);
  */
 void LCD_replaceString(char *str, uint8_t position, uint8_t line, bool display);
 
-
+/**
+ * Create a custom character.
+ * @param location Location in the EEPROM (ASCII code) [0-8].
+ * @param charmap The character map.
+ */
 void LCD_createChar(uint8_t location, uint8_t charmap[]);
 
 #endif

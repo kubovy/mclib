@@ -15,17 +15,18 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../config.h"
+#include "../lib/requirements.h"
+
+#ifdef WS281x_BUFFER
 
 // Configuration
-#ifdef WS281x_BUFFER
-//#define WS281x_BUFFER SPI1TXB // Output PIN 
 #ifndef WS281x_LED_COUNT
-#define WS281x_LED_COUNT 32 // Number of LEDs
+#error "WS281x: WS281x_LED_COUNT needs to be defined!"
 #endif
 
 #ifndef WS281x_TIMER_PERIOD
 #ifdef TIMER_PERIOD
+#warning "WS281x: WS281x_TIMER_PERIOD defaults to TIMER_PERIOD"
 #define WS281x_TIMER_PERIOD TIMER_PERIOD
 #endif
 #endif
@@ -61,7 +62,7 @@ void WS281x_setSwitcher(void (* Switcher)(bool));
 /**
  * Show/populate configuration buffer on WS281x LEDs
  */
-extern inline void WS281x_show(void);
+inline void WS281x_show(void);
 
 #ifdef WS281x_TIMER_PERIOD
 /**

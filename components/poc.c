@@ -3,29 +3,6 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "poc.h"
-#include "../../config.h"
-#include "../lib/common.h"
-#include "../modules/bm78.h"
-#include "../modules/memory.h"
-#include "../modules/mcp23017.h"
-
-#ifdef DHT11_PORT
-#include "../modules/dht11.h"
-#endif
-
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
-
-#ifdef RGB_R_DUTY_CYCLE
-#include "../modules/rgb.h"
-#endif
-
-#ifdef WS281x_BUFFER
-#include "../modules/ws281x.h"
-#endif
-
-uint8_t POC_i, POC_j, POC_byte;
 
 #ifdef LCD_ADDRESS
 
@@ -37,13 +14,11 @@ void POC_testDHT11(void) {
     LCD_setBacklight(true);
     LCD_setString("DHT11 (X retries)", 0, false);
     LCD_replaceChar(48 + dht11.retries, 7, 0, true);
-    LCD_setString("--------------------", 1, true);
-    
 
     if (dht11.status == DHT11_OK) {
-        LCD_setString("Temp:      ?C\0", 2, false);
-        LCD_replaceChar(48 + (dht11.temp / 10 % 10), 10, 2, false);
-        LCD_replaceChar(48 + (dht11.temp % 10), 11, 2, true);
+        LCD_setString("Temp:      ?C\0", 1, false);
+        LCD_replaceChar(48 + (dht11.temp / 10 % 10), 10, 1, false);
+        LCD_replaceChar(48 + (dht11.temp % 10), 11, 1, true);
 
         LCD_setString("Humidity:  ?%\0", 2, false);
         LCD_replaceChar(48 + (dht11.rh / 10 % 10), 10, 2, false);
@@ -79,9 +54,9 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
             if (response.SPPConnectionComplete_0x74.status == BM78_COMMAND_SUCCEEDED) {
                 LCD_setString("    BT Connected    ", 1, true);
                 LCD_setString(" ##:##:##:##:##:##  ", 2, false);
-                for (POC_i = 0; POC_i < 6; POC_i++) {
-                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[POC_i] / 16 % 16), POC_i * 3 + 1, 2, false);
-                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[POC_i] % 16), POC_i * 3 + 2, 2, false);
+                for (uint8_t i = 0; i < 6; i++) {
+                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[i] / 16 % 16), i * 3 + 1, 2, false);
+                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[i] % 16), i * 3 + 2, 2, false);
                 }
                 LCD_displayLine(2);
             } else {
@@ -101,16 +76,16 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
                     LCD_displayLine(0);
 
                     LCD_setString("V                   ", 1, false);
-                    for (POC_i = 0; POC_i < 5; POC_i++) { // BT Address
-                        LCD_replaceChar(dec2hex(data[POC_i] / 16 % 16), 3 + POC_i * 2, 1, false);
-                        LCD_replaceChar(dec2hex(data[POC_i] % 16), 4 + POC_i * 2, 1, false);
+                    for (uint8_t i = 0; i < 5; i++) { // BT Address
+                        LCD_replaceChar(dec2hex(data[i] / 16 % 16), 3 + i * 2, 1, false);
+                        LCD_replaceChar(dec2hex(data[i] % 16), 4 + i * 2, 1, false);
                     }
                     LCD_displayLine(1);
 
                     LCD_setString("BT:##:##:##:##:##:##", 2, false);
-                    for (POC_i = 0; POC_i < 6; POC_i++) { // BT Address
-                        LCD_replaceChar(dec2hex(data[5 + POC_i] / 16 % 16), 3 + (5 - POC_i) * 3, 2, false);
-                        LCD_replaceChar(dec2hex(data[5 + POC_i] % 16), 4 + (5 - POC_i) * 3, 2, false);
+                    for (uint8_t i = 0; i < 6; i++) { // BT Address
+                        LCD_replaceChar(dec2hex(data[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
+                        LCD_replaceChar(dec2hex(data[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
                     }
                     LCD_displayLine(2);
                     break;
@@ -120,17 +95,17 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
                     break;
                 case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
                     LCD_clear();
-                    for (POC_i = 0; POC_i < BM78.pairedDevicesCount; POC_i++) {
-                        if (POC_i < 4) {
-                            LCD_setString("XX:##:##:##:##:##:##", POC_i, false);
-                            LCD_replaceChar(BM78.pairedDevices[POC_i].index / 10 % 10 + 48, 0, POC_i, false);
-                            LCD_replaceChar(BM78.pairedDevices[POC_i].index % 10 + 48, 1, POC_i, false);
+                    for (uint8_t i = 0; i < BM78.pairedDevicesCount; i++) {
+                        if (i < 4) {
+                            LCD_setString("XX:##:##:##:##:##:##", i, false);
+                            LCD_replaceChar(BM78.pairedDevices[i].index / 10 % 10 + 48, 0, i, false);
+                            LCD_replaceChar(BM78.pairedDevices[i].index % 10 + 48, 1, i, false);
                             
-                            for (POC_j = 0; POC_j < 6; POC_j++) {
-                                LCD_replaceChar(dec2hex(BM78.pairedDevices[POC_i].address[POC_j] / 16 % 16), POC_j * 3 + 3, POC_i, false);
-                                LCD_replaceChar(dec2hex(BM78.pairedDevices[POC_i].address[POC_j] % 16), POC_j * 3 + 4, POC_i, false);
+                            for (uint8_t j = 0; j < 6; j++) {
+                                LCD_replaceChar(dec2hex(BM78.pairedDevices[i].address[j] / 16 % 16), j * 3 + 3, i, false);
+                                LCD_replaceChar(dec2hex(BM78.pairedDevices[i].address[j] % 16), j * 3 + 4, i, false);
                             }
-                            LCD_displayLine(POC_i);
+                            LCD_displayLine(i);
                         }
                     }
                     break;
@@ -183,23 +158,17 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
 }
 
 void POC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
-    //uint8_t feedback[23];
-
     switch(*(data)) {
         case BM78_MESSAGE_KIND_PLAIN:
-            //feedback[0] = 0x00;
             LCD_clear();
             LCD_setString("                    ", 2, false);
-            for(POC_i = 0; POC_i < length; POC_i++) {
-                if (POC_i < 20) {
-                    LCD_replaceChar(*(data + POC_i), POC_i, 2, false);
-                    //feedback[i + 1] = *(data + i);
-                    //feedback[i + 2] = '\n';
+            for(uint8_t i = 0; i < length; i++) {
+                if (i < 20) {
+                    LCD_replaceChar(*(data + i), i, 2, false);
                 }
             }
             LCD_setString("    BT Message:     ", 0, true);
             LCD_displayLine(2);
-            //BM78_data(BM78_CMD_SEND_TRANSPARENT_DATA, i + 2, feedback);
             break;
     }
 }
@@ -222,51 +191,58 @@ void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data) {
     LCD_clear();
 
-    for (POC_i = 0; POC_i < 4; POC_i++) {
-        LCD_setString("XXXX:            ", POC_i % 4, false);
+    for (uint8_t i = 0; i < 4; i++) {
+        LCD_setString("XXXX:            ", i % 4, false);
 
-//        POC_byte = (address + (POC_i * 4)) >> 8;
-//        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 0, POC_i % 4, false);
-//        LCD_replaceChar(dec2hex(POC_byte % 16), 1, POC_i % 4, false);
-//
-//        POC_byte = (address + (POC_i * 4)) & 0xFF;
-//        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 2, POC_i % 4, false);
-//        LCD_replaceChar(dec2hex(POC_byte % 16), 3, POC_i % 4, false);
+        uint8_t byte = (address + (i * 4)) >> 8;
+        LCD_replaceChar(dec2hex(byte / 16 % 16), 0, i % 4, false);
+        LCD_replaceChar(dec2hex(byte % 16), 1, i % 4, false);
 
-//        for (POC_j = 0; POC_j < 4; POC_j++) {
-//            if (length >= (POC_i * 4) + POC_j) {
-//                POC_byte = *(data + (POC_i * 4) + POC_j);
-//                LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 5 + (3 * POC_j) + 1, POC_i % 4, false);
-//                LCD_replaceChar(dec2hex(POC_byte % 16), 5 + (3 * POC_j) + 2, POC_i % 4, false);
-//            }
-//        }
-//        LCD_displayLine(POC_i % 4);
+        byte = (address + (i * 4)) & 0xFF;
+        LCD_replaceChar(dec2hex(byte / 16 % 16), 2, i % 4, false);
+        LCD_replaceChar(dec2hex(byte % 16), 3, i % 4, false);
+
+        for (uint8_t j = 0; j < 4; j++) {
+            if (length >= (i * 4) + j) {
+                byte = *(data + (i * 4) + j);
+                LCD_replaceChar(dec2hex(byte / 16 % 16), 5 + (3 * j) + 1, i % 4, false);
+                LCD_replaceChar(dec2hex(byte % 16), 5 + (3 * j) + 2, i % 4, false);
+            }
+        }
+        LCD_displayLine(i % 4);
     }
 }
 
-#ifdef MEM_ADDRESS
-void POC_testMem(uint16_t address) {
+#if defined I2C_ENABLED || defined MEM_INTERNAL_SIZE
+
+void POC_testMem(uint8_t address, uint16_t reg) {
     LCD_clear();
 
-    for (POC_i = 0; POC_i < 4; POC_i++) {
-        LCD_setString("XXXX:            ", POC_i % 4, false);
+    for (uint8_t i = 0; i < 4; i++) {
+        LCD_setString("XXXX:            ", i % 4, false);
 
-        POC_byte = (address + (POC_i * 4)) >> 8;
-        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 0, POC_i % 4, false);
-        LCD_replaceChar(dec2hex(POC_byte % 16), 1, POC_i % 4, false);
+        uint8_t byte = (reg + (i * 4)) >> 8;
+        LCD_replaceChar(dec2hex(byte / 16 % 16), 0, i % 4, false);
+        LCD_replaceChar(dec2hex(byte % 16), 1, i % 4, false);
 
-        POC_byte = (address + (POC_i * 4)) & 0xFF;
-        LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 2, POC_i % 4, false);
-        LCD_replaceChar(dec2hex(POC_byte % 16), 3, POC_i % 4, false);
+        byte = (reg + (i * 4)) & 0xFF;
+        LCD_replaceChar(dec2hex(byte / 16 % 16), 2, i % 4, false);
+        LCD_replaceChar(dec2hex(byte % 16), 3, i % 4, false);
 
-        for (POC_j = 0; POC_j < 4; POC_j++) {
-            POC_byte = MEM_read(MEM_ADDRESS,
-                    (address + (POC_i * 4) + POC_j) >> 8,
-                    (address + (POC_i * 4) + POC_j) & 0xFF);
-            LCD_replaceChar(dec2hex(POC_byte / 16 % 16), 5 + (3 * POC_j) + 1, POC_i % 4, false);
-            LCD_replaceChar(dec2hex(POC_byte % 16), 5 + (3 * POC_j) + 2, POC_i % 4, false);
+        for (uint8_t j = 0; j < 4; j++) {
+            if (address > 0) {
+                byte = I2C_readRegister16(address, (reg + (i * 4) + j));
+            } else {
+#ifdef MEM_INTERNAL_SIZE
+                byte = DATAEE_ReadByte(reg + (i * 4) + j);
+#else
+                byte = 0xFF;
+#endif
+            }
+            LCD_replaceChar(dec2hex(byte / 16 % 16), 5 + (3 * j) + 1, i % 4, false);
+            LCD_replaceChar(dec2hex(byte % 16), 5 + (3 * j) + 2, i % 4, false);
         }
-        LCD_displayLine(POC_i % 4);
+        LCD_displayLine(i % 4);
     }
 }
 
@@ -296,6 +272,7 @@ void POC_testMem(uint16_t address) {
 //        }
 //    }
 //}
+
 #endif
 
 void POC_testDisplay(void) {
@@ -326,12 +303,14 @@ void POC_testDisplay(void) {
     LCD_setString("|c|center\n|l|left\n|r|right\nEND\0", 0, true);
 }
 
+#ifdef MCP_ENABLED
+
 void POC_showKeypad(uint8_t address, uint8_t port) {
-    POC_byte = MCP_read_keypad_char(address, port);
-    //if (POC_byte > 0x00) {
-        //LCD_setString("       KEY: ?       ", 1, false);
-        //LCD_replaceChar(POC_byte, 12, 1, true);
-    //}
+    uint8_t byte = MCP_read_keypad_char(address, port);
+    if (byte > 0x00) {
+        LCD_setString("       KEY: ?       ", 1, false);
+        LCD_replaceChar(byte, 12, 1, true);
+    }
 }
 
 void POC_testMCP23017Input(uint8_t address) {
@@ -339,16 +318,16 @@ void POC_testMCP23017Input(uint8_t address) {
     LCD_replaceChar(dec2hex(address / 16), 12, 0, true);
     LCD_replaceChar(dec2hex(address % 16), 13, 0, true);
 
-    for (POC_i = 0; POC_i < sizeof(MCP_GPIOS); POC_i++) {
-        POC_byte = MCP_read(address, MCP_GPIOS[POC_i]);
+    for (uint8_t i = 0; i < 2; i++) {
+        uint8_t byte = MCP_read(address, MCP_GPIOA + i);
         
-        LCD_setString("GPIOx: 0b           ", POC_i + 1, false);
-        LCD_replaceChar('A' + 1, 4, POC_i + 1, false);
-        for (POC_j = 0; POC_j < 8; POC_j++) {
-            LCD_replaceChar((POC_byte & 0b10000000) ? '1' : '0', POC_j + 9, POC_i + 1, false);
-            POC_byte <<= 1;
+        LCD_setString("GPIOx: 0b           ", i + 1, false);
+        LCD_replaceChar('A' + 1, 4, i + 1, false);
+        for (uint8_t j = 0; j < 8; j++) {
+            LCD_replaceChar((byte & 0b10000000) ? '1' : '0', j + 9, i + 1, false);
+            byte <<= 1;
         }
-        LCD_displayLine(POC_i + 1);
+        LCD_displayLine(i + 1);
     }
 }
 
@@ -364,20 +343,20 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
 
     
     MCP_write(address, MCP_OLATA + port, 0b10101010);
-    POC_byte = MCP_read(address, MCP_GPIOA + port);
-    for (POC_i = 0; POC_i < 8; POC_i++) {
-        LCD_replaceChar((POC_byte & 0b10000000) ? '1' : '0', POC_i + 9, 1, false);
-        POC_byte <<= 1;
+    uint8_t byte = MCP_read(address, MCP_GPIOA + port);
+    for (uint8_t i = 0; i < 8; i++) {
+        LCD_replaceChar((byte & 0b10000000) ? '1' : '0', i + 9, 1, false);
+        byte <<= 1;
     }
     LCD_displayLine(1);
 
     __delay_ms(1000);
 
     MCP_write(address, MCP_OLATA + port, 0b01010101);
-    POC_byte = MCP_read(address, MCP_GPIOA + port);
-    for (POC_i = 0; POC_i < 8; POC_i++) {
-        LCD_replaceChar((POC_byte & 0b10000000) ? '1' : '0', POC_i + 9, 1, false);
-        POC_byte <<= 1;
+    byte = MCP_read(address, MCP_GPIOA + port);
+    for (uint8_t i = 0; i < 8; i++) {
+        LCD_replaceChar((byte & 0b10000000) ? '1' : '0', i + 9, 1, false);
+        byte <<= 1;
     }
     LCD_displayLine(1);
     
@@ -385,6 +364,8 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
     
     MCP_write(address, MCP_OLATA + port, original);
 }
+
+#endif
 
 #endif
 
@@ -467,18 +448,21 @@ void POC_testWS281x(void) {
     LCD_setString("        RED         ", 1, true);
 #endif
     WS281x_all(0xFF, 0x00, 0x00);
+    WS281x_show();
     __delay_ms(500);
 
 #ifdef LCD_ADDRESS
     LCD_setString("       GREEN        ", 1, true);
 #endif
     WS281x_all(0x00, 0xFF, 0x00);
+    WS281x_show();
     __delay_ms(500);
 
 #ifdef LCD_ADDRESS
     LCD_setString("        BLUE        ", 1, true);
 #endif
     WS281x_all(0x00, 0x00, 0xFF);
+    WS281x_show();
     __delay_ms(500);
 
 #ifdef LCD_ADDRESS

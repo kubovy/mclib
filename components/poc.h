@@ -9,14 +9,32 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include "../../config.h"
+//#include <stdint.h>
+#ifdef MEM_INTERNAL_SIZE
+#include "../../mcc_generated_files/memory.h"
+#endif
+#include "../lib/common.h"
+#include "../lib/requirements.h"
+#ifdef BM78_ENABLED
 #include "../modules/bm78.h"
+#endif
 #ifdef DHT11_PORT
 #include "../modules/dht11.h"
 #endif
+#ifdef I2C_ENABLED
+#include "../modules/i2c.h"
+#endif
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
+#endif
+#ifdef MCP_ENABLED
+#include "../modules/mcp23017.h"
+#endif
+#ifdef RGB_ENABLED
+#include "../modules/rgb.h"
+#endif
+#ifdef WS281x_BUFFER
+#include "../modules/ws281x.h"
 #endif
 
 #ifdef DHT11_PORT
@@ -30,14 +48,16 @@ void POC_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
 void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
 #endif
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data);
-#ifdef MEM_ADDRESS
-void POC_testMem(uint16_t address);
+#if defined I2C_ENABLED || defined MEM_INTERNAL_SIZE
+void POC_testMem(uint8_t address, uint16_t reg);
 //void POC_testMemPage(void);
 #endif
 void POC_testDisplay(void);
+#ifdef MCP_ENABLED
 void POC_showKeypad(uint8_t address, uint8_t port);
 void POC_testMCP23017Input(uint8_t address);
 void POC_testMCP23017Output(uint8_t address, uint8_t port);
+#endif
 #endif
 #ifdef RGB_ENABLED
 void POC_testRGB(void);

@@ -5,28 +5,23 @@
 #include "state_machine.h"
 
 #ifdef SM_MEM_ADDRESS
-#ifdef SM_MAX_SIZE
-#ifdef SM_CHECK_DELAY
 
-
-#include "memory.h"
-
-uint8_t SM_checkCounter = SM_CHECK_DELAY;
+uint8_t SM_checkCounter = SM_CHECK_INTERVAL / TIMER_PERIOD;
 
 struct {
     uint8_t count;
 } SM_states = {0};
 
 struct {
-    uint8_t id;               // Current state (0xFF state machine did not start yet)
-    uint16_t start;           // Starting address of current state.
-    uint8_t io[SM_PORT_SIZE]; // Stable state's data.
-} SM_currentState = {0xFF, 0x0000};
+    uint8_t id;                // Current state (0xFF state machine did not start yet)
+    uint16_t start;            // Starting address of current state.
+    uint8_t io[SM_STATE_SIZE]; // Stable state's data.
+} SM_currentState = {0xFF, SM_MEM_START};
 
 struct {
     uint16_t start; // Action's starting address.
     uint16_t count; // Total number of actions.
-} SM_actions = {0x0000, 0};
+} SM_actions = {SM_MEM_START, 0};
 
 struct {
     uint8_t target;    // Target state (0xFF no target state)
@@ -34,50 +29,50 @@ struct {
     uint8_t path[0xFF];// Goto path for loop detection.
 } SM_goto = {0xFF, 0};
 
-void (*SM_EvaluatedHandler)(void);
+Procedure_t SM_EvaluatedHandler;
 void (*SM_ErrorHandler)(uint8_t);
 
 void SM_reset(void) {
     SM_states.count = 0;
     SM_currentState.id = 0xFF;
     SM_goto.target = 0xFF;
-    SM_currentState.start = 0x0000;
+    SM_currentState.start = SM_MEM_START;
     SM_actions.start = 0;
     SM_actions.count = 0;
 }
 
 void SM_init(void) {
-    SM_currentState.start = 0x0000;
+    SM_currentState.start = SM_MEM_START;
 
     // Reset current state.
-    for (uint8_t i = 0; i < SM_PORT_SIZE; i++) {
+    for (uint8_t i = 0; i < SM_STATE_SIZE; i++) {
         SM_currentState.io[i] = 0;
     }
 
     // 1st byte: Status (0x00 - Enabled, 0xFF - Disabled)
-    SM_status = MEM_read(SM_MEM_ADDRESS, 0x00, 0x00);
+    SM_status = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
     if (SM_status != SM_STATUS_ENABLED) {
         SM_reset();
         return;
     }
 
     // 2nd byte: Count of states (0-255)
-    SM_states.count = MEM_read(SM_MEM_ADDRESS, 0x00, 0x01);
-    if (((uint16_t) SM_states.count) >= (SM_MAX_SIZE - 2) / 2) {
+    SM_states.count = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START + 1);
+    if (((uint16_t) SM_states.count) >= (SM_MAX_SIZE - SM_MEM_START - 2) / 2) {
         SM_reset();
         return;
     }
 
     // Start of actions start address.
-    uint16_t actionsStartAddr = ((uint16_t) SM_states.count) * 2 + 2;
+    uint16_t actionsStartAddr = SM_MEM_START + ((uint16_t) SM_states.count) * 2 + 2;
     if (actionsStartAddr >= SM_MAX_SIZE) {
         SM_reset();
         return;
     }
 
     // Actions start address (2 byte).
-    uint8_t regHigh = MEM_read(SM_MEM_ADDRESS, actionsStartAddr >> 8, actionsStartAddr & 0xFF);
-    uint8_t regLow = MEM_read(SM_MEM_ADDRESS, (actionsStartAddr + 1) >> 8, (actionsStartAddr + 1) & 0xFF);
+    uint8_t regHigh = I2C_readRegister16(SM_MEM_ADDRESS, actionsStartAddr);
+    uint8_t regLow = I2C_readRegister16(SM_MEM_ADDRESS, actionsStartAddr + 1);
     SM_actions.start = ((regHigh << 8) | regLow);
     if (SM_actions.start >= SM_MAX_SIZE) {
         SM_reset();
@@ -85,8 +80,8 @@ void SM_init(void) {
     }
 
     // Number of actions (2 byte).
-    regHigh = MEM_read(SM_MEM_ADDRESS, SM_actions.start >> 8, SM_actions.start & 0xFF);
-    regLow = MEM_read(SM_MEM_ADDRESS, (SM_actions.start + 1) >> 8, (SM_actions.start + 1) & 0xFF);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, SM_actions.start);
+    regLow = I2C_readRegister16(SM_MEM_ADDRESS, SM_actions.start + 1);
     SM_actions.count = ((regHigh << 8) | regLow);
     if (SM_actions.count >= SM_MAX_SIZE) {
         SM_reset();
@@ -95,7 +90,7 @@ void SM_init(void) {
 }
 
 bool SM_changed(uint8_t *newState) {
-    for (uint8_t i = 0; i < SM_PORT_SIZE; i++) {
+    for (uint8_t i = 0; i < SM_STATE_SIZE; i++) {
         if (SM_currentState.io[i] != newState[i]) {
             SM_goto.index = 0; // Reset GOTO path index = reset loop detection
             return true;
@@ -115,9 +110,7 @@ bool SM_enter(uint8_t stateId) {
 void SM_evaluate(bool enteringState, uint8_t *newState) {
     if (SM_status != SM_STATUS_ENABLED) return;
     
-    uint8_t regHigh = SM_currentState.start >> 8;
-    uint8_t regLow = SM_currentState.start & 0xFF;
-    uint8_t evaluationCount = MEM_read(SM_MEM_ADDRESS, regHigh, regLow);
+    uint8_t evaluationCount = I2C_readRegister16(SM_MEM_ADDRESS, SM_currentState.start);
     uint16_t evaluationStart = SM_currentState.start + 1;
     uint8_t gotoState = 0xFF;
     
@@ -126,15 +119,10 @@ void SM_evaluate(bool enteringState, uint8_t *newState) {
         bool wasChanged = false;
         bool result = true;
 
-        for (uint8_t c = 0; c < SM_PORT_SIZE; c++) {
+        for (uint8_t c = 0; c < SM_STATE_SIZE; c++) {
             uint16_t conditionStart = evaluationStart + c * 2;
-            regHigh = conditionStart >> 8;
-            regLow = conditionStart & 0xFF;
-            uint8_t cond = MEM_read(SM_MEM_ADDRESS, regHigh, regLow);
-
-            regHigh = (conditionStart + 1) >> 8;
-            regLow = (conditionStart + 1) & 0xFF;
-            uint8_t mask = MEM_read(SM_MEM_ADDRESS, regHigh, regLow);
+            uint8_t cond = I2C_readRegister16(SM_MEM_ADDRESS, conditionStart);
+            uint8_t mask = I2C_readRegister16(SM_MEM_ADDRESS, conditionStart + 1);
 
             if (mask > 0) hasConditions = true;
             uint8_t changedMask = SM_currentState.io[c] ^ *(newState + c);
@@ -142,44 +130,30 @@ void SM_evaluate(bool enteringState, uint8_t *newState) {
             result = result && ((cond & mask) == (*(newState + c) & mask));
         }
         
-        uint16_t actionListStart = evaluationStart + SM_PORT_SIZE * 2;
-
-        regHigh = actionListStart >> 8;
-        regLow = actionListStart & 0xFF;
-        uint8_t actionCount = MEM_read(SM_MEM_ADDRESS, regHigh, regLow);
+        uint16_t actionListStart = evaluationStart + SM_STATE_SIZE * 2;
+        uint8_t actionCount = I2C_readRegister16(SM_MEM_ADDRESS, actionListStart);
 
         if (((hasConditions && wasChanged) || enteringState) && result) {
             for (uint8_t a = 0; a < actionCount; a++) {
-                regHigh = (actionListStart + a * 2 + 1) >> 8;
-                regLow = (actionListStart + a * 2 + 1) & 0xFF;
-                uint16_t actionId = MEM_read(SM_MEM_ADDRESS, regHigh, regLow) << 8;
-
-                regHigh = (actionListStart + a * 2 + 2) >> 8;
-                regLow = (actionListStart + a * 2 + 2) & 0xFF;
-                actionId = actionId | (MEM_read(SM_MEM_ADDRESS, regHigh, regLow) & 0xFF);
+                uint16_t actionId = I2C_readRegister16(SM_MEM_ADDRESS, actionListStart + a * 2 + 1) << 8;
+                actionId = actionId | (I2C_readRegister16(SM_MEM_ADDRESS, actionListStart + a * 2 + 2) & 0xFF);
 
                 uint16_t actionAddrStart = SM_actions.start + actionId * 2 + 2;
-                regHigh = actionAddrStart >> 8;
-                regLow = actionAddrStart & 0xFF;
-                uint16_t actionAddr = MEM_read(SM_MEM_ADDRESS, regHigh, regLow) << 8;
-                
-                regHigh = (actionAddrStart + 1) >> 8;
-                regLow = (actionAddrStart + 1) & 0xFF;
-                actionAddr = actionAddr | (MEM_read(SM_MEM_ADDRESS, regHigh, regLow) & 0xFF);
-                
-                
-                uint8_t device = MEM_read(SM_MEM_ADDRESS, actionAddr >> 8, actionAddr & 0xFF);
+                uint16_t actionAddr = I2C_readRegister16(SM_MEM_ADDRESS, actionAddrStart) << 8;
+                actionAddr = actionAddr | (I2C_readRegister16(SM_MEM_ADDRESS, actionAddrStart + 1) & 0xFF);
+
+                uint8_t device = I2C_readRegister16(SM_MEM_ADDRESS, actionAddr);
                 bool includingEnteringState = (device & 0b10000000) == 0b10000000; // 0x80
                 
                 if (!enteringState || !hasConditions || includingEnteringState) {
                     uint8_t actionDevice = device & 0x7F;
 
-                    uint8_t actionLength = MEM_read(SM_MEM_ADDRESS, (actionAddr + 1) >> 8, (actionAddr + 1) & 0xFF);
+                    uint8_t actionLength = I2C_readRegister16(SM_MEM_ADDRESS, actionAddr + 1);
                     uint8_t actionValue[SM_VALUE_MAX_SIZE];
 
                     for (uint8_t v = 0; v < actionLength; v++) {
                         if (v < SM_VALUE_MAX_SIZE) {
-                            actionValue[v] = MEM_read(SM_MEM_ADDRESS, (actionAddr + v + 2) >> 8, (actionAddr + v + 2) & 0xFF);
+                            actionValue[v] = I2C_readRegister16(SM_MEM_ADDRESS, actionAddr + v + 2);
                         }
                     }
 
@@ -196,7 +170,7 @@ void SM_evaluate(bool enteringState, uint8_t *newState) {
     }
 
     // Update new state as stable state
-    for (uint8_t c = 0; c < SM_PORT_SIZE; c++) {
+    for (uint8_t c = 0; c < SM_STATE_SIZE; c++) {
         SM_currentState.io[c] = *(newState + c);
     }
 
@@ -207,7 +181,7 @@ void SM_evaluate(bool enteringState, uint8_t *newState) {
             if (loopDetected) break;
         }
         if (loopDetected) {
-            MEM_write(SM_MEM_ADDRESS, 0x00, 0x00, 0xFF);
+            I2C_writeRegister16(SM_MEM_ADDRESS, SM_MEM_START, SM_STATUS_DISABLED);
             SM_reset();
             if (SM_ErrorHandler) {
                 SM_ErrorHandler(SM_ERROR_LOOP);
@@ -230,20 +204,17 @@ void SM_periodicalCheck(void) {
     if (SM_checkCounter > 0) {
         SM_checkCounter--;
     } else {
-        SM_checkCounter = SM_CHECK_DELAY;
+        SM_checkCounter = SM_CHECK_INTERVAL / TIMER_PERIOD;
         if (SM_status == SM_STATUS_ENABLED && SM_getStateTo && (SM_goto.target < 0xFF || SM_currentState.id < 0xFF)) {
-            uint8_t newState[SM_PORT_SIZE];
+            uint8_t newState[SM_STATE_SIZE];
             SM_getStateTo(newState);
 
             if (SM_goto.target != SM_currentState.id) {
                 SM_currentState.id = SM_goto.target;
-                uint8_t regHigh = (((uint16_t) SM_goto.target) * 2 + 2) >> 8;
-                uint8_t regLow = (((uint16_t) SM_goto.target) * 2 + 2) & 0xFF;
-                SM_currentState.start = MEM_read(SM_MEM_ADDRESS, regHigh, regLow) << 8;
-
-                regHigh = (((uint16_t) SM_goto.target) * 2 + 3) >> 8;
-                regLow = (((uint16_t) SM_goto.target) * 2 + 3) & 0xFF;
-                SM_currentState.start |= MEM_read(SM_MEM_ADDRESS, regHigh, regLow) & 0xFF;
+                SM_currentState.start = I2C_readRegister16(SM_MEM_ADDRESS,
+                        SM_MEM_START + ((uint16_t) SM_goto.target) * 2 + 2) << 8;
+                SM_currentState.start |= I2C_readRegister16(SM_MEM_ADDRESS,
+                        SM_MEM_START + ((uint16_t) SM_goto.target) * 2 + 3) & 0xFF;
 
                 SM_evaluate(true, newState);
             } else if (SM_changed(newState)) {
@@ -253,37 +224,37 @@ void SM_periodicalCheck(void) {
     }
 }
 
-void SM_setStateGetter(void (* StateGetter)(uint8_t*)) {
-    SM_getStateTo = StateGetter;
+void SM_setStateGetter(SM_StateConsumer_t stateGetter) {
+    SM_getStateTo = stateGetter;
 }
 
-void SM_setActionHandler(void (* ActionHandler)(uint8_t, uint8_t, uint8_t*)) {
-    SM_executeAction = ActionHandler;
+void SM_setActionHandler(SM_executeAction_t actionHandler) {
+    SM_executeAction = actionHandler;
 }
 
-void SM_setEvaluatedHandler(void (* EvaluatedHandler)()) {
-    SM_EvaluatedHandler = EvaluatedHandler;
+void SM_setEvaluatedHandler(Procedure_t evaluatedHandler) {
+    SM_EvaluatedHandler = evaluatedHandler;
 }
 
-void SM_setErrorHandler(void (* ErrorHandler)(uint8_t)) {
-    SM_ErrorHandler = ErrorHandler;
+void SM_setErrorHandler(Consumer_t errorHandler) {
+    SM_ErrorHandler = errorHandler;
 }
 
 uint16_t SM_dataLength(void) {
-    uint8_t regHigh = MEM_read(SM_MEM_ADDRESS, 0x00, 0x00);
-    uint8_t regLow = MEM_read(SM_MEM_ADDRESS, 0x00, 0x01);
+    uint8_t regHigh = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
+    uint8_t regLow = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START + 1);
     if (regHigh != SM_STATUS_ENABLED) return 0;
-    if (((uint16_t) regLow) >= (SM_MAX_SIZE - 2) / 2) return 0;
+    if (((uint16_t) regLow) >= (SM_MAX_SIZE - SM_MEM_START - 2) / 2) return 0;
     uint16_t actionsStartAddr = ((uint16_t) regLow) * 2 + 2;
     if (actionsStartAddr >= SM_MAX_SIZE) return SM_MAX_SIZE;
 
-    regHigh = MEM_read(SM_MEM_ADDRESS, actionsStartAddr >> 8, actionsStartAddr & 0xFF);
-    regLow = MEM_read(SM_MEM_ADDRESS, (actionsStartAddr + 1) >> 8, (actionsStartAddr + 1) & 0xFF);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, actionsStartAddr);
+    regLow = I2C_readRegister16(SM_MEM_ADDRESS, actionsStartAddr + 1);
     uint16_t actionsAddress = ((regHigh << 8) | regLow);
     if (actionsAddress >= SM_MAX_SIZE) return 0;
 
-    regHigh = MEM_read(SM_MEM_ADDRESS, actionsAddress >> 8, actionsAddress & 0xFF);
-    regLow = MEM_read(SM_MEM_ADDRESS, (actionsAddress + 1) >> 8, (actionsAddress + 1) & 0xFF);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, actionsAddress);
+    regLow = I2C_readRegister16(SM_MEM_ADDRESS, actionsAddress + 1);
     uint16_t actionCount = ((regHigh << 8) | regLow);
     if (actionCount >= SM_MAX_SIZE) return 0;
     if (actionsAddress >= SM_MAX_SIZE - (actionCount * 2)) return 0;
@@ -291,27 +262,23 @@ uint16_t SM_dataLength(void) {
     uint16_t lastActionAddr = actionsAddress + (actionCount * 2);
     if (lastActionAddr >= SM_MAX_SIZE) return 0;
 
-    regHigh = MEM_read(SM_MEM_ADDRESS, lastActionAddr >> 8, lastActionAddr & 0xFF);
-    regLow = MEM_read(SM_MEM_ADDRESS, (lastActionAddr + 1) >> 8, (lastActionAddr + 1) & 0xFF);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, lastActionAddr);
+    regLow = I2C_readRegister16(SM_MEM_ADDRESS, lastActionAddr + 1);
     if (((regHigh << 8) | regLow) >= SM_MAX_SIZE - 1) return 0;
     uint16_t lastActionLengthAddr = ((regHigh << 8) | regLow) + 1;
 
-    regHigh = MEM_read(SM_MEM_ADDRESS, lastActionLengthAddr >> 8, lastActionLengthAddr & 0xFF);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, lastActionLengthAddr >> 8);
     if (lastActionLengthAddr >= SM_MAX_SIZE - regHigh - 1) return 0;
     return lastActionLengthAddr + regHigh + 1;
 }
 
 uint8_t SM_checksum(void) {
     uint16_t address, length = SM_dataLength();
-    uint8_t regHigh, regLow, checksum = 0x00;
+    uint8_t checksum = 0x00;
     for (address = 0; address < length; address++) {
-        regHigh = address >> 8;
-        regLow = address & 0xFF;
-        checksum = checksum + MEM_read(SM_MEM_ADDRESS, regHigh, regLow);
+        checksum = checksum + I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START + address);
     }
     return checksum;
 }
 
-#endif
-#endif
 #endif

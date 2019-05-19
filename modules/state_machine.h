@@ -11,7 +11,7 @@
  * - then the states start, each state:
  *   - first a count of evaluations
  *   - then evaluations of that state start:
- *     - each evaluation contains 2 bytes * SM_PORT_SIZE
+ *     - each evaluation contains 2 bytes * SM_STATE_SIZE
  *       - 1st byte: condition value
  *       - 2nd byte: condition mask (which bits of condition value are relevant)
  *     - next number of actions of this evaluation
@@ -96,28 +96,36 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../config.h"
+#include "../lib/types.h"
+#include "../lib/requirements.h"
 
 #ifdef SM_MEM_ADDRESS
 
-    // Configuration
+#include "i2c.h"
+
+// Configuration
+#ifndef SM_MEM_START
+#define SM_MEM_START 0x0000
+#endif
 #ifndef SM_MAX_SIZE
 #ifdef MEM_SIZE
+#warning "SM: SM_MAX_SIZE defaults to MEM_SIZE"
 #define SM_MAX_SIZE MEM_SIZE
+#else
+#error "SM: At least one of SM_MAX_SIZE or MEM_SIZE must be defined!"
 #endif
 #endif
 
-#ifndef SM_CHECK_DELAY
-#ifdef TIMER_PERIOD
-#define SM_CHECK_DELAY 100 / TIMER_PERIOD // ms
-#endif
+#ifndef SM_CHECK_INTERVAL
+#error "SM: TIMER_PERIOD needs to be defined"
 #endif
 
-#ifdef SM_MAX_SIZE
-#ifdef SM_CHECK_DELAY
+#ifndef TIMER_PERIOD
+#error "SM: TIMER_PERIOD needs to be defined"
+#endif
     
 #define SM_VALUE_MAX_SIZE 0x60
-#define SM_PORT_SIZE 5
+#define SM_STATE_SIZE 5
 
 // Action value type
 #define SM_ACTION_TYPE_BOOL 0
@@ -164,32 +172,25 @@ extern "C" {
 /** Whether the state machine is enabled or not */
 uint8_t SM_status = SM_STATUS_ENABLED;
 
-#ifndef BM78_MESSAGE_KIND_SM_CONFIGURATION
-#define BM78_MESSAGE_KIND_SM_CONFIGURATION 0x80
-#endif
-#ifndef BM78_MESSAGE_KIND_SM_PULL
-#define BM78_MESSAGE_KIND_SM_PULL 0x81
-#endif
-#ifndef BM78_MESSAGE_KIND_SM_PUSH
-#define BM78_MESSAGE_KIND_SM_PUSH 0x82
-#endif
-#ifndef BM78_MESSAGE_KIND_SM_GET_STATE
-#define BM78_MESSAGE_KIND_SM_GET_STATE 0x83
-#endif
-#ifndef BM78_MESSAGE_KIND_SM_SET_STATE
-#define BM78_MESSAGE_KIND_SM_SET_STATE 0x84
-#endif
-#ifndef BM78_MESSAGE_KIND_SM_ACTION
-#define BM78_MESSAGE_KIND_SM_ACTION 0x84
-#endif
+typedef void (*SM_StateConsumer_t)(uint8_t* state);
+typedef void (*SM_executeAction_t)(uint8_t, uint8_t, uint8_t*);
 
 /**
  * Retrieves current state and passes it to the output parameter.
  * 
  * @param state Obtained stated output parameter.
  */
-void (*SM_getStateTo)(uint8_t* state);
-void (*SM_executeAction)(uint8_t, uint8_t, uint8_t*);
+SM_StateConsumer_t SM_getStateTo;
+
+
+/**
+ * Action execution handler.
+ * 
+ * @param device Device.
+ * @param length Value length.
+ * @param value Value.
+ */
+SM_executeAction_t SM_executeAction;
 
 /**
  * Initialization, needs to be called before state machine can be used.
@@ -205,7 +206,7 @@ void SM_init(void);
  * using the TIMER_PERIOD period. It checks the current state, evaluates the
  * state machine's conditions and executes corresponding actions.
  * 
- * The periodical check uses SM_CHECK_DELAY to delay consecutive checks.
+ * The periodical check uses SM_CHECK_INTERVAL to delay consecutive checks.
  */
 void SM_periodicalCheck(void);
 
@@ -222,28 +223,28 @@ bool SM_enter(uint8_t stateId);
  * 
  * @param StateGetter State getter function.
  */
-void SM_setStateGetter(void (* StateGetter)(uint8_t*));
+void SM_setStateGetter(SM_StateConsumer_t stateGetter);
 
 /**
  * Defines action handler.
  * 
  * @param ActionHandler Action handler.
  */
-void SM_setActionHandler(void (* ActionHandler)(uint8_t, uint8_t, uint8_t*));
+void SM_setActionHandler(SM_executeAction_t actionHandler);
 
 /**
  * Defines evaluated handler which is called when evaluation is complete.
  * 
  * @param EvaluatedHandler
  */
-void SM_setEvaluatedHandler(void (* EvaluatedHandler)());
+void SM_setEvaluatedHandler(Procedure_t evaluatedHandler);
 
 /**
  * Defines error handler.
  * 
  * @param ErrorHandler Error handler.
  */
-void SM_setErrorHandler(void (* ErrorHandler)(uint8_t));
+void SM_setErrorHandler(Consumer_t errorHandler);
 
 /**
  * Calculates State Machine's data length.
@@ -259,8 +260,6 @@ uint16_t SM_dataLength(void);
  */
 uint8_t SM_checksum(void);
 
-#endif
-#endif
 #endif
 
 #ifdef	__cplusplus

@@ -3,6 +3,7 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "common.h"
+#include "requirements.h"
 
 uint8_t waitingLoaderCounter = 0;
 
@@ -18,7 +19,15 @@ inline uint8_t min(uint8_t a, uint8_t b) {
     return a <= b ? a : b;
 }
 
+inline uint16_t min16(uint16_t a, uint16_t b) {
+    return a <= b ? a : b;
+}
+
 inline uint8_t max(uint8_t a, uint8_t b) {
+    return a >= b ? a : b;
+}
+
+inline uint16_t max16(uint16_t a, uint16_t b) {
     return a >= b ? a : b;
 }
 

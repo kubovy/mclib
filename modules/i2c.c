@@ -4,30 +4,14 @@
  */
 #include "i2c.h"
 
-//#if defined I2C || defined I2C_MSSP || defined I2C_MSSP_FOUNDATION
+//#ifdef I2C_ENABLED
 
-#if defined I2C
-#include "../../mcc_generated_files/i2c1.h"
-#elif defined I2C_MSSP
-#include "../../mcc_generated_files/i2c1.h"
-uint8_t writeBuffer[3];
-#elif defined I2C_MSSP_FOUNDATION
-#include "../../mcc_generated_files/i2c1.h"
-#endif
-
-inline void I2C_init(void) {
-#if defined I2C_MSSP
-    //I2C1_Initialize();  
-#elif defined I2C_MSSP_FOUNDATION
-    i2c1_driver_open();
-#else
-#endif
-}
+//if defined I2C_MSSP_FOUNDATION
+//    i2c1_driver_open();
+//endif
 
 inline uint8_t I2C_readRegister(uint8_t address, uint8_t reg) {
-#if defined I2C
-    return i2c1_read1ByteRegister(address, reg);
-#elif defined I2C_MSSP
+#if defined I2C_MSSP
     uint8_t byte;
     
     I2C1_Initialize();
@@ -50,25 +34,37 @@ inline uint8_t I2C_readRegister(uint8_t address, uint8_t reg) {
     }
 #elif defined I2C_MSSP_FOUNDATION
     return i2c_read1ByteRegister(address, reg);
+#else
+    return i2c1_read1ByteRegister(address, reg);
 #endif
 }
 
 inline uint8_t I2C_readRegister2(uint8_t address, uint8_t regHigh, uint8_t regLow) {
-#if defined I2C
-    return i2c1_read1ByteRegister2(address, regHigh, regLow);
-#elif defined I2C_MSSP
+#if defined I2C_MSSP
     uint8_t byte;
     I2C_read_data_2register(address, regHigh, regLow, &byte, 1);
     return byte;
 #elif defined I2C_MSSP_FOUNDATION
     return i2c_read1ByteRegister2(address, regHigh, regLow);
+#else
+    return i2c1_read1ByteRegister2(address, regHigh, regLow);
 #endif
 }
 
+inline uint8_t I2C_readRegister16(uint8_t address, uint16_t reg) {
+#if defined I2C_MSSP
+    uint8_t byte;
+    I2C_read_data_2register(address, reg >> 8, reg & 0xFF, &byte, 1);
+    return byte;
+#elif defined I2C_MSSP_FOUNDATION
+    return i2c_read1ByteRegister2(address, reg >> 8, reg & 0xFF);
+#else
+    return i2c1_read1ByteRegister2(address, reg >> 8, reg & 0xFF);
+#endif 
+}
+
 inline void I2C_writeByte(uint8_t address, uint8_t byte) {
-#if defined I2C
-    i2c1_writeNBytes(address, &byte, 1);
-#elif defined I2C_MSSP
+#if defined I2C_MSSP
     I2C1_MESSAGE_STATUS status = I2C1_MESSAGE_PENDING;
     uint8_t timeout = 0;
     while(status != I2C1_MESSAGE_FAIL) {
@@ -81,13 +77,13 @@ inline void I2C_writeByte(uint8_t address, uint8_t byte) {
     }
 #elif defined I2C_MSSP_FOUNDATION
     i2c_writeNBytes(address, &byte, 1);
+#else
+    i2c1_writeNBytes(address, &byte, 1);
 #endif
 }
 
 inline void I2C_writeRegister(uint8_t address, uint8_t reg, uint8_t byte) {
-#if defined I2C
-    i2c1_write1ByteRegister(address, reg, byte);
-#elif defined I2C_MSSP
+#if defined I2C_MSSP
     I2C1_Initialize();
     while(I2C1_MasterQueueIsFull());
 
@@ -105,13 +101,13 @@ inline void I2C_writeRegister(uint8_t address, uint8_t reg, uint8_t byte) {
     }
 #elif defined I2C_MSSP_FOUNDATION
     i2c_write1ByteRegister(address, reg, byte);
+#else
+    i2c1_write1ByteRegister(address, reg, byte);
 #endif
 }
 
 inline void I2C_writeRegister2(uint8_t address, uint8_t regHigh, uint8_t regLow, uint8_t byte) {
-#if defined I2C
-    i2c1_write1ByteRegister2(address, regHigh, regLow, byte);
-#elif defined I2C_MSSP
+#if defined I2C_MSSP
     I2C1_MESSAGE_STATUS status = I2C1_MESSAGE_PENDING;
 
     // build the write buffer first
@@ -145,13 +141,17 @@ inline void I2C_writeRegister2(uint8_t address, uint8_t regHigh, uint8_t regLow,
     }
 #elif defined I2C_MSSP_FOUNDATION
     i2c_write1ByteRegister2(address, regHigh, regLow, byte);
+#else
+    i2c1_write1ByteRegister2(address, regHigh, regLow, byte);
 #endif
 }
 
-inline void I2C_writeData(uint8_t address, uint8_t *data, uint8_t len) {
-#if defined I2C
-    i2c1_writeNBytes(address, data, len);
-#elif defined I2C_MSSP
+inline void I2C_writeRegister16(uint8_t address, uint16_t reg, uint8_t byte) {
+    I2C_writeRegister2(address, reg >> 8, reg & 0xFF, byte);
+}
+
+inline void I2C_writeData(uint8_t address, uint8_t len, uint8_t *data) {
+#if defined I2C_MSSP
     I2C1_Initialize();
     while(I2C1_MasterQueueIsFull());
     I2C1_MESSAGE_STATUS status = I2C1_MESSAGE_PENDING;
@@ -175,6 +175,8 @@ inline void I2C_writeData(uint8_t address, uint8_t *data, uint8_t len) {
     }
 #elif defined I2C_MSSP_FOUNDATION
     i2c_writeNBytes(address, data, len);
+#else
+    i2c1_writeNBytes(address, data, len);
 #endif
 }
 

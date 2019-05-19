@@ -20,11 +20,12 @@
 extern "C" {
 #endif
 
-#include "../../config.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include "../lib/requirements.h"
 
-#if defined RGB_R_DUTY_CYCLE || defined RGB_G_DUTY_CYCLE || defined RGB_B_DUTY_CYCLE
+#ifdef RGB_ENABLED
 
-#define RGB_ENABLED
 #define RGB_INDEFINED 0xFF
 
 #ifndef RGB_TIMER_PERIOD

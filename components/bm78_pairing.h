@@ -14,14 +14,22 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../modules/bm78.h"
+#include "../lib/requirements.h"
 
 #ifdef BM78_ENABLED
 
+#include "../lib/common.h"
+#include "../modules/bm78.h"
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
 
+#ifndef BMP_CMD_TIMEOUT
+#warning "BMP: Command timeout defaults to BM78_INIT_CMD_TIMEOUT"
+#define BMP_CMD_TIMEOUT BM78_INIT_CMD_TIMEOUT
+#endif
+    
+#ifdef BM78_ADVANCED_PAIRING
 /** Whether or not paring request is waiting. */
 bool BMP_waiting(void);
 
@@ -35,12 +43,19 @@ void BMP_cancel(void);
  */
 void BMP_processKey(uint8_t key);
 
+#endif
+
 /** 
  * Retry trigger.
  * 
  * Should be called in TIMER_PERIOD intervals from the main loop.
  */
 void BMP_retryTrigger(void);
+
+/**
+ * Enter pairing mode
+ */
+void BMP_enterPairingMode(void);
 
 /**
  * Initiates removal of all paired devices.

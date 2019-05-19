@@ -15,9 +15,10 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../config.h"
+#include "../lib/requirements.h"
 
 #ifdef DHT11_PORT
+
 #define DHT11_ERR_VALUE ((uint8_t) 255)
 #define DHT11_OK ((uint8_t) 0)
 #define DHT11_ERR_NO_RESPONSE ((uint8_t) 1)
@@ -36,6 +37,7 @@ typedef struct {
  * @return The result of the measurement.
  */
 DHT11_Result DHT11_measure(void);
+
 #endif
 
 #ifdef	__cplusplus

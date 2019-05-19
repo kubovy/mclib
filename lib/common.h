@@ -13,7 +13,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../../config.h"
+#include "../lib/requirements.h"
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
@@ -36,7 +36,11 @@ inline uint8_t hex2dec(unsigned char hex);
 
 inline uint8_t min(uint8_t a, uint8_t b);
 
+inline uint16_t min16(uint16_t a, uint16_t b);
+
 inline uint8_t max(uint8_t a, uint8_t b);
+
+inline uint16_t max16(uint16_t a, uint16_t b);
 
 /**
  * Calculates length of the string. A string must be terminated by a '\0' (NUL).

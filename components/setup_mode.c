@@ -4,25 +4,6 @@
  */
 #include "setup_mode.h"
 
-#include "../../config.h"
-#include "../lib/common.h"
-#include "../components/poc.h"
-#include "../modules/lcd.h"
-#include "../modules/mcp23017.h"
-#include "../modules/rgb.h"
-
-#ifdef MEM_ADDRESS
-#include "../modules/memory.h"
-#ifdef SM_MEM_ADDRESS
-#include "../modules/state_machine.h"
-#include "state_machine_interaction.h"
-#endif
-#endif
-
-#ifdef WS281x_BUFFER
-#include "../modules/ws281x.h"
-#endif
-
 struct {
     uint8_t timeout;
     uint8_t stage;
@@ -30,8 +11,10 @@ struct {
     uint8_t index;
 } SUM_bm78ConfigCommand = { 0xFF, 0, 0, 0 };
 
-uint16_t SUM_addr = 0x0000;
-uint8_t SUM_i;
+struct {
+    uint8_t addr;
+    uint16_t reg;
+} SUM_mem = { 0x00, 0x0000 };
 
 #ifdef LCD_ADDRESS
 
@@ -53,15 +36,16 @@ struct {
     
 } SUM_bm78CurrentState = { 0x00 };
 
-uint8_t SUM_j;
 #ifndef MEM_SUM_LCD_CACHE_START
 char lcdCache[LCD_ROWS][LCD_COLS + 1];
 #endif
 
+#ifdef MCP_ENABLED
 struct {
     uint8_t addr;
     uint8_t port;
 } SUM_mcpTest = { MCP_START_ADDRESS, MCP_PORTA };
+#endif
 
 struct {
     uint8_t position;
@@ -112,22 +96,24 @@ void SUM_setBtStatus(uint8_t status) {
 
 void SUM_displayHWAddress(uint8_t index, uint8_t line, uint8_t start) {
     if (index < BM78.pairedDevicesCount) {
-        for (SUM_j = 0; SUM_j < 6; SUM_j++) {
-            LCD_replaceChar(dec2hex(BM78.pairedDevices[index].address[5 - SUM_j] / 16 % 16), SUM_j * 3 + start, line, false);
-            LCD_replaceChar(dec2hex(BM78.pairedDevices[index].address[5 - SUM_j] % 16), SUM_j * 3 + start + 1, line, false);
-            if (SUM_j > 0) LCD_replaceChar(':', SUM_j * 3 + start + 2, line, false);
+        for (uint8_t i = 0; i < 6; i++) {
+            LCD_replaceChar(dec2hex(BM78.pairedDevices[index].address[5 - i] / 16 % 16), i * 3 + start, line, false);
+            LCD_replaceChar(dec2hex(BM78.pairedDevices[index].address[5 - i] % 16), i * 3 + start + 1, line, false);
+            if (i > 0) LCD_replaceChar(':', i * 3 + start + 2, line, false);
         }
     }
 }
 
 #endif
 
+#ifdef MCP_ENABLED
 void SUM_mcpChanged(uint8_t address) {
     if (SUM_mode && SUM_setupPage == SUM_MENU_TEST_MCP_IN) {
         SUM_mcpTest.addr = address;
         POC_testMCP23017Input(SUM_mcpTest.addr);
     }
 }
+#endif
 
 void SUM_showMenu(uint8_t page) {
     SUM_setupPage = page;
@@ -144,7 +130,7 @@ void SUM_showMenu(uint8_t page) {
 #else
             LCD_setString("-) Bluetooth", 0, true);
 #endif
-#ifdef MEM_ADDRESS
+#if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
             LCD_setString("2) Memory", 1, true);
 #else
             LCD_setString("-) Memory", 1, true);
@@ -179,8 +165,7 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back      Next (C", 3, true);
             break;
         case SUM_MENU_BT_PAGE_4: // Bluetooth Menu (Page 4)
-            LCD_setString("1) Init Dongle      ", 0, true);
-            LCD_setString("2) Init Application ", 1, true);
+            LCD_setString("1) Initialize BM78  ", 0, true);
             LCD_setString("B) Back             ", 3, true);
             break;
         case SUM_MENU_BT_STATE: // Bluetooth: State
@@ -204,12 +189,12 @@ void SUM_showMenu(uint8_t page) {
                 LCD_setString("#: Clear all paired ", 1, true);
                 LCD_setString("B) Back             ", 3, true);
             } else { // Paired devices retrieved
-                for (SUM_i = 0; SUM_i < 3; SUM_i++) {
-                    if ((SUM_pairedDevices.page * 3 + SUM_i) < BM78.pairedDevicesCount) {
-                        LCD_setString("-) ##:##:##:##:##:##", SUM_i, false);
-                        LCD_replaceChar(SUM_i + 49, 0, SUM_i, false);
-                        SUM_displayHWAddress(SUM_pairedDevices.page * 3 + SUM_i, SUM_i, 3);
-                        LCD_displayLine(SUM_i);
+                for (uint8_t i = 0; i < 3; i++) {
+                    if ((SUM_pairedDevices.page * 3 + i) < BM78.pairedDevicesCount) {
+                        LCD_setString("-) ##:##:##:##:##:##", i, false);
+                        LCD_replaceChar(i + 49, 0, i, false);
+                        SUM_displayHWAddress(SUM_pairedDevices.page * 3 + i, i, 3);
+                        LCD_displayLine(i);
                     }
                 }
                 if ((SUM_pairedDevices.page + 1) * 3 < BM78.pairedDevicesCount) {
@@ -253,16 +238,10 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("1) Refresh          ", 2, true);
             LCD_setString("B) Back             ", 3, true);
             break;
-        case SUM_MENU_BT_INITIALIZE_DONGLE:
+        case SUM_MENU_BT_INITIALIZE:
             LCD_setString("  Initializing BT   ", 1, true);
             LCD_setString("  (please wait...)  ", 2, true);
             break;
-#ifdef BM78_INITIAL_DEVICE_NAME
-        case SUM_MENU_BT_INITIALIZE_APP:
-            LCD_setString("  Initializing App  ", 1, true);
-            LCD_setString("  (please wait...)  ", 2, true);
-            break;
-#endif
         case SUM_MENU_BT_READ_CONFIG:
             LCD_setString("Memory controls:    ", 0, true);
             LCD_setString("B: Previous, C: Next", 1, true);
@@ -276,14 +255,23 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back   Refresh (1", 3, true);
             break;
 #endif
-#ifdef MEM_ADDRESS
+#if defined MEM_ADDRESS || MEM_INTERNAL_SIZE
         case SUM_MENU_MEM_MAIN: // Memory Menu
-            LCD_setString("1) Memory Viewer    ", 0, true);
+#ifdef MEM_INTERNAL_SIZE
+            LCD_setString("1) PIC Memory Viewer", 0, true);
+#else
+            LCD_setString("-) PIC Memory Viewer", 0, true);
+#endif
+#ifdef MEM_ADDRESS
+            LCD_setString("2) Memory Viewer    ", 1, true);
+#else
+            LCD_setString("-) Memory Viewer    ", 1, true);
+#endif
 #ifdef SM_MEM_ADDRESS
-            if (MEM_read(SM_MEM_ADDRESS, 0x00, 0x00) == 0x00) {
-                LCD_setString("2) Lock SM       [ ]", 1, true);
+            if (I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START) == SM_STATUS_ENABLED) {
+                LCD_setString("3) Lock SM       [ ]", 2, true);
             } else {
-                LCD_setString("2) Unlock SM     [X]", 1, true);
+                LCD_setString("3) Unlock SM     [X]", 2, true);
             }
 #endif
             LCD_setString("B) Back             ", 3, true);
@@ -295,24 +283,41 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("#: Address  Con't (C", 3, true);
             break;
 #endif
-        case SUM_MENU_TEST_PAGE_1: // Tests Menu (Page 1)
+        case SUM_MENU_TEST_PAGE_1:
+#ifdef DHT11_PORT
+            LCD_setString("1) DHT11 Test       ", 0, true);
+#else
+            LCD_setString("-) DHT11 Test       ", 0, true);
+#endif
+            LCD_setString("B) Back      Next (C", 3, true);
+            break;
+        case SUM_MENU_TEST_PAGE_2: // Tests Menu (Page 1)
             LCD_setString("1) LCD Test         ", 0, true);
             LCD_setString("2) LCD Backlight [ ]", 1, false);
             LCD_replaceChar(sw.lcdBacklight ? 'X' : ' ', 18, 1, true);
             LCD_setString("B) Back      Next (C", 3, true);
             break;
-        case SUM_MENU_TEST_PAGE_2: // Tests Menu (Page 2)
+        case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
+#ifdef MCP_ENABLED
             LCD_setString("1) MCP23017 IN Test ", 0, true);
             LCD_setString("2) MCP23017 OUT Test", 1, true);
+#else
+            LCD_setString("-) MCP23017 IN Test ", 0, true);
+            LCD_setString("-) MCP23017 OUT Test", 1, true);
+#endif
             LCD_setString("3) Show Keypad   [ ]", 2, false);
             LCD_replaceChar(sw.showKeypad ? 'X' : ' ', 18, 2, true);
             LCD_setString("B) Back      Next (C", 3, true);
             break;
-        case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 3)
+        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 3)
+#ifdef RGB_ENABLED
             LCD_setString("1) RGB Test         ", 0, true);
+#else
+            LCD_setString("-) RGB Test         ", 0, true);
+#endif
             LCD_setString("B) Back      Next (C", 3, true);
             break;
-        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 4)
+        case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
 #ifdef WS281x_BUFFER
             LCD_setString("1) WS281x Test      ", 0, true);
             LCD_setString("2) WS281x Demo   [ ]", 1, false);
@@ -323,6 +328,13 @@ void SUM_showMenu(uint8_t page) {
 #endif
             LCD_setString("B) Back             ", 3, true);
             break;
+#ifdef DHT11_PORT
+        case SUM_MENU_TEST_DHT11:
+            POC_testDHT11();
+            LCD_setString("B) Back   Refresh (C", 3, true);
+            break;
+#endif
+#ifdef MCP_ENABLED
         case SUM_MENU_TEST_MCP_IN:
             POC_testMCP23017Input(SUM_mcpTest.addr);
             LCD_setString("B) Back      Next (C", 3, true);
@@ -341,6 +353,7 @@ void SUM_showMenu(uint8_t page) {
                 LCD_setString("B) Back    Repeat (C", 3, true);
             }
             break;
+#endif
     }
 }
 
@@ -380,7 +393,7 @@ void SUM_executeMenu(uint8_t key) {
                     BM78_execute(BM78_CMD_READ_STATUS, 0);
                     break;
 #endif
-#ifdef MEM_ADDRESS
+#if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
                 case '2': // Goto Memory Menu
                     SUM_showMenu(SUM_MENU_MEM_MAIN);
                     break;
@@ -394,14 +407,14 @@ void SUM_executeMenu(uint8_t key) {
 #ifdef MEM_SUM_LCD_CACHE_START
                     for (SUM_i = 0; SUM_i < LCD_ROWS; SUM_i++) {
                         for (SUM_j = 0; SUM_j < LCD_COLS; SUM_j++) {
-                            SUM_addr = MEM_SUM_LCD_CACHE_START + (SUM_i * LCD_COLS) + SUM_j;
-                            LCD_setCache(SUM_i, SUM_j, MEM_read(MEM_ADDRESS, SUM_addr >> 8, SUM_addr & 0xFF));
+                            SUM_mem.reg = MEM_SUM_LCD_CACHE_START + (SUM_i * LCD_COLS) + SUM_j;
+                            LCD_setCache(SUM_i, SUM_j, I2C_readRegister16(MEM_ADDRESS, SUM_mem.reg));
                         }
                     }
                     LCD_displayCache();
 #else
-                    for (SUM_i = 0; SUM_i < LCD_ROWS; SUM_i++) {
-                        LCD_setString(lcdCache[SUM_i], SUM_i, true);
+                    for (uint8_t i = 0; i < LCD_ROWS; i++) {
+                        LCD_setString(lcdCache[i], i, true);
                     }
 #endif
                     break;
@@ -486,16 +499,11 @@ void SUM_executeMenu(uint8_t key) {
         case SUM_MENU_BT_PAGE_4: // Bluetooth Menu (Page 4)
             switch(key) {
                 case '1': // Initialize Bluetooth Dongle
-                    SUM_showMenu(SUM_MENU_BT_INITIALIZE_DONGLE);
-                    printProgress("  Initializing BT   ", 0, BM78_CONFIGURATION_SIZE + 3);
+                    SUM_showMenu(SUM_MENU_BT_INITIALIZE);
+                    printProgress("  Initializing BT   ", 0,
+                            BM78_CONFIGURATION_SIZE + 3);
                     SUM_bm78InitializeDongle();
                     break;
-#ifdef BM78_INITIAL_DEVICE_NAME
-                case '2':
-                    SUM_showMenu(SUM_MENU_BT_INITIALIZE_APP);
-                    BM78_setup(false, BM78_INITIAL_DEVICE_NAME, BM78_INITIAL_DEVICE_PIN, BM78_INITIAL_PAIRING_MODE);
-                    break;
-#endif
                 case 'B': // Back
                     SUM_showMenu(SUM_MENU_BT_PAGE_3);
                     break;
@@ -606,9 +614,9 @@ void SUM_executeMenu(uint8_t key) {
                 case '2': // Select Just Work
                 case '3': // Select Passkey
                 case '4': // Select User Confirm
-                    SUM_i = key - 49;
-                    if (BM78.pairingMode != SUM_i) {
-                        BM78_write(BM78_CMD_WRITE_PAIRING_MODE_SETTING, BM78_EEPROM_STORE, 1, &SUM_i);
+                    key = key - 49;
+                    if (BM78.pairingMode != key) {
+                        BM78_write(BM78_CMD_WRITE_PAIRING_MODE_SETTING, BM78_EEPROM_STORE, 1, &key);
                     }
                     break;
                 case 'B': // Back
@@ -687,7 +695,7 @@ void SUM_executeMenu(uint8_t key) {
                     BM78_resetToTestMode();
                     __delay_ms(1000);
                     BM78_openEEPROM();
-                    SUM_addr = 0x0000;
+                    SUM_mem.reg = 0x0000;
                     break;
                 default:
                     SUM_defaultFunction(key);
@@ -726,20 +734,20 @@ void SUM_executeMenu(uint8_t key) {
                 if (SUM_manual.position > 0) {
                     SUM_manual.position--;
                 } else {
-                    SUM_addr = SUM_manual.address / 16 * 16;
+                    SUM_mem.reg = SUM_manual.address / 16 * 16;
                     SUM_manual.address = 0x0000;
                     SUM_manual.position = 0xFF;
-                    BM78_readEEPROM(SUM_addr, 16);
+                    BM78_readEEPROM(SUM_mem.reg, 16);
                 }
             } else switch(key) { // Browse Memory
                 case 'B': // Previous
-                    if (SUM_addr > 0) {
-                        BM78_readEEPROM(SUM_addr - 16, 16);
+                    if (SUM_mem.reg > 0) {
+                        BM78_readEEPROM(SUM_mem.reg - 16, 16);
                     }
                     break;
                 case 'C': // Next
-                    if (SUM_addr < (BM78_EEPROM_SIZE - 16)) {
-                        BM78_readEEPROM(SUM_addr + 16, 16);
+                    if (SUM_mem.reg < (BM78_EEPROM_SIZE - 16)) {
+                        BM78_readEEPROM(SUM_mem.reg + 16, 16);
                     }
                     break;
                 case 'A': // Abort
@@ -748,13 +756,13 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_BT_PAGE_3);
                     break;
                 case 'D': // Reset
-                    SUM_addr = 0x0000;
-                    BM78_readEEPROM(SUM_addr, 16);
+                    SUM_mem.reg = 0x0000;
+                    BM78_readEEPROM(SUM_mem.reg, 16);
                     break;
                 case '*':
                     LCD_init();
                     LCD_setBacklight(true);
-                    BM78_readEEPROM(SUM_addr, 16);
+                    BM78_readEEPROM(SUM_mem.reg, 16);
                     break;
                 case '#':
                     LCD_clear();
@@ -767,16 +775,27 @@ void SUM_executeMenu(uint8_t key) {
             }
             break;
 #endif
-#ifdef MEM_ADDRESS
+#if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
         case SUM_MENU_MEM_MAIN: // Memory Menu
             switch(key) {
+#ifdef MEM_INITIALIZED_ADDR
                 case '1': // Goto Memory Viewer
+                    SUM_mem.addr = 0x00;
                     SUM_showMenu(SUM_MENU_MEM_VIEWER_INTRO);
                     break;
+#endif
+#ifdef MEM_ADDRESS
+                case '2': // Goto Memory Viewer
+                    SUM_mem.addr = MEM_ADDRESS;
+                    SUM_showMenu(SUM_MENU_MEM_VIEWER_INTRO);
+                    break;
+#endif
 #ifdef SM_MEM_ADDRESS
-                case '2': // Lock/Unlock State Machine
-                    byte = MEM_read(SM_MEM_ADDRESS, 0x00, 0x00);
-                    MEM_write(SM_MEM_ADDRESS, 0x00, 0x00, byte == 0xFF ? 0x00 : 0xFF);
+                case '3': // Lock/Unlock State Machine
+                    byte = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
+                    I2C_writeRegister16(SM_MEM_ADDRESS, SM_MEM_START,
+                            byte == SM_STATUS_DISABLED 
+                            ? SM_STATUS_ENABLED : SM_STATUS_DISABLED);
                     SM_init();
                     if (byte == 0x00) SMI_start();
                     SUM_showMenu(SUM_MENU_MEM_MAIN);
@@ -794,8 +813,8 @@ void SUM_executeMenu(uint8_t key) {
             switch(key) {
                 case 'C': // Continue
                     SUM_setupPage = SUM_MENU_MEM_VIEWER;
-                    SUM_addr = 0x0000;
-                    POC_testMem(SUM_addr);
+                    SUM_mem.reg = 0x0000;
+                    POC_testMem(SUM_mem.addr, SUM_mem.reg);
                     break;
                 default:
                     SUM_defaultFunction(key);
@@ -819,31 +838,46 @@ void SUM_executeMenu(uint8_t key) {
                 if (SUM_manual.position > 0) {
                     SUM_manual.position--;
                 } else {
-                    SUM_addr = SUM_manual.address / 16 * 16;
+#if defined MEM_ADDRESS && defined MEM_INTERNAL_SIZE
+                    SUM_mem.reg = min16(SUM_manual.address / 16 * 16,
+                            ((SUM_mem.addr == 0x00 ? MEM_INTERNAL_SIZE : MEM_SIZE) - 15));
+#elif defined MEM_ADDRESS
+                    SUM_mem.reg = min16(SUM_manual.address / 16 * 16,
+                            (MEM_SIZE - 15));
+#elif defined MEM_INTERNAL_SIZE
+                    SUM_mem.reg = min16(SUM_manual.address / 16 * 16,
+                            (MEM_INTERNAL_SIZE - 15));
+#endif
                     SUM_manual.address = 0x0000;
                     SUM_manual.position = 0xFF;
-                    POC_testMem(SUM_addr);
+                    POC_testMem(SUM_mem.addr, SUM_mem.reg);
                 }
             } else switch(key) { // Browse Memory
                 case 'B': // Previous
-                    if (SUM_addr > 0) SUM_addr -= 16;
-                    POC_testMem(SUM_addr);
+                    if (SUM_mem.reg > 0) SUM_mem.reg -= 16;
+                    POC_testMem(SUM_mem.addr, SUM_mem.reg);
                     break;
                 case 'C': // Next
-                    if (SUM_addr < (MEM_SIZE - 16)) SUM_addr += 16;
-                    POC_testMem(SUM_addr);
+#if defined MEM_ADDRESS && defined MEM_INTERNAL_SIZE
+                    if (SUM_mem.reg < ((SUM_mem.addr == 0x00 ? MEM_INTERNAL_SIZE : MEM_SIZE) - 16)) SUM_mem.reg += 16;
+#elif defined MEM_ADDRESS
+                    if (SUM_mem.reg < (MEM_SIZE - 16)) SUM_mem.reg += 16;
+#elif defined MEM_INTERNAL_SIZE
+                    if (SUM_mem.reg < (MEM_INTERNAL_SIZE - 16)) SUM_mem.reg += 16;
+#endif
+                    POC_testMem(SUM_mem.addr, SUM_mem.reg);
                     break;
                 case 'A': // Abort
                     SUM_showMenu(SUM_MENU_MEM_MAIN);
                     break;
                 case 'D': // Reset
-                    SUM_addr = 0x0000;
-                    POC_testMem(SUM_addr);
+                    SUM_mem.reg = 0x0000;
+                    POC_testMem(SUM_mem.addr, SUM_mem.reg);
                     break;
                 case '*':
                     LCD_init();
                     LCD_setBacklight(true);
-                    POC_testMem(SUM_addr);
+                    POC_testMem(SUM_mem.addr, SUM_mem.reg);
                     break;
                 case '#':
                     LCD_clear();
@@ -856,17 +890,13 @@ void SUM_executeMenu(uint8_t key) {
             }
             break;
 #endif
-        case SUM_MENU_TEST_PAGE_1: // Tests Menu (Page 1)
+        case SUM_MENU_TEST_PAGE_1:
             switch(key) {
-                case '1': // LCD Test
-                    POC_testDisplay();
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_1);
+#ifdef DHT11_PORT
+                case '1': // DHT11 Test
+                    SUM_showMenu(SUM_MENU_TEST_DHT11);
                     break;
-                case '2': // LCD Backlight
-                    sw.lcdBacklight = !sw.lcdBacklight;
-                    LCD_setBacklight(sw.lcdBacklight);
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_1);
-                    break;
+#endif
                 case 'B': // Back
                     SUM_showMenu(SUM_MENU_MAIN);
                     break;
@@ -878,19 +908,15 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
-        case SUM_MENU_TEST_PAGE_2: // Tests Menu (Page 2)
-            switch (key) {
-                case '1': // MCP23017 Input Test
-                    SUM_mcpTest.addr = MCP_START_ADDRESS;
-                    SUM_showMenu(SUM_MENU_TEST_MCP_IN);
+        case SUM_MENU_TEST_PAGE_2: // Tests Menu (Page 1)
+            switch(key) {
+                case '1': // LCD Test
+                    POC_testDisplay();
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_2);
                     break;
-                case '2': // MCP23017 Output Test
-                    SUM_mcpTest.addr = 0x00;
-                    SUM_mcpTest.port = 0xFF;
-                    SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
-                    break;
-                case '3': // Show Keypad
-                    sw.showKeypad = !sw.showKeypad;
+                case '2': // LCD Backlight
+                    sw.lcdBacklight = !sw.lcdBacklight;
+                    LCD_setBacklight(sw.lcdBacklight);
                     SUM_showMenu(SUM_MENU_TEST_PAGE_2);
                     break;
                 case 'B': // Back
@@ -904,10 +930,21 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
-        case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 3)
-            switch(key) {
-                case '1': // RGB Test
-                    POC_testRGB();
+        case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
+            switch (key) {
+#ifdef MCP_ENABLED
+                case '1': // MCP23017 Input Test
+                    SUM_mcpTest.addr = MCP_START_ADDRESS;
+                    SUM_showMenu(SUM_MENU_TEST_MCP_IN);
+                    break;
+                case '2': // MCP23017 Output Test
+                    SUM_mcpTest.addr = 0x00;
+                    SUM_mcpTest.port = 0xFF;
+                    SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
+                    break;
+#endif
+                case '3': // Show Keypad
+                    sw.showKeypad = !sw.showKeypad;
                     SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     break;
                 case 'B': // Back
@@ -921,36 +958,71 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
-        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 4)
+        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 3)
             switch(key) {
-#ifdef WS281x_BUFFER
-                case '1': // WS281x Test
-                    POC_testWS281x();
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
-                    break;
-                case '2': // WS281x Demo
-                    sw.ws281xDemo = !sw.ws281xDemo;
-                    if (sw.ws281xDemo) POC_demoWS281x();
-                    else WS281x_off();
+#ifdef RGB_ENABLED
+                case '1': // RGB Test
+                    POC_testRGB();
                     SUM_showMenu(SUM_MENU_TEST_PAGE_4);
                     break;
 #endif
                 case 'B': // Back
                     SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     break;
+                case 'C': // Next
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    break;
                 default:
                     SUM_defaultFunction(key);
                     break;
             }
             break;
+        case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
+            switch(key) {
+#ifdef WS281x_BUFFER
+                case '1': // WS281x Test
+                    POC_testWS281x();
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    break;
+                case '2': // WS281x Demo
+                    sw.ws281xDemo = !sw.ws281xDemo;
+                    if (sw.ws281xDemo) POC_demoWS281x();
+                    else WS281x_off();
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    break;
+#endif
+                case 'B': // Back
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+#ifdef DHT11_PORT
+        case SUM_MENU_TEST_DHT11:
+            switch (key) {
+                case 'B': // Back
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_1);
+                    break;
+                case 'C': // Refresh
+                    SUM_showMenu(SUM_MENU_TEST_DHT11);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+#endif
+#ifdef MCP_ENABLED
         case SUM_MENU_TEST_MCP_IN:
             switch (key) {
                 case 'A': // Abort
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_2);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     break;
                 case 'B': // Back
                     if (SUM_mcpTest.addr == 0) {
-                        SUM_showMenu(SUM_MENU_TEST_PAGE_2);
+                        SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     } else {
                         SUM_mcpTest.addr--;
                         SUM_showMenu(SUM_MENU_TEST_MCP_IN);
@@ -985,7 +1057,7 @@ void SUM_executeMenu(uint8_t key) {
                         SUM_mcpTest.port = MCP_PORTA + (key - 'A');
                         SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
                     } else {
-                        SUM_showMenu(SUM_MENU_TEST_PAGE_2);
+                        SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     }
                     break;
                 case 'C':
@@ -998,6 +1070,7 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
+#endif
         default:
             SUM_defaultFunction(key);
             break;
@@ -1014,13 +1087,13 @@ bool SUM_processKey(uint8_t key) {
             SUM_setupModePush--;
             if (SUM_setupModePush == 0) {
                 SUM_mode = true;
-                for (SUM_i = 0; SUM_i < LCD_ROWS; SUM_i++) {
-                    for (SUM_j = 0; SUM_j < LCD_COLS; SUM_j++) {
+                for (uint8_t i = 0; i < LCD_ROWS; i++) {
+                    for (uint8_t j = 0; j < LCD_COLS; j++) {
 #ifdef MEM_SUM_LCD_CACHE_START
-                        SUM_addr = MEM_SUM_LCD_CACHE_START + (SUM_i * LCD_COLS) + SUM_j;
-                        MEM_write(MEM_ADDRESS, SUM_addr >> 8, SUM_addr & 0xFF, LCD_getCache(SUM_i, SUM_j));
+                        SUM_mem.reg = MEM_SUM_LCD_CACHE_START + (i * LCD_COLS) + j;
+                        MEM_write16(MEM_ADDRESS, SUM_mem.reg, LCD_getCache(i, j));
 #else
-                        lcdCache[SUM_i][SUM_j] = LCD_getCache(SUM_i, SUM_j);
+                        lcdCache[i][j] = LCD_getCache(i, j);
 #endif
                     }
                 }
@@ -1035,14 +1108,98 @@ bool SUM_processKey(uint8_t key) {
     return false;
 }
 
+#ifdef BM78_ENABLED
+
+void SUM_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
+    if (SUM_mode) switch (response.op_code) {
+        case BM78_EVENT_COMMAND_COMPLETE:
+            switch(response.CommandComplete_0x80.command) {
+                case BM78_CMD_READ_LOCAL_INFORMATION:
+                    if (SUM_setupPage == SUM_MENU_BT_SHOW_MAC_ADDRESS) {
+                        LCD_setString(" V:                 ", 1, false);
+                        for (uint8_t i = 0; i < 5; i++) { // BT Version
+                            LCD_replaceChar(dec2hex(data[i] / 16 % 16), 3 + i * 2, 1, false);
+                            LCD_replaceChar(dec2hex(data[i] % 16), 4 + i * 2, 1, false);
+                        }
+                        LCD_displayLine(1);
+                        LCD_setString("BT:##:##:##:##:##:##", 2, false);
+                        for (uint8_t i = 0; i < 6; i++) { // BT Address
+                            LCD_replaceChar(dec2hex(data[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
+                            LCD_replaceChar(dec2hex(data[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
+                        }
+                        LCD_displayLine(2);
+                    }
+                    break;
+                case BM78_CMD_READ_DEVICE_NAME:
+                    if (SUM_setupPage == SUM_MENU_BT_SHOW_DEVICE_NAME) {
+                        SUM_showMenu(SUM_setupPage);
+                    }
+                    break;
+                case BM78_CMD_READ_PAIRING_MODE_SETTING:
+                    if (SUM_setupPage == SUM_MENU_BT_PAIRING_MODE) {
+                        SUM_showMenu(SUM_setupPage);
+                    }
+                    break;
+                case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
+                    if (SUM_setupPage == SUM_MENU_BT_PAIRING_MODE) {
+                        BM78_execute(BM78_CMD_READ_PAIRING_MODE_SETTING, 0);
+                    }
+                    break;
+                case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
+                    if (SUM_setupPage == SUM_MENU_BT_PAIRED_DEVICES) {
+                        SUM_pairedDevices.page = 0;
+                        SUM_showMenu(SUM_setupPage);
+                    }
+                    break;
+                case BM78_CMD_READ_REMOTE_DEVICE_NAME:
+                    if (SUM_setupPage == SUM_MENU_BT_SHOW_REMOTE_DEVICE) {
+                        for (uint8_t i = 0; i < response.CommandComplete_0x80.length - 1; i++) {
+                            if (i < LCD_COLS) LCD_replaceChar(data[i], i, 0, false);
+                        }
+                        LCD_displayLine(0);
+                    }
+                    break;
+                case BM78_CMD_READ_PIN_CODE:
+                    if (SUM_setupPage == SUM_MENU_BT_PIN_SETUP) {
+                        SUM_showMenu(SUM_setupPage);
+                    }
+                    break;
+                case BM78_CMD_WRITE_PIN_CODE:
+                    if (SUM_setupPage == SUM_MENU_BT_PIN_SETUP) {
+                        BM78_execute(BM78_CMD_READ_PIN_CODE, 0);
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case BM78_EVENT_BM77_STATUS_REPORT:
+            if (SUM_bm78CurrentState.id != response.StatusReport_0x81.status) {
+                SUM_bm78CurrentState.id = response.StatusReport_0x81.status;
+                SUM_setBtStatus(SUM_bm78CurrentState.id);
+                if (SUM_setupPage == SUM_MENU_BT_PAGE_1
+                        || SUM_setupPage == SUM_MENU_BT_STATE) {
+                    SUM_showMenu(SUM_setupPage);
+                }
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+#endif
+
+#endif
+
 #ifdef SUM_BTN_PORT
 uint16_t SUM_btnSetupDownCounter = 0; //0xFFFF;
 uint8_t SUM_btnMode = 0;
 #define SUM_BTN_DELAY 100 // x TIMER_PERIOD ms
 
 void SUM_blink(uint8_t times) {
-    for (SUM_i = 0; SUM_i < times; SUM_i++) {
-        if (SUM_i > 0) __delay_ms(100);
+    for (uint8_t i = 0; i < times; i++) {
+        if (i > 0) __delay_ms(100);
         SUM_LED_LAT = 1;
         __delay_ms(50);
         SUM_LED_LAT = 0;
@@ -1100,90 +1257,6 @@ uint8_t SUM_processBtn(uint8_t maxModes) {
 
 #ifdef BM78_ENABLED
 
-void SUM_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
-    if (SUM_mode) switch (response.op_code) {
-        case BM78_EVENT_COMMAND_COMPLETE:
-            switch(response.CommandComplete_0x80.command) {
-                case BM78_CMD_READ_LOCAL_INFORMATION:
-                    if (SUM_setupPage == SUM_MENU_BT_SHOW_MAC_ADDRESS) {
-                        LCD_setString(" V:                 ", 1, false);
-                        for (SUM_i = 0; SUM_i < 5; SUM_i++) { // BT Version
-                            LCD_replaceChar(dec2hex(data[SUM_i] / 16 % 16), 3 + SUM_i * 2, 1, false);
-                            LCD_replaceChar(dec2hex(data[SUM_i] % 16), 4 + SUM_i * 2, 1, false);
-                        }
-                        LCD_displayLine(1);
-                        LCD_setString("BT:##:##:##:##:##:##", 2, false);
-                        for (SUM_i = 0; SUM_i < 6; SUM_i++) { // BT Address
-                            LCD_replaceChar(dec2hex(data[5 + SUM_i] / 16 % 16), 3 + (5 - SUM_i) * 3, 2, false);
-                            LCD_replaceChar(dec2hex(data[5 + SUM_i] % 16), 4 + (5 - SUM_i) * 3, 2, false);
-                        }
-                        LCD_displayLine(2);
-                    }
-                    break;
-                case BM78_CMD_READ_DEVICE_NAME:
-                    if (SUM_setupPage == SUM_MENU_BT_SHOW_DEVICE_NAME) {
-                        SUM_showMenu(SUM_setupPage);
-                    }
-                    break;
-                case BM78_CMD_READ_PAIRING_MODE_SETTING:
-                    if (SUM_setupPage == SUM_MENU_BT_PAIRING_MODE) {
-                        SUM_showMenu(SUM_setupPage);
-                    }
-                    break;
-                case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
-                    if (SUM_setupPage == SUM_MENU_BT_PAIRING_MODE) {
-                        BM78_execute(BM78_CMD_READ_PAIRING_MODE_SETTING, 0);
-                    }
-                    break;
-                case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
-                    if (SUM_setupPage == SUM_MENU_BT_PAIRED_DEVICES) {
-                        SUM_pairedDevices.page = 0;
-                        SUM_showMenu(SUM_setupPage);
-                    }
-                    break;
-                case BM78_CMD_READ_REMOTE_DEVICE_NAME:
-                    if (SUM_setupPage == SUM_MENU_BT_SHOW_REMOTE_DEVICE) {
-                        for (SUM_i = 0; SUM_i < response.CommandComplete_0x80.length - 1; SUM_i++) {
-                            if (SUM_i < LCD_COLS) LCD_replaceChar(data[SUM_i], SUM_i, 0, false);
-                        }
-                        LCD_displayLine(0);
-                    }
-                    break;
-                case BM78_CMD_READ_PIN_CODE:
-                    if (SUM_setupPage == SUM_MENU_BT_PIN_SETUP) {
-                        SUM_showMenu(SUM_setupPage);
-                    }
-                    break;
-                case BM78_CMD_WRITE_PIN_CODE:
-                    if (SUM_setupPage == SUM_MENU_BT_PIN_SETUP) {
-                        BM78_execute(BM78_CMD_READ_PIN_CODE, 0);
-                    }
-                    break;
-                default:
-                    break;
-            }
-            break;
-        case BM78_EVENT_BM77_STATUS_REPORT:
-            if (SUM_bm78CurrentState.id != response.StatusReport_0x81.status) {
-                SUM_bm78CurrentState.id = response.StatusReport_0x81.status;
-                SUM_setBtStatus(SUM_bm78CurrentState.id);
-                if (SUM_setupPage == SUM_MENU_BT_PAGE_1
-                        || SUM_setupPage == SUM_MENU_BT_STATE) {
-                    SUM_showMenu(SUM_setupPage);
-                }
-            }
-            break;
-        default:
-            break;
-    }
-}
-
-#endif
-
-#endif
-
-#ifdef BM78_ENABLED
-
 void SUM_bm78InitializeDongle(void) {
     BM78_resetToTestMode();
     __delay_ms(1000);
@@ -1198,17 +1271,11 @@ bool SUM_bm78InitializationDone(void) {
     return SUM_bm78ConfigCommand.stage = 3;
 }
 
-void SUM_bm78SetupHandler(char *deviceName, char *pin) {
-    if (SUM_mode && SUM_setupPage == SUM_MENU_BT_INITIALIZE_APP) {
-        SUM_showMenu(SUM_MENU_BT_PAGE_4);
-    }
-}
-
 void SUM_bm78TestModeCheck(void) {
     if (SUM_bm78ConfigCommand.timeout < 0xFF) {
         if (SUM_bm78ConfigCommand.timeout == 0) {
             SUM_bm78ConfigCommand.timeout = 0xFF;
-            Flash32_t config = BM78_configuration[SUM_bm78ConfigCommand.index];
+            FlashPacket_t config = BM78_configuration[SUM_bm78ConfigCommand.index];
 
             //__delay_ms(500);
             if (SUM_bm78ConfigCommand.stage == 0 || SUM_bm78ConfigCommand.retries >= 3) {
@@ -1236,7 +1303,8 @@ void SUM_bm78TestModeCheck(void) {
 }
 
 void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data) {
-    Flash32_t config;
+    FlashPacket_t config;
+    uint8_t i, size;
 #ifdef LCD_ADDRESS
     if (!SUM_mode || SUM_setupPage != SUM_MENU_BT_READ_CONFIG) {
 #endif
@@ -1265,7 +1333,7 @@ void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data) {
         } else
         // Write response
         if (length == 4 && data[0] == 0x01 && data[1] == 0x27 && data[2] == 0xFC && data[3] == 0x00) {
-            Flash32_t config = BM78_configuration[SUM_bm78ConfigCommand.index];
+            FlashPacket_t config = BM78_configuration[SUM_bm78ConfigCommand.index];
             //__delay_ms(500);
             SUM_bm78ConfigCommand.retries = 0;
             SUM_bm78ConfigCommand.stage = 2;
@@ -1276,27 +1344,27 @@ void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data) {
         // Read response
         if (SUM_setupPage == SUM_MENU_BT_CONFIG_VIEWER 
                 && length > 7 && data[0] == 0x01 && data[1] == 0x29 && data[2] == 0xFC && data[3] == 0x00) {
-            uint8_t size = data[6];
+            size = data[6];
                 if (length >= size + 7) {
-                    SUM_addr = (data[4] << 8) | (data[5] & 0xFF);
+                    SUM_mem.reg = (data[4] << 8) | (data[5] & 0xFF);
                     uint8_t display[16];
-                    for (SUM_i = 0; SUM_i < size; SUM_i++) {
-                        if (SUM_i < 16) display[SUM_i] = data[SUM_i + 7];
+                    for (i = 0; i < size; i++) {
+                        if (i < 16) display[i] = data[i + 7];
                     }
-                    POC_displayData(SUM_addr, size, display);
+                    POC_displayData(SUM_mem.reg, size, display);
                 }
         } else
 #endif
         // Read response
         if (length > 7 && data[0] == 0x01 && data[1] == 0x29 && data[2] == 0xFC && data[3] == 0x00) {
             config = BM78_configuration[SUM_bm78ConfigCommand.index];
-            uint8_t size = data[6];
+            size = data[6];
             bool equals;
             if (length >= size + 7) {
-                SUM_addr = (data[4] << 8) | (data[5] & 0xFF);
-                equals = SUM_addr == config.address && size == config.length;
-                if (equals) for (SUM_i = 0; SUM_i < size; SUM_i++) {
-                    equals = equals && data[SUM_i + 7] == config.data[SUM_i];
+                SUM_mem.reg = (data[4] << 8) | (data[5] & 0xFF);
+                equals = SUM_mem.reg == config.address && size == config.length;
+                if (equals) for (i = 0; i < size; i++) {
+                    equals = equals && data[i + 7] == config.data[i];
                 }
             } else {
                 equals = false;
@@ -1333,8 +1401,8 @@ void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data) {
 #ifdef LCD_ADDRESS
     } else if (SUM_setupPage == SUM_MENU_BT_READ_CONFIG) {
         SUM_setupPage = SUM_MENU_BT_CONFIG_VIEWER;
-        SUM_addr = 0x0000;
-        BM78_readEEPROM(SUM_addr, 16);
+        SUM_mem.reg = 0x0000;
+        BM78_readEEPROM(SUM_mem.reg, 16);
     }
 #endif
 }

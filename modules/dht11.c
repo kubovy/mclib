@@ -5,6 +5,7 @@
 #include "dht11.h"
 
 #ifdef DHT11_PORT
+
 typedef struct {
     uint8_t temp_decimal;
     uint8_t temp_integral;
@@ -120,4 +121,5 @@ DHT11_Result DHT11_measure(void) {
     }
     return result;
 }
+
 #endif

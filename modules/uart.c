@@ -1,13 +1,10 @@
+/* 
+ * File:   uart.c
+ * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
+ */
 #include "uart.h"
 
 #if defined UART || defined EUSART
-
-#if defined UART
-#include "../../mcc_generated_files/uart1.h"
-#elif defined EUSART
-#include "../../mcc_generated_files/eusart.h"
-#endif
-
 
 inline bool UART_isRXReady(void) {
 #if defined UART

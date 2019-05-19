@@ -13,51 +13,28 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
-#include "../../config.h"
+#include "../lib/requirements.h"
 
-#ifdef SM_MEM_ADDRESS
+#if defined BM78_ENABLED && defined SM_MEM_ADDRESS
 
 #include "../modules/bm78.h"
+#include "../modules/i2c.h"
+#ifdef LCD_ADDRESS
+#include "../modules/lcd.h"
+#endif
 #include "../modules/state_machine.h"
+#include "bm78_communication.h"
 
 // Configuration with default values
-#ifndef SM_BLOCK_SIZE
-#define SM_BLOCK_SIZE 64
+#ifndef SMT_BLOCK_SIZE
+#ifdef BM78_DATA_PACKET_MAX_SIZE
+#warning "SMT: Block size defaults to BM78_DATA_PACKET_MAX_SIZE"
+#define SMT_BLOCK_SIZE BM78_DATA_PACKET_MAX_SIZE
+#else
+#error "SMT: One of SMT_BLOCK_SIZE or BM78_DATA_PACKET_MAX_SIZE must be defined!"
 #endif
-
-#ifndef BMC_SMT_TRANSMIT_STATE_MACHINE_CHECKSUM
-#define BMC_SMT_TRANSMIT_STATE_MACHINE_CHECKSUM 0x10
 #endif
-#ifndef BMC_SMT_TRANSMIT_STATE_MACHINE
-#define BMC_SMT_TRANSMIT_STATE_MACHINE 0x11
-#endif
-#ifndef BMC_SMT_TRANSMIT_STATE_MCP23017
-#define BMC_SMT_TRANSMIT_STATE_MCP23017 0x12
-#endif
-#ifndef BMC_SMT_TRANSMIT_STATE_WS281x
-#define BMC_SMT_TRANSMIT_STATE_WS281x 0x13
-#endif
-#ifndef BMC_SMT_TRANSMIT_STATE_LCD
-#define BMC_SMT_TRANSMIT_STATE_LCD 0x14
-#endif
-
-/**
- * Starts State Machine Transmission.
- * 
- * This will only happen if the bluetooth is in connected state and not waiting
- * for confirmation (checksum) of previous transmission block.
- * 
- * In case a state machine is already being transmitted the previous 
- * transmission will be canceled and new started.
- */
-void SMT_startTrasmission(void);
-
-/** Whether state machine transmission is ongoing and not completed yet. */
-bool SMT_hasNextBlock(void);
-
-/** Cancels state machine transmission. */
-void SMT_cancelTransmission(void);
-
+    
 /**
  * State machine's BM78 application-mode response handler implementation.
  * 
@@ -67,56 +44,21 @@ void SMT_cancelTransmission(void);
 void SMT_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data);
 
 /**
- * State machine's BM78 communiction next message sent handler implementation.
+ * State machine's transparent data handler implementation.
+ * 
+ * @param length Transparent data length.
+ * @param data Transparent data.
+ */
+void SMT_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
+
+/**
+ * State machine's BM78 communication next message handler implementation.
  * 
  * @param what Type of message to send next.
  * @return Whether the message type was sent, or not (e.g. something else was 
- *         sent instead)
+ *         being sent at the time).
  */
-bool SMT_bmcNextMessageSentHandler(uint8_t what);
-
-/**
- * Transfers next block of a state machine.
- * 
- * This will only happen if the bluetooth is in connected state and not waiting
- * for confirmation (checksum) of previous transmission block.
- * 
- * If last state machine block was confirmed the next state machine block will
- * be transmitted. Otherwise he last state machine block will be transmitted
- * again.
- * 
- * If the bluetooth is not in connected mode the state machine transmission will
- * be aborted.
- */
-void SMT_transmitNextBlock(void);
-
-/** 
- * Transmit State Machine I/O states.
- * 
- * This will only happen if the bluetooth is in connected state and not waiting
- * for confirmation (checksum) of previous transmission block.
- */
-void SMT_transmitIOs(void);
-
-#ifdef WS281x_BUFFER
-/** 
- * Transmit State Machine RGB light's states.
- * 
- * This will only happen if the bluetooth is in connected state and not waiting
- * for confirmation (checksum) of previous transmission block.
- */
-void SMT_transmitRGBs(void);
-#endif
-
-#ifdef LCD_ADDRESS
-/** 
- * Transmit LCD state.
- * 
- * This will only happen if the bluetooth is in connected state and not waiting
- * for confirmation (checksum) of previous transmission block.
- */
-void SMT_transmitLCD(void);
-#endif
+bool SMT_bmcNextMessageHandler(uint8_t what, uint8_t param);
 
 #endif
 

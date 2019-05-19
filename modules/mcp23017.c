@@ -4,6 +4,8 @@
  */
 #include "mcp23017.h"
 
+#ifdef MCP_ENABLED
+
 uint8_t MCP_read(uint8_t address, uint8_t reg) {
     return I2C_readRegister(address, reg);
 }
@@ -96,3 +98,5 @@ char MCP_read_keypad_char(uint8_t address, uint8_t port) {
             return 0x00;
     }
 }
+
+#endif

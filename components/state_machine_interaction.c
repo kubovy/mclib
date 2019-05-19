@@ -6,12 +6,6 @@
 
 #ifdef SM_MEM_ADDRESS
 
-#include "../modules/bm78.h"
-#include "../modules/lcd.h"
-#include "../modules/mcp23017.h"
-#include "../modules/state_machine.h"
-#include "../modules/ws281x.h"
-
 struct {
     bool available;
     char content[SM_VALUE_MAX_SIZE + 1];
@@ -19,7 +13,7 @@ struct {
 
 bool SMI_shouldTrigger = false;
 
-void (* SMI_BluetoothTrigger)(void);
+Procedure_t SMI_BluetoothTrigger;
 
 void SMI_enterState(uint8_t stateId) {
     if (!SM_enter(stateId)) {
@@ -36,6 +30,7 @@ void SMI_start(void) {
     SMI_enterState(0);
 }
 
+#if defined BM78_ENABLED && defined MCP_ENABLED && defined SM_IN1_ADDRESS && defined SM_IN2_ADDRESS
 void SMI_stateGetter(uint8_t *state) {
     *(state + 0) = MCP_read(SM_IN1_ADDRESS, MCP_GPIOA);
     *(state + 1) = MCP_read(SM_IN1_ADDRESS, MCP_GPIOB);
@@ -56,23 +51,31 @@ void SMI_stateGetter(uint8_t *state) {
     }
     
 }
+#endif
 
 void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
+#if defined MCP_ENABLED && defined SM_OUT_ADDRESS
     if (device >= SM_DEVICE_MCP23017_OUT_START && device <= SM_DEVICE_MCP23017_OUT_END) {
         if (length >= 1) {
-            uint8_t byte = MCP_read(U3_ADDRESS, MCP_GPIOA);
+            uint8_t byte = MCP_read(SM_OUT_ADDRESS, MCP_GPIOA + SM_OUT_PORT);
             if (*value & 0x01) {
                 byte |= 0x01 << (device - SM_DEVICE_MCP23017_OUT_START);
             } else {
                 byte &= 0x00 << (device - SM_DEVICE_MCP23017_OUT_START);
             }
-            MCP_write(U3_ADDRESS, MCP_OLATA, byte);
+            MCP_write(SM_OUT_ADDRESS, MCP_OLATA + SM_OUT_PORT, byte);
         }
-    } else if (device >= SM_DEVICE_WS281x_START && device <= SM_DEVICE_WS281x_END) {
+    } else
+#endif
+#ifdef WS281x_BUFFER
+    if (device >= SM_DEVICE_WS281x_START && device <= SM_DEVICE_WS281x_END) {
         if (length >= 4) {
             WS281x_set(device - SM_DEVICE_WS281x_START, *value, *(value + 1), *(value + 2), *(value + 3), 10, 0, 50);
         }
-    } else if (device == SM_DEVICE_LCD_MESSAGE) {
+    } else
+#endif
+#ifdef LCD_ADDRESS
+    if (device == SM_DEVICE_LCD_MESSAGE) {
         for (uint8_t i = 0; i < length; i++) {
             if (i < SM_VALUE_MAX_SIZE) {
                 uint8_t ch = *(value + i);
@@ -92,7 +95,9 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
         LCD_reset();
     } else if (device == SM_DEVICE_LCD_CLEAR) {
         LCD_clear();
-    } else if (device == SM_DEVICE_BT_TRIGGER) {
+    } else
+#endif
+    if (device == SM_DEVICE_BT_TRIGGER) {
         SMI_shouldTrigger = true;
     } else if (device == SM_DEVICE_GOTO) {
         // Nothing to do, handled internally
@@ -104,9 +109,11 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
 void SMI_evaluatedHandler(void) {
     if (SMI_lcd.available) {
         SMI_lcd.available = false;
+#ifdef LCD_ADDRESS
         LCD_clear();
         LCD_setBacklight(true);
         LCD_setString(SMI_lcd.content, 0, true);
+#endif
     }
     if (SMI_shouldTrigger) {
         SMI_shouldTrigger = false;
@@ -117,17 +124,19 @@ void SMI_evaluatedHandler(void) {
 void SMI_errorHandler(uint8_t error) {
     switch (error) {
         case SM_ERROR_LOOP:
+#ifdef LCD_ADDRESS
             LCD_clear();
             LCD_setString("       ERROR        ", 0, true);
             LCD_setString("   Loop Detected!   ", 1, true);
             LCD_setString("  Execution Halted  ", 3, true);
+#endif
             break;
         default:
             break;
     }
 }
 
-void SMI_setBluetoothTrigger(void (* BluetoothTrigger)(void*)) {
+void SMI_setBluetoothTrigger(Procedure_t BluetoothTrigger) {
     SMI_BluetoothTrigger = BluetoothTrigger;
 }
 

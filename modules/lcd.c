@@ -3,7 +3,6 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "lcd.h"
-#include "memory.h"
 
 #ifdef LCD_ADDRESS
 
@@ -13,31 +12,25 @@ uint16_t LCD_memAddr;
 char LCD_cache[LCD_ROWS][LCD_COLS];
 #endif
 
-uint8_t LCD_r, LCD_c;
-uint8_t LCD_nibbleUpper, LCD_nibbleLower;
-uint8_t LCD_data[4];
-
-
 inline void LCD_clearContent(void) {
-    for (LCD_r = 0; LCD_r < LCD_ROWS; LCD_r++) {
-        for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
-            LCD_setCache(LCD_r, LCD_c, ' ');
+    for (uint8_t row = 0; row < LCD_ROWS; row++) {
+        for (uint8_t column = 0; column < LCD_COLS; column++) {
+            LCD_setCache(row, column, ' ');
         }
     }
 }
 
 void LCD_send(uint8_t command, uint8_t mode) {
-    // Select lower nibble by moving it to the upper nibble position
-    LCD_nibbleLower = (command << 4) & 0xF0;
-    // Select upper nibble
-    LCD_nibbleUpper = command & 0xF0;      
+    uint8_t nibbleLower = (command << 4) & 0xF0;
+    uint8_t nibbleUpper = command & 0xF0;
+    uint8_t data[4];
  
-    LCD_data[0] = LCD_nibbleUpper | LCD_backlight | En | mode;
-    LCD_data[1] = LCD_nibbleUpper | LCD_backlight | mode;
-    LCD_data[2] = LCD_nibbleLower | LCD_backlight | En | mode;
-    LCD_data[3] = LCD_nibbleLower | LCD_backlight | mode;
+    data[0] = nibbleUpper | LCD_backlight | En | mode;
+    data[1] = nibbleUpper | LCD_backlight | mode;
+    data[2] = nibbleLower | LCD_backlight | En | mode;
+    data[3] = nibbleLower | LCD_backlight | mode;
 
-    I2C_writeData(LCD_ADDRESS, LCD_data, 4);
+    I2C_writeData(LCD_ADDRESS, 4, data);
     __delay_ms(2);
 }
 
@@ -61,7 +54,7 @@ void LCD_init(void) {
     LCD_send(LCD_RETURNHOME, 0);
     LCD_setBacklight(false);
     
-    LCD_createChar(0x01, LCD_CHAR_BACKSLASH);
+    LCD_createChar(0x01, (uint8_t*) LCD_CHAR_BACKSLASH);
     LCD_send(LCD_RETURNHOME, 0);
 }
 
@@ -108,10 +101,10 @@ inline void LCD_selectLine(uint8_t line) {
 }
 
 void LCD_displayCache(void) {
-    for (LCD_r = 0; LCD_r < LCD_ROWS; LCD_r++) {
-        LCD_selectLine(LCD_r);
-        for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
-            LCD_send(LCD_getCache(LCD_r, LCD_c), Rs);
+    for (uint8_t row = 0; row < LCD_ROWS; row++) {
+        LCD_selectLine(row);
+        for (uint8_t column = 0; column < LCD_COLS; column++) {
+            LCD_send(LCD_getCache(row, column), Rs);
         }
     }
 }
@@ -129,40 +122,10 @@ void LCD_setBacklight(bool on) {
     }
 }
 
-//void LCD_sendCommand(uint8_t command) {
-//    // Select lower nibble by moving it to the upper nibble position
-//    LCD_nibbleLower = (command << 4) & 0xF0;
-//    // Select upper nibble
-//    LCD_nibbleUpper = command & 0xF0;      
-// 
-//    LCD_data[0] = LCD_nibbleUpper | LCD_backlight | En;
-//    LCD_data[1] = LCD_nibbleUpper | LCD_backlight;
-//    LCD_data[2] = LCD_nibbleLower | LCD_backlight | En;
-//    LCD_data[3] = LCD_nibbleLower | LCD_backlight;
-//
-//    I2C_writeData(LCD_ADDRESS, LCD_data, 4);
-//    __delay_ms(2);
-//}
-
-//void LCD_sendData(uint8_t data) {
-//    // Select lower nibble by moving it to the upper nibble position
-//    LCD_nibbleLower = (data<<4) & 0xF0;
-//    // Select upper nibble
-//    LCD_nibbleUpper = data & 0xF0;
-// 
-//    LCD_data[0] = LCD_nibbleUpper | LCD_backlight | En | Rs;
-//    LCD_data[1] = LCD_nibbleUpper | LCD_backlight | Rs;
-//    LCD_data[2] = LCD_nibbleLower | LCD_backlight | En | Rs;
-//    LCD_data[3] = LCD_nibbleLower | LCD_backlight | Rs;
-//
-//    I2C_writeData(LCD_ADDRESS, LCD_data, 4);
-//    __delay_ms(2);
-//}
-
 void LCD_displayLine(uint8_t line) {
     LCD_selectLine(line);
-    for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
-        LCD_send(LCD_getCache(line, LCD_c), Rs);
+    for (uint8_t column = 0; column < LCD_COLS; column++) {
+        LCD_send(LCD_getCache(line, column), Rs);
     }
 }
 
@@ -210,25 +173,25 @@ void LCD_setString(char *str, uint8_t line, bool display) {
             LCD_setCache(line, i, ' ');
             if (display) LCD_send(' ', Rs);
         }
-        LCD_c = prefix;
+        uint8_t column = prefix;
 #else
-        LCD_c = 0;
+        uint8_t column = 0;
 #endif
-        while (*str && *str != '\n' && LCD_c < LCD_COLS) {
-            LCD_setCache(line, LCD_c, *str);
+        while (*str && *str != '\n' && column < LCD_COLS) {
+            LCD_setCache(line, column, *str);
             if (display) LCD_send(*str, Rs);
 #ifdef LCD_EXTENDED_FEATURES
             if (delay == 0xFF) __delay_us(500);
             else for(i = 0; i < delay; i++) __delay_ms(1);
 #endif
-            LCD_c++;
+            column++;
             str++;
         }
         // Ignore rest of the line or string.
-        if (LCD_c >= LCD_COLS) while (*str && *str != '\n') str++;
+        if (column >= LCD_COLS) while (*str && *str != '\n') str++;
 
 #ifdef LCD_EXTENDED_FEATURES
-        for (i = LCD_c; i < LCD_COLS; i++) {
+        for (i = column; i < LCD_COLS; i++) {
             LCD_setCache(line, i, ' ');
             if (display) LCD_send(' ', Rs);
         }
@@ -244,8 +207,8 @@ void LCD_replaceChar(char c, uint8_t position, uint8_t line, bool display) {
         LCD_setCache(line, position, c);
         if (display) {
             LCD_selectLine(line);
-            for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
-                LCD_send(LCD_getCache(line, LCD_c), Rs);
+            for (uint8_t column = 0; column < LCD_COLS; column++) {
+                LCD_send(LCD_getCache(line, column), Rs);
             }
         }
     }
@@ -258,8 +221,8 @@ void LCD_replaceString(char *str, uint8_t position, uint8_t line, bool display) 
         }
         if (display) {
             LCD_selectLine(line);
-            for (LCD_c = 0; LCD_c < LCD_COLS; LCD_c++) {
-                LCD_send(LCD_getCache(line, LCD_c), Rs);
+            for (uint8_t column = 0; column < LCD_COLS; column++) {
+                LCD_send(LCD_getCache(line, column), Rs);
             }
         }
     }
@@ -268,8 +231,8 @@ void LCD_replaceString(char *str, uint8_t position, uint8_t line, bool display) 
 void LCD_createChar(uint8_t location, uint8_t charmap[]) {
 	location &= 0x7; // we only have 8 locations 0-7
 	LCD_send(LCD_SETCGRAMADDR | (location << 3), 0);
-	for (LCD_c = 0; LCD_c < 8; LCD_c++) {
-		LCD_send(charmap[LCD_c], Rs);
+	for (uint8_t i = 0; i < 8; i++) {
+		LCD_send(charmap[i], Rs);
 	}
 }
 

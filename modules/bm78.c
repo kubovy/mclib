@@ -3,9 +3,15 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "bm78.h"
+
 #ifdef BM78_ENABLED
-#include "../lib/common.h"
-#include "uart.h"
+
+/*
+ * BUFFER
+ * BM78_readEEPROM : BM78_COMMAND_W[7]                   (=7)
+ * BM78_writeEEPROM: BM78_COMMAND_W[7] + data            (=7 + packet size)
+ * BM78_data       : 0xAA + LEN[2] + CMD + data + CHKSUM (=5 + packet size)
+ */
 
 struct {
     uint8_t index;                           // Byte index in a message.
@@ -37,20 +43,12 @@ struct {
     uint8_t chksumExpected; // Expected checksum calculated before sending.
     uint8_t chksumReceived; // Received checksum by the peer.
     uint16_t timeout;       // Timeout countdown used by retry trigger.
+    uint8_t retries;        // Number of transparent transmissions retries
     uint8_t buffer[BM78_DATA_PACKET_MAX_SIZE + 7];
     uint8_t data[BM78_DATA_PACKET_MAX_SIZE]; // Only for transparent data
-} BM78_tx = {0, 0x00, 0xFF, 0};
+} BM78_tx = {0, 0x00, 0xFF, 0, 0xFF};
 
 BM78_State_t BM78_state = BM78_STATE_IDLE;
-uint8_t BM78_i, BM78_j, BM78_byte;
-
-/**
- * BUFFER
- * BM78_readEEPROM : BM78_COMMAND_W[7]                   (=7)
- * BM78_writeEEPROM: BM78_COMMAND_W[7] + data            (=7 + packet size)
- * BM78_data       : 0xAA + LEN[2] + CMD + data + CHKSUM (=5 + packet size)
- */
-//uint8_t BM78_buffer[BM78_DATA_PACKET_MAX_SIZE + 7];
 
 /* Commands */
 //                                   C0    C1    C2   PLEN  PARAM
@@ -71,58 +69,55 @@ BM78_EventHandler_t BM78_errorHandler;
 void BM78_retryInitialization(void) {
     switch (BM78_init.stage) {
         case 1:
-            printStatus("      .             ");
+            printStatus("      ..            ");
             BM78_execute(BM78_CMD_READ_LOCAL_INFORMATION, 0);
             break;
         case 2:
-            printStatus("      ..            ");
+            printStatus("      ...           ");
             BM78_execute(BM78_CMD_READ_DEVICE_NAME, 0);
             break;
         case 3:
-            printStatus("      .*            ");
-            BM78_write(BM78_CMD_WRITE_DEVICE_NAME, BM78_EEPROM_STORE, strlen(BM78.deviceName), BM78.deviceName);
+            printStatus("      ..*           ");
+            BM78_write(BM78_CMD_WRITE_DEVICE_NAME, BM78_EEPROM_STORE, strlen(BM78.deviceName), (uint8_t *) BM78.deviceName);
             break;
         case 4:
-            printStatus("      .=            ");
+            printStatus("      ..=           ");
             BM78_GetAdvData();
             BM78_write(BM78_CMD_WRITE_ADV_DATA, BM78_EEPROM_STORE, 22, BM78_advData);
             break;
         case 5:
-            printStatus("      ...           ");
+            printStatus("      ....          ");
             BM78_execute(BM78_CMD_READ_PAIRING_MODE_SETTING, 0);
             break;
         case 6:
-            printStatus("      ..*           ");
+            printStatus("      ...*          ");
             BM78_execute(BM78_CMD_WRITE_PAIRING_MODE_SETTING, 2, BM78_EEPROM_STORE, BM78.pairingMode);
             break;
         case 7:
-            printStatus("      ....          ");
+            printStatus("      .....         ");
             BM78_execute(BM78_CMD_READ_PIN_CODE, 0);
             break;
         case 8:
-            printStatus("      ...*          ");
-            BM78_write(BM78_CMD_WRITE_PIN_CODE, BM78_EEPROM_STORE, strlen(BM78.pin), BM78.pin);
+            printStatus("      ....*         ");
+            BM78_write(BM78_CMD_WRITE_PIN_CODE, BM78_EEPROM_STORE, strlen(BM78.pin), (uint8_t *) BM78.pin);
             break;
         case 9:
-            printStatus("      .....         ");
+            printStatus("      ......        ");
             BM78_execute(BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO, 0);
             break;
         case 10:
-            printStatus("      ......        ");
+            printStatus("      .......       ");
             BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER);
             break;
         case 11:
-            printStatus("      ......        ");
-            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER_ONLY_TRUSTED);
+            printStatus("      .......       ");
+            BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER); //BM78_STANDBY_MODE_ENTER_ONLY_TRUSTED);
             break;
         case 12:
             printStatus("                    ");
             BM78_init.stage = 0;
             BM78_init.attempt = 0;
             BM78.mode = BM78_MODE_APP;
-#ifdef BM78_STATUS_WATCHDOG_LED_LAT
-            BM78_STATUS_WATCHDOG_LED_LAT = 0;
-#endif
             if (BM78_setupHandler) {
                 BM78_setupHandler(BM78.deviceName, BM78.pin);
             }
@@ -130,8 +125,7 @@ void BM78_retryInitialization(void) {
     }
 }
 
-void BM78_initialize(bool keep, char *deviceName, char *pin,
-               BM78_PairingMode_t pairingMode,
+void BM78_initialize(
                BM78_SetupAttemptHandler_t setupAttemptHandler,
                BM78_SetupHandler_t setupHandler,
                BM78_EventHandler_t eventHandler,
@@ -146,7 +140,7 @@ void BM78_initialize(bool keep, char *deviceName, char *pin,
     BM78_transparentDataHandler = transparentDataHandler;
     BM78_messageSentHandler = messageSentHandler;
     BM78_errorHandler = errorHandler;
-    BM78_setup(keep, deviceName, pin, pairingMode);
+    BM78_setup(true);
 }
 
 void BM78_clear() {
@@ -204,26 +198,14 @@ void BM78_resetToAppMode(void) {
     BM78_P2_0_SetHigh();
     BM78_P2_4_SetHigh();
     BM78_EAN_SetLow();
-#ifdef BM78_INITIAL_DEVICE_NAME
-    BM78_init.keep = false;
-    strcpy(BM78.deviceName, BM78_INITIAL_DEVICE_NAME, sizeof(BM78_INITIAL_DEVICE_NAME));
-    strcpy(BM78.pin, BM78_INITIAL_DEVICE_PIN, sizeof(BM78_INITIAL_DEVICE_PIN));
-    BM78.pairingMode = BM78_INITIAL_PAIRING_MODE;
-#endif
     BM78_resetMode();
 }
 
-void BM78_setup(bool keep, char *deviceName, char *pin,
-                BM78_PairingMode_t pairingMode) {
+void BM78_setup(bool keep) {
     BM78_init.keep = keep;
-    strcpy(BM78.deviceName, deviceName, min(strlen(deviceName), sizeof(BM78.deviceName)));
-    BM78.deviceName[16] = '\0';
-    strcpy(BM78.pin, pin, min(strlen(pin), sizeof(BM78.pin)));
-    BM78.pin[6] = '\0';
-    BM78.pairingMode = pairingMode;
     switch (BM78.mode) {
         case BM78_MODE_INIT:
-            if (BM78_init.attempt < 7 && BM78_init.stage > 0) {
+            if (BM78_init.attempt < 7) {
                 if (BM78_setupAttemptHandler) BM78_setupAttemptHandler(
                         BM78_init.attempt, BM78_init.stage);
                 
@@ -255,9 +237,9 @@ void BM78_setup(bool keep, char *deviceName, char *pin,
 }
 
 void BM78_loadTXBuffer(uint8_t length, uint8_t *data) {
-    for (BM78_i = 0; BM78_i < length; BM78_i++) {
-        if (BM78_i < sizeof(BM78_tx.buffer)) {
-            BM78_tx.buffer[BM78_i] = *(data + BM78_i);
+    for (uint8_t i = 0; i < length; i++) {
+        if (i < sizeof(BM78_tx.buffer)) {
+            BM78_tx.buffer[i] = *(data + i);
         }
     }
 }
@@ -266,25 +248,24 @@ void BM78_sendPacket(uint8_t length, uint8_t *data) {
     //if (clearRX) while (UART1_is_rx_ready()) UART1_Read(); // Clear UART RX queue.
     BM78_counters.idle = 0; // Reset idle counter
 
-    for (BM78_i = 0; BM78_i < length; BM78_i++) { // Send the command bits, along with the parameters
+    for (uint8_t i = 0; i < length; i++) { // Send the command bits, along with the parameters
         while (!UART_isTXReady()); // Wait till we can start sending.
-        UART_write(*(data + BM78_i)); // Store each byte in the storePacket into the UART write buffer
+        UART_write(*(data + i)); // Store each byte in the storePacket into the UART write buffer
         while (!UART_isTXDone()); // Wait until UART TX is done.
     }
     BM78_counters.idle = 0; // Reset idle counter
     BM78_state = BM78_STATE_IDLE;
 }
 
-void BM78_openEEPROM(void) {
+inline void BM78_openEEPROM(void) {
     BM78_sendPacket(sizeof (BM78_COMMAND_S1), (uint8_t *) BM78_COMMAND_S1);
 }
 
-void BM78_clearEEPROM(void) {
+inline void BM78_clearEEPROM(void) {
     BM78_sendPacket(sizeof (BM78_COMMAND_S2), (uint8_t *) BM78_COMMAND_S2);
 }
 
 void BM78_readEEPROM(uint16_t address, uint8_t length) {
-    //BM78_state = BM78_STATE_SENDING;
     BM78_loadTXBuffer(sizeof (BM78_COMMAND_R), (uint8_t *) BM78_COMMAND_R);
     BM78_tx.buffer[4] = address >> 8;
     BM78_tx.buffer[5] = address & 0xFF;
@@ -294,15 +275,14 @@ void BM78_readEEPROM(uint16_t address, uint8_t length) {
 }
 
 void BM78_writeEEPROM(uint16_t address, uint8_t length, uint8_t *data) {
-    //BM78_state = BM78_STATE_SENDING;
     BM78_loadTXBuffer(sizeof (BM78_COMMAND_W), (uint8_t *) BM78_COMMAND_W);
     BM78_tx.buffer[3] = length + 3;
     BM78_tx.buffer[4] = address >> 8;
     BM78_tx.buffer[5] = address & 0xFF;
     BM78_tx.buffer[6] = length;
-    for (BM78_i = 0; BM78_i < length; BM78_i++) {
-        if ((BM78_i + 7) < sizeof(BM78_tx.buffer)) {
-            BM78_tx.buffer[BM78_i + 7] = *(data + BM78_i);
+    for (uint8_t i = 0; i < length; i++) {
+        if ((i + 7) < sizeof(BM78_tx.buffer)) {
+            BM78_tx.buffer[i + 7] = *(data + i);
         }
     }
 
@@ -313,22 +293,16 @@ void BM78_checkState(void) {
     switch (BM78.mode) {
         case BM78_MODE_INIT: // In Initialization mode retry setting up the BM78
                              // in a defined interval
-            if (BM78_counters.idle > (BM78_INITIALIZATION_TIMEOUT / BM78_TRIGGER_PERIOD)) {
-#ifdef BM78_WATCHDOG_LED_LAT
-                BM78_WATCHDOG_LED_LAT = ~BM78_WATCHDOG_LED_LAT;
-#endif
+            if (BM78_counters.idle > (BM78_INIT_CMD_TIMEOUT / BM78_TRIGGER_PERIOD)) {
                 BM78_counters.idle = 0; // Reset idle counter.
-                BM78_setup(BM78_init.keep, BM78.deviceName, BM78.pin, BM78.pairingMode);
+                BM78_setup(BM78_init.keep);
             }
             break;
         case BM78_MODE_APP: // In Application mode status is refreshed in 
                             // a defined interval. In case a certain consequent
                             // number of refresh attempts will be missed, the
                             // device will refresh itself.
-            if (BM78_counters.idle > (BM78_STATUS_CHECK_TIMEOUT / BM78_TRIGGER_PERIOD)) {
-#ifdef BM78_WATCHDOG_LED_LAT
-                BM78_WATCHDOG_LED_LAT = ~BM78_WATCHDOG_LED_LAT;
-#endif
+            if (BM78_counters.idle > (BM78_STATUS_REFRESH_INTERVAL / BM78_TRIGGER_PERIOD)) {
                 BM78_counters.idle = 0; // Reset idle counter.
                 BM78_counters.missedStatusUpdate++; // Status update counter increment.
                 if (BM78_counters.missedStatusUpdate >= BM78_STATUS_MISS_MAX_COUNT) {
@@ -351,9 +325,9 @@ void BM78_GetAdvData(void) {
     BM78_advData[2] = 0x02; // Dual-Mode
     BM78_advData[3] = strlen(BM78.deviceName); // Size B
     BM78_advData[4] = 0x09;
-    for (BM78_i = 0; BM78_i < 16; BM78_i++) {
-        BM78_advData[BM78_i + 5] = BM78.deviceName[BM78_i];
-        BM78_advData[BM78_i + 6] = 0x00;
+    for (uint8_t i = 0; i < 16; i++) {
+        BM78_advData[i + 5] = BM78.deviceName[i];
+        BM78_advData[i + 6] = 0x00;
     }
 }
 
@@ -362,29 +336,30 @@ void BM78_storePairedDevices(uint8_t *data) {
     //                  C  I1 P1 MAC1         I2 P2 MAC2 
     //--> 0014 80 0C 00 02 00 01 123456789ABC 01 02 123456789ABC
     BM78.pairedDevicesCount = *data;
-    for (BM78_i = 0; BM78_i < BM78.pairedDevicesCount; BM78_i++) {
-        BM78.pairedDevices[BM78_i].index = *(data + BM78_i * 8 + 1);
-        BM78.pairedDevices[BM78_i].priority = *(data + BM78_i * 8 + 2);
-        for (BM78_j = 0; BM78_j < 6; BM78_j++) {
-            BM78.pairedDevices[BM78_i].address[BM78_j] = *(data + BM78_i * 8 + 3 + BM78_j);
+    for (uint8_t i = 0; i < BM78.pairedDevicesCount; i++) {
+        BM78.pairedDevices[i].index = *(data + i * 8 + 1);
+        BM78.pairedDevices[i].priority = *(data + i * 8 + 2);
+        for (uint8_t j = 0; j < 6; j++) {
+            BM78.pairedDevices[i].address[j] = *(data + i * 8 + 3 + j);
         }
     }
 }
 
 void BM78_AsyncEventResponse() {
+    uint8_t chksum;
     switch (BM78.mode) {
         /*
          * Initialization Mode
          */
         case BM78_MODE_INIT:
             switch (BM78_rx.response.op_code) {
-                    // On disconnection enter stand-by mode if this mode is enforced
-                    // and ...
+                // On disconnection enter stand-by mode if this mode is enforced
+                // and ...
                 case BM78_EVENT_DISCONNECTION_COMPLETE:
                     if (BM78.enforceState) {
                         BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
                     }
-                    // ... on connection, both LE or SPP, abort ongoing transmission.
+                // ... on connection, both LE or SPP, abort ongoing transmission.
                 case BM78_EVENT_LE_CONNECTION_COMPLETE:
                 case BM78_EVENT_SPP_CONNECTION_COMPLETE:
                     BM78_tx.length = 0; // Abort ongoing transmission.
@@ -393,18 +368,21 @@ void BM78_AsyncEventResponse() {
                     // Initialization flow:
                     if (BM78_rx.response.CommandComplete_0x80.status == BM78_COMMAND_SUCCEEDED) {
                         switch (BM78_rx.response.CommandComplete_0x80.command) {
-                            case BM78_CMD_READ_LOCAL_INFORMATION:
+                            case BM78_CMD_READ_LOCAL_INFORMATION:     // Stage 1
                                 BM78_init.attempt = 0;
                                 BM78_init.stage = 2;
                                 BM78_retryInitialization();
                                 break;
-                            case BM78_CMD_READ_DEVICE_NAME:
+                            case BM78_CMD_READ_DEVICE_NAME:           // Stage 2
                                 BM78_init.attempt = 0;
+#ifdef BM78_SETUP_ENABLED
                                 if (BM78_init.keep) {
+#endif
                                     BM78_init.stage = 5;
                                     strcpy(BM78.deviceName, (char *) BM78_rx.buffer, BM78_rx.response.CommandComplete_0x80.length - 3);
                                     BM78.deviceName[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                     BM78_retryInitialization();
+#ifdef BM78_SETUP_ENABLED
                                 } else if (strcmp(BM78.deviceName, (char *) BM78_rx.buffer, BM78_rx.response.CommandComplete_0x80.length - 3)) {
                                     BM78_init.stage = 5;
                                     BM78.deviceName[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
@@ -414,23 +392,26 @@ void BM78_AsyncEventResponse() {
                                     BM78_retryInitialization();
                                 }
                                 break;
-                            case BM78_CMD_WRITE_DEVICE_NAME:
+                            case BM78_CMD_WRITE_DEVICE_NAME:          // Stage 3
                                 BM78_init.attempt = 0;
                                 BM78_init.stage = 4;
                                 BM78_retryInitialization();
                                 break;
-                            case BM78_CMD_WRITE_ADV_DATA:
+                            case BM78_CMD_WRITE_ADV_DATA:             // Stage 4
                                 BM78_init.attempt = 0;
                                 BM78_init.stage = 2;
                                 BM78_retryInitialization();
+#endif
                                 break;
-                            case BM78_CMD_READ_PAIRING_MODE_SETTING:
-                            case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
+                            case BM78_CMD_READ_PAIRING_MODE_SETTING:  // Stage 5
                                 BM78_init.attempt = 0;
+#ifdef BM78_SETUP_ENABLED
                                 if (BM78_init.keep) {
+#endif
                                     BM78_init.stage = 7;
                                     BM78.pairingMode = BM78_rx.buffer[0];
                                     BM78_retryInitialization();
+#ifdef BM78_SETUP_ENABLED
                                 } else if (BM78.pairingMode == BM78_rx.buffer[0]) {
                                     BM78_init.stage = 7;
                                     BM78_retryInitialization();
@@ -439,13 +420,21 @@ void BM78_AsyncEventResponse() {
                                     BM78_retryInitialization();
                                 }
                                 break;
-                            case BM78_CMD_READ_PIN_CODE:
+                            case BM78_CMD_WRITE_PAIRING_MODE_SETTING:// Stage 6
                                 BM78_init.attempt = 0;
+                                BM78_init.stage = 5;
+#endif
+                                break;
+                            case BM78_CMD_READ_PIN_CODE:              // Stage 7
+                                BM78_init.attempt = 0;
+#ifdef BM78_SETUP_ENABLED
                                 if (BM78_init.keep) {
+#endif
                                     BM78_init.stage = 9;
                                     strcpy(BM78.pin, (char *) BM78_rx.buffer, BM78_rx.response.CommandComplete_0x80.length - 3);
                                     BM78.pin[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                     BM78_retryInitialization();
+#ifdef BM78_SETUP_ENABLED
                                 } else if (strcmp(BM78.pin, (char *) BM78_rx.buffer, BM78_rx.response.CommandComplete_0x80.length - 3)) {
                                     BM78_init.stage = 9;
                                     BM78.pin[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
@@ -455,12 +444,13 @@ void BM78_AsyncEventResponse() {
                                     BM78_retryInitialization();
                                 }
                                 break;
-                            case BM78_CMD_WRITE_PIN_CODE:
+                            case BM78_CMD_WRITE_PIN_CODE:             // Stage 8
                                 BM78_init.attempt = 0;
                                 BM78_init.stage = 7;
                                 BM78_retryInitialization();
+#endif
                                 break;
-                            case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
+                            case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:// Stage 9
                                 BM78_init.attempt = 0;
                                 BM78_storePairedDevices(BM78_rx.buffer);
                                 if (BM78.status == BM78_STATUS_STANDBY_MODE) {
@@ -476,7 +466,7 @@ void BM78_AsyncEventResponse() {
                                     }
                                 }
                                 break;
-                            case BM78_CMD_INVISIBLE_SETTING:
+                            case BM78_CMD_INVISIBLE_SETTING:          // Stage X
                                 BM78_init.attempt = 0;
                                 BM78_init.stage = 12;
                                 BM78_retryInitialization();
@@ -486,28 +476,26 @@ void BM78_AsyncEventResponse() {
                         }
                     } else { // Repeat last initialization command on failure.
                         switch (BM78_rx.response.CommandComplete_0x80.command) {
-                            case BM78_CMD_READ_LOCAL_INFORMATION:
-                            case BM78_CMD_READ_DEVICE_NAME:
-                            case BM78_CMD_WRITE_DEVICE_NAME:
-                            case BM78_CMD_WRITE_ADV_DATA:
-                            case BM78_CMD_READ_PAIRING_MODE_SETTING:
-                            case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
-                            case BM78_CMD_READ_PIN_CODE:
-                            case BM78_CMD_WRITE_PIN_CODE:
-                            case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
-                                BM78_retryInitialization();
-                                break;
                             case BM78_CMD_INVISIBLE_SETTING:
                                 BM78_execute(BM78_CMD_READ_STATUS, 0);
                                 break;
+                            //case BM78_CMD_READ_LOCAL_INFORMATION:
+                            //case BM78_CMD_READ_DEVICE_NAME:
+                            //case BM78_CMD_WRITE_DEVICE_NAME:
+                            //case BM78_CMD_WRITE_ADV_DATA:
+                            //case BM78_CMD_READ_PAIRING_MODE_SETTING:
+                            //case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
+                            //case BM78_CMD_READ_PIN_CODE:
+                            //case BM78_CMD_WRITE_PIN_CODE:
+                            //case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
                             default:
+                                BM78_retryInitialization();
                                 break;
                         }
                     }
                     break;
                 case BM78_EVENT_BM77_STATUS_REPORT: // Manual mode
                     BM78.status = BM78_rx.response.StatusReport_0x81.status;
-                    BM78_init.attempt = 0;
                     switch (BM78.status) {
                         case BM78_STATUS_IDLE_MODE:
                             if (BM78_init.stage == 0) BM78_init.stage = 1;
@@ -528,12 +516,14 @@ void BM78_AsyncEventResponse() {
          * Application Mode
          */
         case BM78_MODE_APP:
-            if (BM78_rx.response.op_code != BM78_EVENT_COMMAND_COMPLETE || BM78_rx.response.CommandComplete_0x80.status == BM78_COMMAND_SUCCEEDED) {
+            if (BM78_rx.response.op_code != BM78_EVENT_COMMAND_COMPLETE 
+                    || BM78_rx.response.CommandComplete_0x80.status == BM78_COMMAND_SUCCEEDED) {
                 switch (BM78_rx.response.op_code) {
                     // On disconnection enter stand-by mode if this mode is
                     // enfoced and ...
-                    case BM78_EVENT_DISCONNECTION_COMPLETE:
-                        BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER);
+                    // Enforcing status is done by BM78_checkState
+                    //case BM78_EVENT_DISCONNECTION_COMPLETE:
+                    //    BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
                     case BM78_EVENT_LE_CONNECTION_COMPLETE:
                     case BM78_EVENT_SPP_CONNECTION_COMPLETE:
                         BM78_tx.length = 0; // Abort ongoing transmission.
@@ -544,9 +534,14 @@ void BM78_AsyncEventResponse() {
                                 strcpy(BM78.deviceName, (char *) BM78_rx.buffer, BM78_rx.response.CommandComplete_0x80.length - 3);
                                 BM78.deviceName[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                 break;
+                            //case BM78_CMD_WRITE_DEVICE_NAME:
+                            //    BM78_execute(BM78_CMD_READ_DEVICE_NAME, 0);
+                            //    break;
                             case BM78_CMD_READ_PAIRING_MODE_SETTING:
-                            case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
                                 BM78.pairingMode = *BM78_rx.buffer;
+                                break;
+                            case BM78_CMD_WRITE_PAIRING_MODE_SETTING:
+                                BM78_execute(BM78_CMD_READ_PAIRING_MODE_SETTING, 0);
                                 break;
                             case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
                                 BM78_storePairedDevices(BM78_rx.buffer);
@@ -559,21 +554,21 @@ void BM78_AsyncEventResponse() {
                                 // Re-read PIN code after writing PIN code.
                                 BM78_execute(BM78_CMD_READ_PIN_CODE, 0);
                                 break;
-                            case BM78_CMD_DISCONNECT:
-                                if (BM78.enforceState) BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
-                                break;
+                            // Enforcing status is done by BM78_checkState
+                            //case BM78_CMD_DISCONNECT:
+                            //    if (BM78.enforceState) BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
+                            //    break;
                             default:
                                 break;
                         }
                         break;
                     case BM78_EVENT_BM77_STATUS_REPORT:
                         BM78_counters.missedStatusUpdate = 0; // Reset missed status update counter.
-#ifdef BM78_STATUS_WATCHDOG_LED_LAT
-                        if (BM78.enforceState) BM78_STATUS_WATCHDOG_LED_LAT = ~BM78_STATUS_WATCHDOG_LED_LAT;
-#endif
                         BM78.status = BM78_rx.response.StatusReport_0x81.status;
                         switch (BM78.status) {
                             case BM78_STATUS_STANDBY_MODE:
+                                if (BM78.enforceState == BM78_STANDBY_MODE_LEAVE) BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
+                                // No break here
                             case BM78_STATUS_LINK_BACK_MODE:
                             case BM78_STATUS_LE_CONNECTED_MODE:
                                 BM78_tx.length = 0; // Abort ongoing transmission.
@@ -581,33 +576,36 @@ void BM78_AsyncEventResponse() {
                             case BM78_STATUS_SPP_CONNECTED_MODE:
                                 break;
                             case BM78_STATUS_IDLE_MODE:
-                                if (BM78.enforceState) BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
+                                if (BM78.enforceState != BM78_STANDBY_MODE_LEAVE) BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
                                 break;
-                            case BM78_STATUS_POWER_ON:
-                            case BM78_STATUS_PAGE_MODE:
-                            case BM78_STATUS_SHUTDOWN_MODE:
+                            //case BM78_STATUS_POWER_ON:
+                            //case BM78_STATUS_PAGE_MODE:
+                            //case BM78_STATUS_SHUTDOWN_MODE:
                             default:
                                 break;
                         }
                         break;
                     case BM78_EVENT_RECEIVED_TRANSPARENT_DATA:
                     case BM78_EVENT_RECEIVED_SPP_DATA:
-                        BM78_byte = 0; // Calculated checksum
-                        for (BM78_i = 1; BM78_i < BM78_rx.response.ReceivedTransparentData_0x9A.length - 2; BM78_i++) {
-                            BM78_byte = BM78_byte + BM78_rx.buffer[BM78_i];
+                        chksum = 0; // Calculated checksum
+                        for (uint8_t i = 1; i < BM78_rx.response.ReceivedTransparentData_0x9A.length - 2; i++) {
+                            chksum = chksum + BM78_rx.buffer[i];
                         }
-                        if (BM78_byte == BM78_rx.buffer[0]) { // Compare calculated with received checksum
+                        if (chksum == BM78_rx.buffer[0]) { // Compare calculated with received checksum
                             switch (BM78_rx.buffer[1]) {
                                 case BM78_MESSAGE_KIND_CRC:
                                     if (BM78_rx.response.ReceivedTransparentData_0x9A.length == 5) {
                                         BM78_tx.chksumReceived = BM78_rx.buffer[2];
                                     }
                                     break;
+                                case BM78_MESSAGE_KIND_IDD:
+                                    // Do nothing, just ping.
+                                    break;
                                 default:
                                     // Shift data in the array one up to reuse it
-                                    for (BM78_i = 1; BM78_i < BM78_rx.response.ReceivedTransparentData_0x9A.length - 2; BM78_i++) {
-                                        if ((BM78_i - 1) < BM78_TRANSPARENT_DATA_BLOCK_MAX_SIZE) {
-                                            BM78_rx.buffer[BM78_i - 1] = BM78_rx.buffer[BM78_i];
+                                    for (uint8_t i = 1; i < BM78_rx.response.ReceivedTransparentData_0x9A.length - 2; i++) {
+                                        if ((i - 1) < BM78_DATA_PACKET_MAX_SIZE) {
+                                            BM78_rx.buffer[i - 1] = BM78_rx.buffer[i];
                                         }
                                     }
 
@@ -616,14 +614,14 @@ void BM78_AsyncEventResponse() {
                                     }
 
                                     // Shift data in the array one down to rebuild original data
-                                    for (BM78_i = BM78_rx.response.ReceivedTransparentData_0x9A.length - 3; BM78_i > 0; BM78_i--) {
-                                        if (BM78_i < BM78_TRANSPARENT_DATA_BLOCK_MAX_SIZE) {
-                                            BM78_rx.buffer[BM78_i] = BM78_rx.buffer[BM78_i - 1];
+                                    for (uint8_t i = BM78_rx.response.ReceivedTransparentData_0x9A.length - 3; i > 0; i--) {
+                                        if (i < BM78_DATA_PACKET_MAX_SIZE) {
+                                            BM78_rx.buffer[i] = BM78_rx.buffer[i - 1];
                                         }
                                     }
-                                    BM78_rx.buffer[0] = BM78_byte; // reconstruct 1st byte
+                                    BM78_rx.buffer[0] = chksum; // reconstruct 1st byte
 
-                                    BM78_execute(BM78_CMD_SEND_TRANSPARENT_DATA, 4, 0x00, BM78_byte, BM78_MESSAGE_KIND_CRC, BM78_byte);
+                                    BM78_execute(BM78_CMD_SEND_TRANSPARENT_DATA, 4, 0x00, chksum, BM78_MESSAGE_KIND_CRC, chksum);
                                     break;
                             }
                         }
@@ -632,18 +630,24 @@ void BM78_AsyncEventResponse() {
                         break;
                 }
 
-                if (BM78_eventHandler) BM78_eventHandler(BM78_rx.response, BM78_rx.buffer);
+               if (BM78_eventHandler) BM78_eventHandler(BM78_rx.response, BM78_rx.buffer);
 
             } else {
                 if (BM78_rx.response.op_code == BM78_EVENT_COMMAND_COMPLETE) {
                     switch (BM78_rx.response.CommandComplete_0x80.status) {
-                        case BM78_ERR_INVALID_COMMAND_PARAMETERS:
-                            if (BM78_rx.response.CommandComplete_0x80.command == BM78_CMD_INVISIBLE_SETTING) {
-                                BM78_execute(BM78_CMD_READ_STATUS, 0);
-                            }
-                            break;
+                        // Read status is done by BM78_checkState periodically
+                        //case BM78_ERR_INVALID_COMMAND_PARAMETERS:
+                        //    if (BM78_rx.response.CommandComplete_0x80.command == BM78_CMD_INVISIBLE_SETTING) {
+                        //        BM78_execute(BM78_CMD_READ_STATUS, 0);
+                        //    }
+                        //    break;
                         case BM78_ERR_COMMAND_DISALLOWED:
-                            BM78_execute(BM78_CMD_READ_STATUS, 0);
+                            if (BM78_rx.response.CommandComplete_0x80.command == BM78_CMD_DISCONNECT) {
+                                BM78_reset();
+                            //} else {
+                            // Read status is done by BM78_checkState periodically
+                            //    BM78_execute(BM78_CMD_READ_STATUS, 0);
+                            }
                             break;
                         default:
                             break;
@@ -667,12 +671,12 @@ inline void BM78_commandPrepareBuffer(uint8_t command, uint8_t length) {
 }
 
 inline uint8_t BM78_commandCalculateChecksum(uint8_t length) {
-    BM78_byte = 0; // Checksum
+    uint8_t chksum = 0;
     // Add bytes 1-3 (inclusive) to the checksum.
-    for (BM78_i = 1; BM78_i < (length + 4); BM78_i++) {
-        BM78_byte += BM78_tx.buffer[BM78_i];
+    for (uint8_t i = 1; i < (length + 4); i++) {
+        chksum += BM78_tx.buffer[i];
     }
-    return BM78_byte;
+    return chksum;
 }
 
 inline void BM78_commandCommit(uint8_t length) {
@@ -683,8 +687,8 @@ inline void BM78_commandCommit(uint8_t length) {
 void BM78_write(uint8_t command, uint8_t store, uint8_t length, uint8_t *value) {
     BM78_commandPrepareBuffer(command, length + 1);
     BM78_tx.buffer[4] = store;
-    for (BM78_i = 0; BM78_i < length; BM78_i++) {
-        BM78_tx.buffer[BM78_i + 5] = *(value + BM78_i);
+    for (uint8_t i = 0; i < length; i++) {
+        BM78_tx.buffer[i + 5] = *(value + i);
     }
     BM78_tx.buffer[length + 5] = 0xFF - BM78_commandCalculateChecksum(length + 1) + 1;
     BM78_commandCommit(length + 1);
@@ -695,8 +699,8 @@ void BM78_execute(uint8_t command, uint8_t length, ...) {
     va_start(argp, length);
     
     BM78_commandPrepareBuffer(command, length);
-    for (BM78_i = 0; BM78_i < length; BM78_i++) {
-        BM78_tx.buffer[BM78_i + 4] = va_arg(argp, uint8_t);
+    for (uint8_t i = 0; i < length; i++) {
+        BM78_tx.buffer[i + 4] = va_arg(argp, uint8_t);
     }
     va_end(argp);
 
@@ -706,8 +710,8 @@ void BM78_execute(uint8_t command, uint8_t length, ...) {
 
 void BM78_data(uint8_t command, uint8_t length, uint8_t *data) {
     BM78_commandPrepareBuffer(command, length);
-    for (BM78_i = 0; BM78_i < length; BM78_i++) {
-        BM78_tx.buffer[BM78_i + 4] = *(data + BM78_i);
+    for (uint8_t i = 0; i < length; i++) {
+        BM78_tx.buffer[i + 4] = *(data + i);
     }
     BM78_tx.buffer[length + 4] = 0xFF - BM78_commandCalculateChecksum(length) + 1;
     BM78_commandCommit(length);
@@ -715,7 +719,7 @@ void BM78_data(uint8_t command, uint8_t length, uint8_t *data) {
 
 bool BM78_awatingConfirmation(void) {
     return BM78_tx.length > 0;
-}
+}   
 
 void BM78_retryTrigger(void) {
     if (BM78.status != BM78_STATUS_SPP_CONNECTED_MODE) {
@@ -725,11 +729,27 @@ void BM78_retryTrigger(void) {
         BM78_tx.length = 0;
         if (BM78_messageSentHandler) BM78_messageSentHandler();
     } else if (BM78_tx.length > 0 && !BM78_isChecksumCorrect() && BM78_tx.timeout == 0) {
-        BM78_tx.timeout = BM78_RESEND_DELAY / BM78_TRIGGER_PERIOD;
+        if (BM78_tx.retries == 0) {
+            BM78_tx.retries = BM78_NO_RETRY_LIMIT;
+            BM78_tx.length = 0; // Cancel transmission
+            if (BM78_messageSentHandler) BM78_messageSentHandler();
+            return;
+        } else if (BM78_tx.retries < BM78_NO_RETRY_LIMIT) BM78_tx.retries--;
+        BM78_tx.timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
         BM78_commandPrepareBuffer(BM78_CMD_SEND_TRANSPARENT_DATA, BM78_tx.length + 1);
         BM78_tx.buffer[4] = 0x00; // Reserved by BM78
-        for (BM78_i = 0; BM78_i < BM78_tx.length; BM78_i++) {
-            BM78_tx.buffer[BM78_i + 5] = BM78_tx.data[BM78_i];
+        
+        // (Re)calculate Transparent Checksum
+        BM78_tx.chksumExpected = 0x00;
+        for (uint8_t i = 1; i < BM78_tx.length; i++) {
+            BM78_tx.chksumExpected = BM78_tx.chksumExpected + BM78_tx.data[i];
+        }
+        BM78_tx.data[0] = BM78_tx.chksumExpected;
+        BM78_tx.chksumReceived = BM78_tx.chksumExpected == 0x00 ? 0xFF : 0x00;
+        
+        // Fill TX buffer
+        for (uint8_t i = 0; i < BM78_tx.length; i++) {
+            BM78_tx.buffer[i + 5] = BM78_tx.data[i];
         }
         BM78_tx.buffer[BM78_tx.length + 5] = 0xFF - BM78_commandCalculateChecksum(BM78_tx.length + 1) + 1;
         BM78_commandCommit(BM78_tx.length + 1);
@@ -739,40 +759,40 @@ void BM78_retryTrigger(void) {
 }
 
 inline void BM78_addDataByte(uint8_t position, uint8_t byte) {
-    BM78_tx.data[position + 1] = byte;
+    if (BM78_tx.length == 0) BM78_tx.data[position + 1] = byte;
 }
 
-inline void BM78_addDataByte2(uint8_t position, uint16_t byte) {
-    BM78_tx.data[position + 1] = byte >> 8;
-    BM78_tx.data[position + 2] = byte & 0xFF;
+inline void BM78_addDataByte2(uint8_t position, uint16_t word) {
+    if (BM78_tx.length == 0) {
+        BM78_tx.data[position + 1] = word >> 8;
+        BM78_tx.data[position + 2] = word & 0xFF;
+    }
 }
 
 inline void BM78_addDataBytes(uint8_t position, uint8_t length, uint8_t *data) {
-    for (BM78_i = 0; BM78_i < length; BM78_i++) {
-        BM78_tx.data[position + BM78_i + 1] = *(data + BM78_i);
+    if (BM78_tx.length == 0)  for (uint8_t i = 0; i < length; i++) {
+        BM78_tx.data[position + i + 1] = *(data + i);
     }
 }
 
-void BM78_commitData(uint8_t length) {
+bool BM78_commitData(uint8_t length, uint8_t maxRetries) {
     if (BM78_tx.length == 0) {
         BM78_tx.length = length + 1;
         BM78_tx.timeout = 0; // Send right-away
-        BM78_tx.chksumExpected = 0x00;
-        for (BM78_i = 0; BM78_i < length; BM78_i++) {
-            BM78_tx.chksumExpected = BM78_tx.chksumExpected + BM78_tx.data[BM78_i + 1];
-        }
-        BM78_tx.data[0] = BM78_tx.chksumExpected;
-        BM78_tx.chksumReceived = BM78_tx.chksumExpected == 0x00 ? 0xFF : 0x00;
-        BM78_retryTrigger();
+        BM78_tx.retries = maxRetries;
+        BM78_resetChecksum();
+        //BM78_retryTrigger(); this will be triggered by a timer.
+        return true;
     }
+    return false;
 }
 
-void BM78_transmit(uint8_t length, uint8_t *data) {
+void BM78_transmitData(uint8_t length, uint8_t *data, uint8_t maxRetries) {
     if (BM78_tx.length == 0) {
-        for (BM78_i = 0; BM78_i < length; BM78_i++) {
-            BM78_addDataByte(BM78_i, *(data + BM78_i));
+        for (uint8_t i = 0; i < length; i++) {
+            BM78_addDataByte(i, *(data + i));
         }
-        BM78_commitData(length);
+        BM78_commitData(length, maxRetries);
     }
 }
 
@@ -788,7 +808,7 @@ bool BM78_isChecksumCorrect(void) {
 void BM78_processByteInAppMode(uint8_t byte) {
     switch (BM78_state) {
         case BM78_STATE_IDLE:
-            if (byte == 0xAA) {
+            if (byte == 0xAA) { // SYNC WORD
                 BM78_rx.response.checksum_calculated = 0;
                 BM78_state = BM78_EVENT_STATE_LENGTH_HIGH;
             }
@@ -802,24 +822,32 @@ void BM78_processByteInAppMode(uint8_t byte) {
         case BM78_EVENT_STATE_LENGTH_LOW:
             BM78_rx.response.length |= (byte & 0x00FF);
             BM78_rx.response.checksum_calculated += byte;
-            BM78_rx.index = 0;
+            //BM78_rx.index = 0;
             BM78_state = BM78_EVENT_STATE_OP_CODE;
             break;
         case BM78_EVENT_STATE_OP_CODE:
             BM78_rx.response.op_code = byte;
             BM78_rx.response.checksum_calculated += byte;
-            BM78_rx.index++;
+            //BM78_rx.index++;
+            BM78_rx.index = 1;
             BM78_state = BM78_EVENT_STATE_ADDITIONAL;
             break;
         case BM78_EVENT_STATE_ADDITIONAL:
             if (BM78_rx.index < BM78_rx.response.length) {
                 switch (BM78_rx.response.op_code) {
+#ifdef BM78_ADVANCED_PAIRING
+                    case BM78_EVENT_PASSKEY_ENTRY_REQ:
+                        //BM78_rx.response.PasskeyEntryReq_0x60
+                        break;
+#endif
                     case BM78_EVENT_PAIRING_COMPLETE:
                         BM78_rx.response.PairingComplete_0x61.result = byte;
                         break;
+#ifdef BM78_ADVANCED_PAIRING
                     case BM78_EVENT_PASSKEY_DISPLAY_YES_NO_REQ:
-                        BM78_rx.response.PasskeyDisplayYesNoReq_0x62.passkey = byte;
+                        BM78_rx.response.PasskeyDisplayYesNoReq_0x62.passkey[BM78_rx.index - 1] = byte;
                         break;
+#endif
                         // GAP Events
                     case BM78_EVENT_LE_CONNECTION_COMPLETE:
                         BM78.status = BM78_STATUS_LE_CONNECTED_MODE;
@@ -881,11 +909,13 @@ void BM78_processByteInAppMode(uint8_t byte) {
                             BM78_rx.response.StatusReport_0x81.status = byte;
                         }
                         break;
+#ifndef BM78_MANUAL_MODE
                     case BM78_EVENT_CONFIGURE_MODE_STATUS:
                         if (BM78_rx.index == 1) {
                             BM78_rx.response.ConfigureModeStatus_0x8F.status = byte;
                         }
                         break;
+#endif
                         // SPP/GATT Transparent Event
                     case BM78_EVENT_RECEIVED_TRANSPARENT_DATA:
                     case BM78_EVENT_RECEIVED_SPP_DATA:
@@ -946,20 +976,22 @@ void BM78_processByteInTestMode(uint8_t byte) {
                 BM78_state = BM78_STATE_IDLE;
             }
             break;
+        default:
+            break;
     }
 }
 
 void BM78_checkNewDataAsync(void) {
     if (UART_isRXReady()) {
         BM78_counters.idle = 0; // Reset idle counter
-        BM78_byte = UART_read();
+        uint8_t byte = UART_read();
         switch (BM78.mode) {
             case BM78_MODE_INIT:
             case BM78_MODE_APP:
-                BM78_processByteInAppMode(BM78_byte);
+                BM78_processByteInAppMode(byte);
                 break;
             case BM78_MODE_TEST:
-                BM78_processByteInTestMode(BM78_byte);
+                BM78_processByteInTestMode(byte);
                 break;
         }
     }

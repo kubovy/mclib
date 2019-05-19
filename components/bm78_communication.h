@@ -15,60 +15,153 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include "../lib/requirements.h"
+#include "../lib/common.h"
 #include "../modules/bm78.h"
-
-#ifdef BM78_ENABLED // Needs BM78 module
-
-#define BMC_QUEUE_SIZE 10
-#define BMC_MAX_PLAIN_MESSAGE_SIZE 20
-    
-#ifndef BMC_NOTHING_TO_TRANSMIT
-#define BMC_NOTHING_TO_TRANSMIT 0xFF
+#ifdef DHT11_PORT
+#include "../modules/dht11.h"
+#endif
+#ifdef MCP_ENABLED
+#include "../modules/mcp23017.h"
+#endif
+#ifdef RGB_ENABLED
+#include "../modules/rgb.h"
+#endif
+#ifdef SM_MEM_ADDRESS
+#include "../modules/state_machine.h"
+#endif
+#ifdef WS281x_BUFFER
+#include "../modules/ws281x.h"
 #endif
 
-typedef bool (*BMC_NextMessageHandler_t)(uint8_t);
+#ifdef BM78_ENABLED
+    
+#ifndef BMC_QUEUE_SIZE
+#warning "BM78 Communication: Queue size defaults to 10"
+#define BMC_QUEUE_SIZE 10
+#endif
+
+#define BMC_PARAM_MASK 0x7F
+#define BMC_PARAM_ALL 0x80
+#ifdef LCD_ADDRESS
+#define BMC_PARAM_LCD_CLEAR 0x7B
+#define BMC_PARAM_LCD_RESET 0x7C
+#define BMC_PARAM_LCD_NO_BACKLIGH 0x7D
+#define BMC_PARAM_LCD_BACKLIGH 0x7E
+#endif
+
+/**
+ * Next message handler type should implement sending a message type define by
+ * the "what" parameter.
+ * 
+ * @param what What to send (message type)
+ * @param param Message type parameter.
+ * @return Whether the queue item should be consumed or not. In some cases this
+ *         can be used to send one message types over multiple packets due to
+ *         packet size limitation.
+ */
+typedef bool (*BMC_NextMessageHandler_t)(uint8_t what, uint8_t param);
+
+/** Adds a settings message to the send queue. */
+inline void BMC_sendSettings(void);
+
+#ifdef DHT11_PORT
+/** Adds a DHT11 message to the send queue. */
+inline void BMC_sendDHT11(void);
+#endif
+
+#ifdef LCD_ADDRESS
+/**
+ * Adds a LCD message to the send queue.
+ * 
+ * @param line Which line to send. Use BMC_PARAM_ALL to send the while content.
+ */
+inline void BMC_sendLCD(uint8_t line);
+
+inline void BMC_sendLCDBacklight(bool on);
+#endif
+
+#ifdef PIR_PORT
+/** Adds a PIR message to the send queue. */
+inline void BMC_sendPIR(void);
+#endif
+
+#ifdef MCP_ENABLED
+/** Adds a MCP23017 message to the send queue. */
+inline void BMC_sendMCP23017(uint8_t address);
+#endif
+
+#ifdef RGB_ENABLED
+/** Adds a RGB message to the send queue. */
+inline void BMC_sendRGB(void);
+#endif
+
+#ifdef WS281x_BUFFER
+/**
+ * Adds a WS281x LED message to the send queue.
+ * 
+ * @param led LED of which to transfer the configuration. Use BMC_PARAM_ALL to
+ *            send all LED configurations of the whole strip.
+ */
+inline void BMC_sendWS281xLED(uint8_t led);
+#endif
 
 /**
  * Next message handler setter. This handler should implement sending a 
- * particular message depending on the parameter.
+ * particular message.
+ * 
+ * Next message handler type should implement sending a message type define by
+ * the "what" parameter. 
+ * 
+ * The prototype: bool BMC_NextMessageHandler_t(uint8_t what, uint8_t param)
+ * - param what : What to send (message type)
+ * - param param: Message type parameter.
+ * - return     : Whether the queue item should be consumed or not. In some 
+ *                cases this can be used to send one message types over multiple
+ *                packets due to packet size limitation.
  * 
  * @param NextMessageHandler The handler.
  */
 void BMC_setNextMessageHandler(BMC_NextMessageHandler_t nextMessageHandler);
 
 /**
- * Add definition to transmission queue.
+ * Enqueues transmission type with possible parameter.
  * 
  * @param what Definition what to transmit.
+ * @param param Possible parameter.
  */
-void BMC_transmit(uint8_t what);
+void BMC_enqueue(uint8_t what, uint8_t param);
 
 /**
- * BM78 Application mode response handler sample.
+ * Called when a BT message was sent. 
+ *
+ * This method is supposed to determine it there is somehing to be send to the
+ * connected bluetooth device and send it.
  * 
- * @param response BM78 response.
- * @param data BM78 additional response data.
+ * It implement sending messages enqueued with the BMC_enqueue function. 
+ * Known message types, e.g., settings, dht11, pir, mcp23017, rgb, ws281x,
+ * plain, are sent by this handler.
+ * 
+ * All non-recognized message types should be send by a BMC_NextMessageHandler_t
+ * handler optionally set by the  BMC_setNextMessageHandler function.
  */
-void BMC_bm78EventHandler(BM78_Response_t response, uint8_t *data);
-
-/** Called when a BT message was sent. */
 void BMC_bm78MessageSentHandler(void);
 
 /**
  * BM78's transparent data handler implementation.
  * 
- * @param length Transparent data lenght.
+ * This particular implementation listens to data packets and recognizes known
+ * messages, e.g., settings, dht11, pir, mcp23017, rgb, ws281x, plain. It reacts
+ * to those messages by calling appropriate functions in the corresponding
+ * modules.
+ * 
+ * Non-recognized message are ignored here and another BM78 Transparent Data
+ * Handler should be implemented in an appropriate module to handle those.
+ * 
+ * @param length Transparent data length.
  * @param data Transparent data.
  */
 void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
-
-/**
- * BM78's error handler.
- * 
- * @param response BM78 response.
- * @param data BM78 additional response data.
- */
-void BMC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
 
 #endif
 

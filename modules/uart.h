@@ -9,12 +9,17 @@
 extern "C" {
 #endif
 
-#include "../../config.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include "../lib/requirements.h"
 
 #if defined UART || defined EUSART
 
-#include <stdbool.h>
-#include <stdint.h>
+#if defined UART
+#include "../../mcc_generated_files/uart1.h"
+#elif defined EUSART
+#include "../../mcc_generated_files/eusart.h"
+#endif
 
 inline bool UART_isRXReady(void);
 inline bool UART_isTXReady(void);
@@ -22,7 +27,7 @@ inline bool UART_isTXDone(void);
 inline uint8_t UART_read(void);
 inline void UART_write(uint8_t byte);
 
-#endif
+#endif    
 
 #ifdef	__cplusplus
 }
