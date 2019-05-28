@@ -59,7 +59,11 @@ extern "C" {
 #include "modules/uart.h"
 #endif
 #ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+#include "modules/ws281x_light.h"
+#else
 #include "modules/ws281x.h"
+#endif
 #endif
 
 // Components

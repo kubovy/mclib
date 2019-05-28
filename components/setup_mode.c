@@ -23,12 +23,13 @@ uint8_t SUM_setupPage = SUM_MENU_MAIN;
 
 union {
     struct {
-        bool ws281xDemo   :1;
-        bool lcdBacklight :1;
-        bool showKeypad   :1;
-        bool showBtErrors :1;
+        bool ws281xDemo    :1;
+        uint8_t ws281xLight:4;
+        bool lcdBacklight  :1;
+        bool showKeypad    :1;
+        bool showBtErrors  :1;
     };
-} sw = {false, true, false, false};
+} sw = {false, WS281x_LIGHT_OFF, true, false, false};
 
 struct {
     uint8_t id;
@@ -85,6 +86,9 @@ void SUM_setBtStatus(uint8_t status) {
             break;
         case BM78_STATUS_SHUTDOWN_MODE:
             strcpy(SUM_bm78CurrentState.name, "SHUT DOWN", 9);
+            break;
+        case BM78_STATUS_PAIRING_IN_PROGRESS_MODE:
+            strcpy(SUM_bm78CurrentState.name, "PAIRING  ", 9);
             break;
         default:
             strcpy(SUM_bm78CurrentState.name, "0x##     ", 9);
@@ -318,7 +322,10 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back      Next (C", 3, true);
             break;
         case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
-#ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+            LCD_setString("1) WS281x Tests     ", 0, true);
+            LCD_setString("-) WS281x Demo      ", 1, true);
+#elif defined WS281x_BUFFER
             LCD_setString("1) WS281x Test      ", 0, true);
             LCD_setString("2) WS281x Demo   [ ]", 1, false);
             LCD_replaceChar(sw.ws281xDemo ? 'X' : ' ', 18, 1, true);
@@ -328,6 +335,46 @@ void SUM_showMenu(uint8_t page) {
 #endif
             LCD_setString("B) Back             ", 3, true);
             break;
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+        case SUM_MENU_TEST_WS281x_PAGE_1:
+            LCD_setString("1) Full          [ ]", 0, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FULL ? 'X' : ' ', 18, 0, true);
+            LCD_setString("2) Blink         [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_BLINK ? 'X' : ' ', 18, 1, true);
+            LCD_setString("3) Fade In       [ ]", 2, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_IN ? 'X' : ' ', 18, 2, true);
+            LCD_setString("B) Back      Next (C", 3, true);
+            POC_testWS281xLight(sw.ws281xLight);
+            break;
+        case SUM_MENU_TEST_WS281x_PAGE_2:
+            LCD_setString("1) Fade Out      [ ]", 0, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_OUT ? 'X' : ' ', 18, 0, true);
+            LCD_setString("2) Fade In-Out   [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_INOUT ? 'X' : ' ', 18, 1, true);
+            LCD_setString("3) Fade Toggle   [ ]", 2, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_TOGGLE ? 'X' : ' ', 18, 2, true);
+            LCD_setString("B) Back      Next (C", 3, true);
+            POC_testWS281xLight(sw.ws281xLight);
+            break;
+        case SUM_MENU_TEST_WS281x_PAGE_3:
+            LCD_setString("1) Rotation      [ ]", 0, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_ROTATION ? 'X' : ' ', 18, 0, true);
+            LCD_setString("2) Wipe          [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_WIPE ? 'X' : ' ', 18, 1, true);
+            LCD_setString("3) Lighthouse    [ ]", 2, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_LIGHTHOUSE ? 'X' : ' ', 18, 2, true);
+            LCD_setString("B) Back      Next (C", 3, true);
+            POC_testWS281xLight(sw.ws281xLight);
+            break;
+        case SUM_MENU_TEST_WS281x_PAGE_4:
+            LCD_setString("1) Chaise        [ ]", 0, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_CHAISE ? 'X' : ' ', 18, 0, true);
+            LCD_setString("2) Theater       [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_THEATER ? 'X' : ' ', 18, 1, true);
+            LCD_setString("B) Back             ", 3, true);
+            POC_testWS281xLight(sw.ws281xLight);
+            break;
+#endif
 #ifdef DHT11_PORT
         case SUM_MENU_TEST_DHT11:
             POC_testDHT11();
@@ -981,8 +1028,12 @@ void SUM_executeMenu(uint8_t key) {
             switch(key) {
 #ifdef WS281x_BUFFER
                 case '1': // WS281x Test
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
+#else
                     POC_testWS281x();
                     SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+#endif
                     break;
                 case '2': // WS281x Demo
                     sw.ws281xDemo = !sw.ws281xDemo;
@@ -999,6 +1050,101 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+        case SUM_MENU_TEST_WS281x_PAGE_1:
+            switch(key) {
+                case '1':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_FULL ? WS281x_LIGHT_OFF : WS281x_LIGHT_FULL;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
+                    break;
+                case '2':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_BLINK ? WS281x_LIGHT_OFF : WS281x_LIGHT_BLINK;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
+                    break;
+                case '3':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_FADE_IN ? WS281x_LIGHT_OFF : WS281x_LIGHT_FADE_IN;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    break;
+                case 'C':
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_2);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_TEST_WS281x_PAGE_2:
+            switch(key) {
+                case '1':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_FADE_OUT ? WS281x_LIGHT_OFF : WS281x_LIGHT_FADE_OUT;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_2);
+                    break;
+                case '2':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_FADE_INOUT ? WS281x_LIGHT_OFF : WS281x_LIGHT_FADE_INOUT;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_2);
+                    break;
+                case '3':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_FADE_TOGGLE ? WS281x_LIGHT_OFF : WS281x_LIGHT_FADE_TOGGLE;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_2);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
+                    break;
+                case 'C':
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_3);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_TEST_WS281x_PAGE_3:
+            switch(key) {
+                case '1':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_ROTATION ? WS281x_LIGHT_OFF : WS281x_LIGHT_ROTATION;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_3);
+                    break;
+                case '2':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_WIPE ? WS281x_LIGHT_OFF : WS281x_LIGHT_WIPE;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_3);
+                    break;
+                case '3':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_LIGHTHOUSE ? WS281x_LIGHT_OFF : WS281x_LIGHT_LIGHTHOUSE;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_3);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_2);
+                    break;
+                case 'C':
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_TEST_WS281x_PAGE_4:
+            switch(key) {
+                case '1':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_CHAISE ? WS281x_LIGHT_OFF : WS281x_LIGHT_CHAISE;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
+                    break;
+                case '2':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_THEATER ? WS281x_LIGHT_OFF : WS281x_LIGHT_THEATER;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_3);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+#endif
 #ifdef DHT11_PORT
         case SUM_MENU_TEST_DHT11:
             switch (key) {

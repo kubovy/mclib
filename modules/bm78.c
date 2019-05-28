@@ -45,7 +45,7 @@ struct {
     uint16_t timeout;       // Timeout countdown used by retry trigger.
     uint8_t retries;        // Number of transparent transmissions retries
     uint8_t buffer[BM78_DATA_PACKET_MAX_SIZE + 7];
-    uint8_t data[BM78_DATA_PACKET_MAX_SIZE]; // Only for transparent data
+    uint8_t data[BM78_DATA_PACKET_MAX_SIZE + 1]; // Only for transparent data
 } BM78_tx = {0, 0x00, 0xFF, 0, 0xFF};
 
 BM78_State_t BM78_state = BM78_STATE_IDLE;
@@ -753,6 +753,10 @@ void BM78_retryTrigger(void) {
         }
         BM78_tx.buffer[BM78_tx.length + 5] = 0xFF - BM78_commandCalculateChecksum(BM78_tx.length + 1) + 1;
         BM78_commandCommit(BM78_tx.length + 1);
+    } else if (BM78_tx.length == 0 && BM78_tx.timeout == 0) {
+        // Periodically try message sent handler if someone has something to send
+        BM78_tx.timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
+        if (BM78_messageSentHandler) BM78_messageSentHandler();
     } else if (BM78_tx.timeout > 0) {
         BM78_tx.timeout--;
     }

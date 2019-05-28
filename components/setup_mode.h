@@ -71,12 +71,18 @@ extern "C" {
 #define SUM_MENU_TEST_PAGE_3 62
 #define SUM_MENU_TEST_PAGE_4 63
 #define SUM_MENU_TEST_PAGE_5 64
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+#define SUM_MENU_TEST_WS281x_PAGE_1 70
+#define SUM_MENU_TEST_WS281x_PAGE_2 71
+#define SUM_MENU_TEST_WS281x_PAGE_3 72
+#define SUM_MENU_TEST_WS281x_PAGE_4 73
+#endif
 #ifdef DHT11_PORT
-#define SUM_MENU_TEST_DHT11 70
+#define SUM_MENU_TEST_DHT11 80
 #endif
 #ifdef MCP_ENABLED
-#define SUM_MENU_TEST_MCP_IN 71
-#define SUM_MENU_TEST_MCP_OUT 72
+#define SUM_MENU_TEST_MCP_IN 81
+#define SUM_MENU_TEST_MCP_OUT 82
 #endif
 
 /** SetUp Mode on/off. */

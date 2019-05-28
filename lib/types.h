@@ -14,6 +14,12 @@ extern "C" {
 #include <stdint.h>
 
 typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} Color_t;
+    
+typedef struct {
 	uint16_t address; // Address
     uint8_t length;   // Packet length
 	uint8_t data[32]; // Data (max. 32 bytes per packet)

@@ -72,11 +72,19 @@ inline void BMC_sendRGB(void) {
 #endif
 
 #ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+inline void BMC_sendWS281xLight(uint8_t index) {
+    if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE) {
+        BMC_enqueue(BM78_MESSAGE_KIND_WS281x_LIGHT, index);
+    }
+}
+#else
 inline void BMC_sendWS281xLED(uint8_t led) {
     if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE) {
         BMC_enqueue(BM78_MESSAGE_KIND_WS281x, led);
     }
 }
+#endif
 #endif
 
 void BMC_setNextMessageHandler(BMC_NextMessageHandler_t nextMessageHandler) {
@@ -181,6 +189,50 @@ void BMC_bm78MessageSentHandler(void) {
                 break;
 #endif
 #ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+            case BM78_MESSAGE_KIND_WS281x_LIGHT:
+                param = BMC_tx.param[BMC_tx.index] & BMC_PARAM_MASK; // index (max 128)
+                if (param < WS281xLight_list.size) {
+                    BM78_addDataByte(0, BM78_MESSAGE_KIND_WS281x_LIGHT);
+                    BM78_addDataByte(1, WS281xLight_list.size);  // Size
+                    BM78_addDataByte(2, param & BMC_PARAM_MASK); // Index
+                    BM78_addDataByte(3, WS281xLight_items[param].pattern);
+                    BM78_addDataByte(4, WS281xLight_items[param].color[0].r);
+                    BM78_addDataByte(5, WS281xLight_items[param].color[0].g);
+                    BM78_addDataByte(6, WS281xLight_items[param].color[0].b);
+                    BM78_addDataByte(7, WS281xLight_items[param].color[1].r);
+                    BM78_addDataByte(8, WS281xLight_items[param].color[1].g);
+                    BM78_addDataByte(9, WS281xLight_items[param].color[1].b);
+                    BM78_addDataByte(10, WS281xLight_items[param].color[2].r);
+                    BM78_addDataByte(11, WS281xLight_items[param].color[2].g);
+                    BM78_addDataByte(12, WS281xLight_items[param].color[2].b);
+                    BM78_addDataByte(13, WS281xLight_items[param].color[3].r);
+                    BM78_addDataByte(14, WS281xLight_items[param].color[3].g);
+                    BM78_addDataByte(15, WS281xLight_items[param].color[3].b);
+                    BM78_addDataByte(16, WS281xLight_items[param].color[4].r);
+                    BM78_addDataByte(17, WS281xLight_items[param].color[4].g);
+                    BM78_addDataByte(18, WS281xLight_items[param].color[4].b);
+                    BM78_addDataByte(19, WS281xLight_items[param].color[5].r);
+                    BM78_addDataByte(20, WS281xLight_items[param].color[5].g);
+                    BM78_addDataByte(21, WS281xLight_items[param].color[5].b);
+                    BM78_addDataByte(22, WS281xLight_items[param].color[6].r);
+                    BM78_addDataByte(23, WS281xLight_items[param].color[6].g);
+                    BM78_addDataByte(24, WS281xLight_items[param].color[6].b);
+                    BM78_addDataByte2(25, WS281xLight_items[param].delay * WS281x_TIMER_PERIOD);
+                    BM78_addDataByte(27, WS281xLight_items[param].width);
+                    BM78_addDataByte(28, WS281xLight_items[param].fading);
+                    BM78_addDataByte(29, WS281xLight_items[param].min);
+                    BM78_addDataByte(30, WS281xLight_items[param].max);
+                    BM78_addDataByte(31, WS281xLight_items[param].timeout);
+                    if (BM78_commitData(32, BM78_MAX_SEND_RETRIES)) {
+                        if ((param + 1) < WS281x_LED_COUNT
+                                && (BMC_tx.param[BMC_tx.index] & BMC_PARAM_ALL)) {
+                            BMC_tx.param[BMC_tx.index]++;
+                        } else BMC_tx.index++;
+                    }
+                } else BMC_tx.index++;
+                break;
+#else
             case BM78_MESSAGE_KIND_WS281x:
                 param = BMC_tx.param[BMC_tx.index] & BMC_PARAM_MASK; // LED (max 128)
                 if ((param) < WS281x_LED_COUNT) {
@@ -202,6 +254,7 @@ void BMC_bm78MessageSentHandler(void) {
                     }
                 } else BMC_tx.index++;
                 break;
+#endif
 #endif
             case BM78_MESSAGE_KIND_UNKNOWN:
                 // do nothing
@@ -282,9 +335,19 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
 #ifdef MCP_ENABLED
         case BM78_MESSAGE_KIND_MCP23017:
             if (length == 2) BMC_sendMCP23017(*(data + 1));
-            else if (length == 4) {
-                MCP_write(*(data + 1), MCP_OLATA, *(data + 2));
-                MCP_write(*(data + 1), MCP_OLATB, *(data + 3));
+            else if (length == 4 || length == 5) switch (*(data + 2)) {
+                case 0b00000001: // Only port A
+                    MCP_write(*(data + 1), MCP_OLATA, *(data + 3));
+                    break;
+                case 0b00000010: // Only port B
+                    MCP_write(*(data + 1), MCP_OLATB, *(data + 3));
+                    break;
+                case 0b00000011: // Both, port A and port B
+                    if (length == 5) {
+                        MCP_write(*(data + 1), MCP_OLATA, *(data + 3));
+                        MCP_write(*(data + 1), MCP_OLATB, *(data + 4));
+                    }
+                    break;
             }
             break;
 #endif
@@ -305,6 +368,45 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
             break;
 #endif
 #ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+        case BM78_MESSAGE_KIND_WS281x_LIGHT:
+            if (length == 1) BMC_sendWS281xLight(BMC_PARAM_ALL);
+            else if (length == 2) BMC_sendWS281xLight(*(data + 1));
+            else if (length == 30) {
+                if (*(data + 1) == WS281x_LIGHT_OFF) WS281xLight_off();
+                else if (*(data + 1) & BMC_PARAM_ALL) WS281xLight_set(
+                        *(data + 1) & BMC_PARAM_MASK,             // Pattern
+                        *(data + 2), *(data + 3), *(data + 4),    // Color 1
+                        *(data + 5), *(data + 6), *(data + 7),    // Color 2
+                        *(data + 8), *(data + 9), *(data + 10),   // Color 3
+                        *(data + 11), *(data + 12), *(data + 13), // Color 4
+                        *(data + 14), *(data + 15), *(data + 16), // Color 5
+                        *(data + 17), *(data + 18), *(data + 19), // Color 6
+                        *(data + 20), *(data + 21), *(data + 22), // Color 7
+                        (*(data + 23) << 8) | *(data + 24),       // Delay
+                        *(data + 25),                             // Width
+                        *(data + 26),                             // Fading
+                        *(data + 27),                             // Min
+                        *(data + 28),                             // Max
+                        *(data + 29));                            // Timeout
+                else WS281xLight_add(
+                        *(data + 1) & BMC_PARAM_MASK,             // Pattern
+                        *(data + 2), *(data + 3), *(data + 4),    // Color 1
+                        *(data + 5), *(data + 6), *(data + 7),    // Color 2
+                        *(data + 8), *(data + 9), *(data + 10),   // Color 3
+                        *(data + 11), *(data + 12), *(data + 13), // Color 4
+                        *(data + 14), *(data + 15), *(data + 16), // Color 5
+                        *(data + 17), *(data + 18), *(data + 19), // Color 6
+                        *(data + 20), *(data + 21), *(data + 22), // Color 7
+                        (*(data + 23) << 8) | *(data + 24),       // Delay
+                        *(data + 25),                             // Width
+                        *(data + 26),                             // Fading
+                        *(data + 27),                             // Min
+                        *(data + 28),                             // Max
+                        *(data + 29));                            // Timeout
+            }
+            break;
+#else
         case BM78_MESSAGE_KIND_WS281x:
             if (length == 1) BMC_sendWS281xLED(BMC_PARAM_ALL);
             else if (length == 2) BMC_sendWS281xLED(*(data + 1));
@@ -322,6 +424,7 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                         *(data + 9));                     // Max
             }
             break;
+#endif
 #endif
 #ifdef LCD_ADDRESS
         case BM78_MESSAGE_KIND_PLAIN:

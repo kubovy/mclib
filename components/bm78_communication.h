@@ -31,7 +31,11 @@ extern "C" {
 #include "../modules/state_machine.h"
 #endif
 #ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+#include "../modules/ws281x_light.h"
+#else
 #include "../modules/ws281x.h"
+#endif
 #endif
 
 #ifdef BM78_ENABLED
@@ -97,6 +101,15 @@ inline void BMC_sendRGB(void);
 #endif
 
 #ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+/**
+ * Adds a WS281x Light configuration to the send queue.
+ * 
+ * @param index Configuration index to send. Use BMC_PARAM_ALL to send all
+ *              configurations.
+ */
+inline void BMC_sendWS281xLight(uint8_t index);
+#else
 /**
  * Adds a WS281x LED message to the send queue.
  * 
@@ -104,6 +117,7 @@ inline void BMC_sendRGB(void);
  *            send all LED configurations of the whole strip.
  */
 inline void BMC_sendWS281xLED(uint8_t led);
+#endif
 #endif
 
 /**

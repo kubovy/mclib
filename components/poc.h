@@ -35,6 +35,9 @@ extern "C" {
 #endif
 #ifdef WS281x_BUFFER
 #include "../modules/ws281x.h"
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+#include "../modules/ws281x_light.h"
+#endif
 #endif
 
 #ifdef DHT11_PORT
@@ -65,6 +68,9 @@ void POC_testRGB(void);
 #ifdef WS281x_BUFFER
 void POC_demoWS281x(void);
 void POC_testWS281x(void);
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+void POC_testWS281xLight(WS281xLight_Pattern_t pattern);
+#endif
 #endif
 
 #ifdef	__cplusplus

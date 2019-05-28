@@ -98,8 +98,11 @@ extern "C" {
 #define BM78_MESSAGE_KIND_RGB 0x15
 #endif
 #ifdef WS281x_BUFFER
-#define BM78_MESSAGE_KIND_WS281x 0x16
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 #define BM78_MESSAGE_KIND_WS281x_LIGHT 0x17
+#else
+#define BM78_MESSAGE_KIND_WS281x 0x16
+#endif
 #endif
 #ifdef SM_MEM_ADDRESS
 #define BM78_MESSAGE_KIND_SM_CONFIGURATION 0x80
@@ -244,7 +247,9 @@ typedef enum {
     BM78_STATUS_SPP_CONNECTED_MODE = 0x07,
     BM78_STATUS_LE_CONNECTED_MODE = 0x08,
     BM78_STATUS_IDLE_MODE = 0x09,
-    BM78_STATUS_SHUTDOWN_MODE = 0x0A
+    BM78_STATUS_SHUTDOWN_MODE = 0x0A,
+    // Reverse engineered stated (may be wrong)
+    BM78_STATUS_PAIRING_IN_PROGRESS_MODE = 0x0C
 } BM78_Status_t;
 
 // Stand-By mode action

@@ -440,6 +440,15 @@ void POC_demoWS281x(void) {
     WS281x_set(4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  10, 0,  50);
     WS281x_set(5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  10, 0,  50);
     WS281x_set(6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  10, 0,  50);
+
+    WS281x_set(WS281x_LED_COUNT / 2 + 2, WS281x_PATTERN_LIGHT,       0x80, 0x00, 0x80,   0, 0,   0);
+    WS281x_set(WS281x_LED_COUNT / 2 + 3, WS281x_PATTERN_BLINK,       0xFF, 0x00, 0x00, 250, 0, 255);
+    WS281x_set(WS281x_LED_COUNT / 2 + 4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  10, 0,  50);
+    WS281x_set(WS281x_LED_COUNT / 2 + 5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  10, 0,  50);
+    WS281x_set(WS281x_LED_COUNT / 2 + 6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  10, 0,  50);
+
+    WS281x_set(WS281x_LED_COUNT - 1, WS281x_PATTERN_FADE_TOGGLE, 0x00, 0xFF, 0xFF,  10, 0,  50);
+    WS281x_set(WS281x_LED_COUNT - 2, WS281x_PATTERN_FADE_TOGGLE, 0x00, 0xFF, 0xFF,  10, 0,  50);
 }
 
 void POC_testWS281x(void) {
@@ -452,9 +461,25 @@ void POC_testWS281x(void) {
     __delay_ms(500);
 
 #ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("       YELLOW       ", 1, true);
+#endif
+    WS281x_all(0xFF, 0xFF, 0x00);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
     LCD_setString("       GREEN        ", 1, true);
 #endif
     WS281x_all(0x00, 0xFF, 0x00);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("        CYAN        ", 1, true);
+#endif
+    WS281x_all(0x00, 0xFF, 0xFF);
     WS281x_show();
     __delay_ms(500);
 
@@ -467,9 +492,204 @@ void POC_testWS281x(void) {
 
 #ifdef LCD_ADDRESS
     LCD_clear();
+    LCD_setString("       MAGENTA      ", 1, true);
+#endif
+    WS281x_all(0xFF, 0x00, 0xFF);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_clear();
 #endif
     WS281x_all(0x00, 0x00, 0x00);
     
     //POC_demoWS281x();
 }
+
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+void POC_testWS281xLight(WS281xLight_Pattern_t pattern) {
+    switch (pattern) {
+        case WS281x_LIGHT_OFF:
+            WS281xLight_off();
+            break;
+        case WS281x_LIGHT_FULL:
+            WS281xLight_set(WS281x_LIGHT_FULL,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    1000,             // Delay
+                    0,                // Width
+                    0,                // Fading
+                    0,                // Min
+                    255,              // Max
+                    50);              // Timeout (x 100ms)
+            break;
+        case WS281x_LIGHT_BLINK:
+            WS281xLight_set(WS281x_LIGHT_BLINK,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    500,              // Delay
+                    0,                // Width
+                    0,                // Fading
+                    16,               // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_FADE_IN:
+            WS281xLight_set(WS281x_LIGHT_FADE_IN,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    200,               // Delay
+                    0,                // Width
+                    0,                // Fading
+                    16,               // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_FADE_OUT:
+            WS281xLight_set(WS281x_LIGHT_FADE_OUT,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    200,               // Delay
+                    0,                // Width
+                    0,                // Fading
+                    16,               // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_FADE_INOUT:
+            WS281xLight_set(WS281x_LIGHT_FADE_INOUT,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    100,               // Delay
+                    0,                // Width
+                    0,                // Fading
+                    16,               // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_FADE_TOGGLE:
+            WS281xLight_set(WS281x_LIGHT_FADE_TOGGLE,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    100,               // Delay
+                    0,                // Width
+                    0,                // Fading
+                    16,               // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_ROTATION:
+            WS281xLight_set(WS281x_LIGHT_ROTATION,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    500,               // Delay
+                    10,               // Width
+                    24,               // Fading
+                    0,                // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_WIPE:
+            WS281xLight_set(WS281x_LIGHT_WIPE,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    500,               // Delay
+                    0,                // Width
+                    0,                // Fading
+                    16,               // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_LIGHTHOUSE:
+            WS281xLight_set(WS281x_LIGHT_LIGHTHOUSE,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    750,               // Delay
+                    5,                // Width
+                    32,               // Fading
+                    0,                // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_CHAISE:
+            WS281xLight_set(WS281x_LIGHT_CHAISE,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    300,               // Delay
+                    10,               // Width
+                    24,               // Fading
+                    0,                // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+        case WS281x_LIGHT_THEATER:
+            WS281xLight_set(WS281x_LIGHT_THEATER,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    1000,               // Delay
+                    3,                // Width
+                    0,                // Fading
+                    128,              // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
+    }
+}
+#endif
+
 #endif
