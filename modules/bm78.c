@@ -20,11 +20,6 @@ struct {
 } BM78_rx = {0};
 
 struct {
-    uint8_t index;                           // Byte index in message.
-    uint8_t length;                          // Response length.
-} BM78_cmdRX = {0, 0};
-
-struct {
     uint16_t idle;
     uint8_t missedStatusUpdate;
 } BM78_counters = {0, 0};
@@ -48,23 +43,24 @@ struct {
     uint8_t data[BM78_DATA_PACKET_MAX_SIZE + 1]; // Only for transparent data
 } BM78_tx = {0, 0x00, 0xFF, 0, 0xFF};
 
-BM78_State_t BM78_state = BM78_STATE_IDLE;
+BM78_EventState_t BM78_state = BM78_STATE_IDLE;
 
 /* Commands */
-//                                   C0    C1    C2   PLEN  PARAM
-const uint8_t BM78_COMMAND_S1[4] = {0x01, 0x03, 0x0c, 0x00};
-const uint8_t BM78_COMMAND_S2[5] = {0x01, 0x2d, 0xfc, 0x01, 0x08};
-//                                  C0    C1    C2   PLEN  AD_H  AD_L  SIZE
-const uint8_t BM78_COMMAND_W[7] = {0x01, 0x27, 0xfc, 0x00, 0x00, 0x00, 0x00};
-const uint8_t BM78_COMMAND_R[7] = {0x01, 0x29, 0xfc, 0x03, 0x00, 0x00, 0x01};
+//                                        TYPE   OCF   OGF   LEN  PARAM
+const uint8_t BM78_CMD_EEPROM_OPEN[4]  = {0x01, 0x03, 0x0c, 0x00};
+const uint8_t BM78_CMD_EEPROM_CLEAR[5] = {0x01, 0x2d, 0xfc, 0x01, 0x08};
+//                                        TYPE   OCF   OGF   LEN  AD_H  AD_L  SIZE
+const uint8_t BM78_CMD_EEPROM_WRITE[7] = {0x01, 0x27, 0xfc, 0x00, 0x00, 0x00, 0x00};
+const uint8_t BM78_CMD_EEPROM_READ[7]  = {0x01, 0x29, 0xfc, 0x03, 0x00, 0x00, 0x01};
 
 BM78_SetupAttemptHandler_t BM78_setupAttemptHandler;
 BM78_SetupHandler_t BM78_setupHandler;
-BM78_EventHandler_t BM78_eventHandler;
-BM78_DataHandler_t BM78_testModeResponseHandler;
+BM78_EventHandler_t BM78_appModeEventHandler;
+BM78_EventHandler_t BM78_testModeEventHandler;
 BM78_DataHandler_t BM78_transparentDataHandler;
 Procedure_t BM78_messageSentHandler;
-BM78_EventHandler_t BM78_errorHandler;
+BM78_EventHandler_t BM78_appModeErrorHandler;
+BM78_EventHandler_t BM78_testModeErrorHandler;
 
 void BM78_retryInitialization(void) {
     switch (BM78_init.stage) {
@@ -128,18 +124,20 @@ void BM78_retryInitialization(void) {
 void BM78_initialize(
                BM78_SetupAttemptHandler_t setupAttemptHandler,
                BM78_SetupHandler_t setupHandler,
-               BM78_EventHandler_t eventHandler,
-               BM78_DataHandler_t testModeResponseHandler,
+               BM78_EventHandler_t appModeEventHandler,
+               BM78_EventHandler_t testModeResponseHandler,
                BM78_DataHandler_t transparentDataHandler,
                Procedure_t messageSentHandler,
-               BM78_EventHandler_t errorHandler) {
+               BM78_EventHandler_t appModeErrorHandler,
+               BM78_EventHandler_t testModeErrorHandler) {
     BM78_setupAttemptHandler = setupAttemptHandler;
     BM78_setupHandler = setupHandler;
-    BM78_eventHandler = eventHandler;
-    BM78_testModeResponseHandler = testModeResponseHandler;
+    BM78_appModeEventHandler = appModeEventHandler;
+    BM78_testModeEventHandler = testModeResponseHandler;
     BM78_transparentDataHandler = transparentDataHandler;
     BM78_messageSentHandler = messageSentHandler;
-    BM78_errorHandler = errorHandler;
+    BM78_appModeErrorHandler = appModeErrorHandler;
+    BM78_testModeErrorHandler = testModeErrorHandler;
     BM78_setup(true);
 }
 
@@ -164,41 +162,27 @@ void BM78_reset(void) {
     BM78_RST_N_SetLow(); // Set the reset pin low
     __delay_ms(2); // A reset pulse must be greater than 1ms
     BM78_RST_N_SetHigh(); // Pull the reset pin back up    
-    //__delay_ms(354); // 350 + 4 ms
+    __delay_ms(354); // 350 + 4 ms
+    __delay_ms(300); // This may need to be adjusted.
 }
 
-/* Reset the bluetooth unit and enter the mode specified by the SYS CON pin */
-void BM78_resetMode(void) {
-    BM78_reset(); // Reset the device
-    __delay_ms(100); // Wait a minimum of 24 seconds for mode to be detected
-    //BM78_P2_0_SetHigh();  // Reset P2_0 pin to high state
-    //__delay_ms(100); // Wait a minimum of 43ms for UART to activate after reset
-}
-
-void BM78_resetToTestMode(void) {
-    BM78.mode = BM78_MODE_TEST;
-
-    BM78_power(false);
-    __delay_ms(200);
-    BM78_power(true);
-    __delay_ms(200);
+void BM78_resetTo(BM78_Mode_t mode) {
+    switch (mode) {
+        case BM78_MODE_INIT:
+        case BM78_MODE_APP:
+            BM78.mode = BM78_MODE_INIT;
+            BM78_P2_0_SetHigh();
+            BM78_P2_4_SetHigh();
+            BM78_EAN_SetLow();
+            break;
+        case BM78_MODE_TEST:
+            BM78.mode = BM78_MODE_TEST;
+            BM78_P2_0_SetLow();
+            BM78_P2_4_SetHigh();
+            BM78_EAN_SetLow();
+            break;
+    }
     BM78_reset();
-    __delay_ms(200);
-
-    BM78_P2_0_SetLow();
-    BM78_P2_4_SetHigh();
-    BM78_EAN_SetLow();
-    //BM78_reset();
-    //__delay_ms(100); // Wait a minimum of 24 seconds for mode to be detected
-    BM78_resetMode();
-}
-
-void BM78_resetToAppMode(void) {
-    BM78.mode = BM78_MODE_INIT;
-    BM78_P2_0_SetHigh();
-    BM78_P2_4_SetHigh();
-    BM78_EAN_SetLow();
-    BM78_resetMode();
 }
 
 void BM78_setup(bool keep) {
@@ -258,24 +242,23 @@ void BM78_sendPacket(uint8_t length, uint8_t *data) {
 }
 
 inline void BM78_openEEPROM(void) {
-    BM78_sendPacket(sizeof (BM78_COMMAND_S1), (uint8_t *) BM78_COMMAND_S1);
+    BM78_sendPacket(sizeof (BM78_CMD_EEPROM_OPEN), (uint8_t *) BM78_CMD_EEPROM_OPEN);
 }
 
 inline void BM78_clearEEPROM(void) {
-    BM78_sendPacket(sizeof (BM78_COMMAND_S2), (uint8_t *) BM78_COMMAND_S2);
+    BM78_sendPacket(sizeof (BM78_CMD_EEPROM_CLEAR), (uint8_t *) BM78_CMD_EEPROM_CLEAR);
 }
 
 void BM78_readEEPROM(uint16_t address, uint8_t length) {
-    BM78_loadTXBuffer(sizeof (BM78_COMMAND_R), (uint8_t *) BM78_COMMAND_R);
+    BM78_loadTXBuffer(sizeof (BM78_CMD_EEPROM_READ), (uint8_t *) BM78_CMD_EEPROM_READ);
     BM78_tx.buffer[4] = address >> 8;
     BM78_tx.buffer[5] = address & 0xFF;
     BM78_tx.buffer[6] = length;
-
-    BM78_sendPacket(sizeof (BM78_COMMAND_R), BM78_tx.buffer);
+    BM78_sendPacket(sizeof (BM78_CMD_EEPROM_READ), BM78_tx.buffer);
 }
 
 void BM78_writeEEPROM(uint16_t address, uint8_t length, uint8_t *data) {
-    BM78_loadTXBuffer(sizeof (BM78_COMMAND_W), (uint8_t *) BM78_COMMAND_W);
+    BM78_loadTXBuffer(sizeof (BM78_CMD_EEPROM_WRITE), (uint8_t *) BM78_CMD_EEPROM_WRITE);
     BM78_tx.buffer[3] = length + 3;
     BM78_tx.buffer[4] = address >> 8;
     BM78_tx.buffer[5] = address & 0xFF;
@@ -285,8 +268,7 @@ void BM78_writeEEPROM(uint16_t address, uint8_t length, uint8_t *data) {
             BM78_tx.buffer[i + 7] = *(data + i);
         }
     }
-
-    BM78_sendPacket(sizeof (BM78_COMMAND_W) + length, BM78_tx.buffer);
+    BM78_sendPacket(sizeof (BM78_CMD_EEPROM_WRITE) + length, BM78_tx.buffer);
 }
 
 void BM78_checkState(void) {
@@ -630,7 +612,7 @@ void BM78_AsyncEventResponse() {
                         break;
                 }
 
-               if (BM78_eventHandler) BM78_eventHandler(BM78_rx.response, BM78_rx.buffer);
+               if (BM78_appModeEventHandler) BM78_appModeEventHandler(BM78_rx.response, BM78_rx.buffer);
 
             } else {
                 if (BM78_rx.response.op_code == BM78_EVENT_COMMAND_COMPLETE) {
@@ -653,7 +635,7 @@ void BM78_AsyncEventResponse() {
                             break;
                     }
                 }
-                if (BM78_errorHandler) BM78_errorHandler(BM78_rx.response, BM78_rx.buffer);
+                if (BM78_appModeErrorHandler) BM78_appModeErrorHandler(BM78_rx.response, BM78_rx.buffer);
             }
             break;
         case BM78_MODE_TEST:
@@ -941,8 +923,8 @@ void BM78_processByteInAppMode(uint8_t byte) {
                 BM78_rx.response.checksum_calculated = 0xFF - BM78_rx.response.checksum_calculated + 1;
                 if (BM78_rx.response.checksum_calculated == BM78_rx.response.checksum_received) {
                     BM78_AsyncEventResponse();
-                } else if (BM78_errorHandler) {
-                    BM78_errorHandler(BM78_rx.response, BM78_rx.buffer);
+                } else if (BM78_appModeErrorHandler) {
+                    BM78_appModeErrorHandler(BM78_rx.response, BM78_rx.buffer);
                 }
                 BM78_state = BM78_STATE_IDLE;
             }
@@ -957,30 +939,78 @@ void BM78_processByteInTestMode(uint8_t byte) {
     switch (BM78_state) {
         case BM78_STATE_IDLE:
             BM78_state = byte == 0x04
-                    ? BM78_COMMAND_RESPONSE_STATE_INIT
+                    ? BM78_ISSC_EVENT_STATE_INIT
                     : BM78_STATE_IDLE;
             break;
-        case BM78_COMMAND_RESPONSE_STATE_INIT:
-            BM78_state = byte == 0x0e
-                    ? BM78_COMMAND_RESPONSE_STATE_LENGTH
+        case BM78_ISSC_EVENT_STATE_INIT:
+            BM78_state = byte == 0x0E
+                    ? BM78_ISSC_EVENT_STATE_LENGTH
                     : BM78_STATE_IDLE;
             break;
-        case BM78_COMMAND_RESPONSE_STATE_LENGTH:
-            BM78_cmdRX.index = 0;
-            BM78_cmdRX.length = byte;
-            BM78_state = BM78_COMMAND_RESPONSE_STATE_DATA;
+        case BM78_ISSC_EVENT_STATE_LENGTH:
+            BM78_rx.response.ISSC_Event.length = byte;
+            if (BM78_rx.response.ISSC_Event.length >= 4) {
+                BM78_state = BM78_ISSC_EVENT_STATE_PACKET_TYPE;
+            } else {
+               if (BM78_testModeErrorHandler) BM78_testModeErrorHandler(BM78_rx.response, BM78_rx.buffer);
+               BM78_state = BM78_STATE_IDLE;
+            }
             //for (uint8_t i = 0; i < 0xFF; i++) BM78_cmdRX.data[i] = 0x00;
             break;
-        case BM78_COMMAND_RESPONSE_STATE_DATA:
-            BM78_rx.buffer[BM78_cmdRX.index++] = byte;
-            if (BM78_cmdRX.index >= BM78_cmdRX.length) {
-                if (BM78_testModeResponseHandler) {
-                    BM78_testModeResponseHandler(BM78_cmdRX.length, BM78_rx.buffer);
-                }
+        case BM78_ISSC_EVENT_STATE_PACKET_TYPE:
+            BM78_rx.response.ISSC_Event.packet_type = byte;
+            if (BM78_rx.response.ISSC_Event.packet_type == 0x01) {
+                BM78_state = BM78_ISSC_EVENT_STATE_OCF;
+            } else {
+                if (BM78_testModeErrorHandler) BM78_testModeErrorHandler(BM78_rx.response, BM78_rx.buffer);
+                BM78_state = BM78_STATE_IDLE;
+            }
+            break;
+        case BM78_ISSC_EVENT_STATE_OCF:
+            BM78_rx.response.ISSC_Event.ocf = byte;
+            BM78_state = BM78_ISSC_EVENT_STATE_OGF;
+            break;
+        case BM78_ISSC_EVENT_STATE_OGF:
+            BM78_rx.response.ISSC_Event.ogf = byte;
+            BM78_state = BM78_ISSC_EVENT_STATE_STATUS;
+            break;
+        case BM78_ISSC_EVENT_STATE_STATUS:
+            BM78_rx.response.ISSC_Event.status = byte;
+            if (BM78_rx.response.ISSC_Event.ocf == BM78_ISSC_OCF_READ && BM78_rx.response.ISSC_Event.status == BM78_ISSC_STATUS_SUCCESS
+                    && BM78_rx.response.ISSC_Event.length > 7) { // 4 + 2 byte address + 1 byte length
+                BM78_state = BM78_ISSC_EVENT_STATE_DATA_ADDRESS_HIGH;
+            } else {
+                if (BM78_testModeEventHandler) BM78_testModeEventHandler(BM78_rx.response, BM78_rx.buffer);
+                BM78_state = BM78_STATE_IDLE;
+            }
+            break;
+        case BM78_ISSC_EVENT_STATE_DATA_ADDRESS_HIGH:
+            BM78_rx.response.ISSC_ReadEvent.address = (byte << 8);
+            BM78_state = BM78_ISSC_EVENT_STATE_DATA_ADDRESS_LOW;
+            break;
+        case BM78_ISSC_EVENT_STATE_DATA_ADDRESS_LOW:
+            BM78_rx.response.ISSC_ReadEvent.address |= (byte & 0xFF);
+            BM78_state = BM78_ISSC_EVENT_STATE_DATA_LENGTH;
+            break;
+        case BM78_ISSC_EVENT_STATE_DATA_LENGTH:
+            BM78_rx.response.ISSC_ReadEvent.data_length = byte;
+            if (BM78_rx.response.ISSC_ReadEvent.data_length + 7 == BM78_rx.response.ISSC_ReadEvent.length) {
+                BM78_rx.index = 0;
+                BM78_state = BM78_ISSC_EVENT_STATE_DATA;
+            } else {
+                if (BM78_testModeErrorHandler) BM78_testModeErrorHandler(BM78_rx.response, BM78_rx.buffer);
+                BM78_state = BM78_STATE_IDLE;
+            }
+            break;
+        case BM78_ISSC_EVENT_STATE_DATA:
+            BM78_rx.buffer[BM78_rx.index++] = byte;
+            if (BM78_rx.index >= BM78_rx.response.ISSC_ReadEvent.data_length) {
+                if (BM78_testModeEventHandler) BM78_testModeEventHandler(BM78_rx.response, BM78_rx.buffer);
                 BM78_state = BM78_STATE_IDLE;
             }
             break;
         default:
+            BM78_state = BM78_STATE_IDLE;
             break;
     }
 }

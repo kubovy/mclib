@@ -1,5 +1,5 @@
 /* 
- * File:   bm78_transmission.c
+ * File:   bm78_transmission.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  * 
  * BM78 communication component.

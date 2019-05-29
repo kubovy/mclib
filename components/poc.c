@@ -672,6 +672,22 @@ void POC_testWS281xLight(WS281xLight_Pattern_t pattern) {
                     255,              // Max
                     3);               // Timeout (x times)
             break;
+        case WS281x_LIGHT_SPIN:
+            WS281xLight_set(WS281x_LIGHT_SPIN,
+                    0x16, 0x00, 0x00, // Color 1
+                    0x00, 0x16, 0x00, // Color 2
+                    0x00, 0x00, 0x16, // Color 3
+                    0x16, 0x16, 0x00, // Color 4
+                    0x00, 0x16, 0x16, // Color 5
+                    0x16, 0x00, 0x16, // Color 6
+                    0x00, 0x00, 0x00, // Color 7
+                    200,              // Delay
+                    10,               // Width
+                    1,                // Fading
+                    0,                // Min
+                    255,              // Max
+                    3);               // Timeout (x times)
+            break;
         case WS281x_LIGHT_THEATER:
             WS281xLight_set(WS281x_LIGHT_THEATER,
                     0x16, 0x00, 0x00, // Color 1
@@ -681,7 +697,7 @@ void POC_testWS281xLight(WS281xLight_Pattern_t pattern) {
                     0x00, 0x16, 0x16, // Color 5
                     0x16, 0x00, 0x16, // Color 6
                     0x00, 0x00, 0x00, // Color 7
-                    1000,               // Delay
+                    1000,              // Delay
                     3,                // Width
                     0,                // Fading
                     128,              // Min

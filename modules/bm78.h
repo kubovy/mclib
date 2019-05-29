@@ -184,7 +184,19 @@ typedef enum {
     BM78_EVENT_RECEIVED_TRANSPARENT_DATA = 0x9A,
     BM78_EVENT_RECEIVED_SPP_DATA = 0x9B
 } BM78_EventOpCode_t;
-    
+
+typedef enum {
+    BM78_ISSC_OCF_OPEN = 0x03,
+    BM78_ISSC_OCF_WRITE = 0x27,
+    BM78_ISSC_OCF_READ = 0x29,
+    BM78_ISSC_OCF_CLEAR = 0x2D
+} BM78_ISSC_OCF_t;
+
+typedef enum {
+    BM78_ISSC_OGF_COMMAND = 0x0C,
+    BM78_ISSC_OGF_OPERATION = 0xFC
+} BM78_ISSC_OGF_t; 
+
 // EEPROM
 typedef enum {
     BM78_EEPROM_IGNORE = 0x00,
@@ -315,6 +327,11 @@ typedef enum {
     BM78_ERR_UART_CHECK_SUM_ERROR = 0xFF
 } BM78_StatusCode_t;
 
+typedef enum {
+    BM78_ISSC_STATUS_SUCCESS = 0x00,
+    BM78_ISSC_STATUS_ERROR = 0x01
+} BM78_ISSC_StatusCode_t;
+
 // Single event states
 typedef enum {
     BM78_STATE_IDLE = 0x00,
@@ -323,12 +340,17 @@ typedef enum {
     BM78_EVENT_STATE_OP_CODE = 0x03,
     BM78_EVENT_STATE_ADDITIONAL = 0x04,
 
-    BM78_COMMAND_RESPONSE_STATE_INIT = 0x81,
-    BM78_COMMAND_RESPONSE_STATE_LENGTH = 0x82,
-    BM78_COMMAND_RESPONSE_STATE_DATA = 0x83
-
-    //BM78_STATE_SENDING = 0xFF
-} BM78_State_t;
+    BM78_ISSC_EVENT_STATE_INIT = 0x81,
+    BM78_ISSC_EVENT_STATE_LENGTH = 0x82,
+    BM78_ISSC_EVENT_STATE_PACKET_TYPE = 0x83,
+    BM78_ISSC_EVENT_STATE_OCF = 0x84,
+    BM78_ISSC_EVENT_STATE_OGF = 0x85,
+    BM78_ISSC_EVENT_STATE_STATUS = 0x86,
+    BM78_ISSC_EVENT_STATE_DATA_ADDRESS_HIGH = 0x87,
+    BM78_ISSC_EVENT_STATE_DATA_ADDRESS_LOW = 0x88,
+    BM78_ISSC_EVENT_STATE_DATA_LENGTH = 0x89,
+    BM78_ISSC_EVENT_STATE_DATA = 0x8A
+} BM78_EventState_t;
 
 // Modes
 typedef enum {
@@ -439,6 +461,23 @@ typedef union {
         uint8_t reserved;
         // data (n bytes)
     } ReceivedTransparentData_0x9A;
+    // ISSC Events
+    struct {
+        uint8_t length;
+        uint8_t packet_type;
+        BM78_ISSC_OCF_t ocf;
+        BM78_ISSC_OGF_t ogf;
+        BM78_ISSC_StatusCode_t status;
+    } ISSC_Event;
+    struct {
+        uint8_t length;
+        uint8_t packet_type;
+        BM78_ISSC_OCF_t ocf;
+        BM78_ISSC_OGF_t ogf;
+        BM78_ISSC_StatusCode_t status;
+        uint16_t address;
+        uint8_t data_length;
+    } ISSC_ReadEvent;
 } BM78_Response_t;
 
 typedef struct {
@@ -482,11 +521,12 @@ typedef void (*BM78_DataHandler_t)(uint8_t, uint8_t*);
 void BM78_initialize(
                BM78_SetupAttemptHandler_t setupAttemptHandler,
                BM78_SetupHandler_t setupHandler,
-               BM78_EventHandler_t eventHandler,
-               BM78_DataHandler_t testModeResponseHandler,
+               BM78_EventHandler_t appModeEventHandler,
+               BM78_EventHandler_t testModeEventHandler,
                BM78_DataHandler_t transparentDataHandler,
                Procedure_t messageSentHandler,
-               BM78_EventHandler_t errorHandler);
+               BM78_EventHandler_t appModeErrorHandler,
+               BM78_EventHandler_t testModeErrorHandler);
 
 /**
  * Powers the device on or off.
@@ -511,11 +551,7 @@ void BM78_reset(void);
  *                 |   1    1   0  | Normal operational/application mode
  */
 
-/** Reset the unit to and end enter the test mode */
-void BM78_resetToTestMode(void);
-
-/** Reset the unit and enter the Application mode */
-void BM78_resetToAppMode(void);
+void BM78_resetTo(BM78_Mode_t mode);
 
 /**
  * Setup BM78

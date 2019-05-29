@@ -42,48 +42,58 @@ extern "C" {
 
 #ifdef LCD_ADDRESS
 
-//#define SUM_MENU_INTRO 0
-#define SUM_MENU_MAIN 1
 #ifdef BM78_ENABLED
-#define SUM_MENU_BT_PAGE_1 10
-#define SUM_MENU_BT_PAGE_2 11
-#define SUM_MENU_BT_PAGE_3 12
-#define SUM_MENU_BT_PAGE_4 13
-#define SUM_MENU_BT_STATE 15
-#define SUM_MENU_BT_PAIRED_DEVICES 20
-#define SUM_MENU_BT_PAIRED_DEVICE 21
-#define SUM_MENU_BT_PAIRING_MODE 22
-#define SUM_MENU_BT_SHOW_DEVICE_NAME 23
-#define SUM_MENU_BT_PIN_SETUP 24
-#define SUM_MENU_BT_SHOW_REMOTE_DEVICE 25
-#define SUM_MENU_BT_INITIALIZE 26
-#define SUM_MENU_BT_READ_CONFIG 27
-#define SUM_MENU_BT_CONFIG_VIEWER 28
-#define SUM_MENU_BT_SHOW_MAC_ADDRESS 29
+typedef enum {
+    //SUM_MENU_INTRO 0,
+    SUM_MENU_MAIN = 0x01,
+
+    SUM_MENU_BT_PAGE_1 = 0x10,
+    SUM_MENU_BT_PAGE_2 = 0x11,
+    SUM_MENU_BT_PAGE_3 = 0x12,
+    SUM_MENU_BT_PAGE_4 = 0x13,
+    SUM_MENU_BT_STATE = 0x15,
+    SUM_MENU_BT_PAIRED_DEVICES = 0x16,
+    SUM_MENU_BT_PAIRED_DEVICE = 0x17,
+    SUM_MENU_BT_PAIRING_MODE = 0x18,
+    SUM_MENU_BT_SHOW_DEVICE_NAME = 0x19,
+    SUM_MENU_BT_PIN_SETUP = 0x1A,
+    SUM_MENU_BT_SHOW_REMOTE_DEVICE = 0x1B,
+    SUM_MENU_BT_INITIALIZE = 0x1C,
+    SUM_MENU_BT_READ_CONFIG = 0x1D,
+    SUM_MENU_BT_CONFIG_VIEWER = 0x1E,
+    SUM_MENU_BT_SHOW_MAC_ADDRESS = 0x1F,
 #endif
+
 #if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
-#define SUM_MENU_MEM_MAIN 50
-#define SUM_MENU_MEM_VIEWER_INTRO 51
-#define SUM_MENU_MEM_VIEWER 52
+    SUM_MENU_MEM_MAIN = 0x30,
+    SUM_MENU_MEM_VIEWER_INTRO = 0x31,
+    SUM_MENU_MEM_VIEWER = 0x32,
 #endif
-#define SUM_MENU_TEST_PAGE_1 60
-#define SUM_MENU_TEST_PAGE_2 61
-#define SUM_MENU_TEST_PAGE_3 62
-#define SUM_MENU_TEST_PAGE_4 63
-#define SUM_MENU_TEST_PAGE_5 64
+
+    SUM_MENU_TEST_PAGE_1 = 0x40,
+    SUM_MENU_TEST_PAGE_2 = 0x41,
+    SUM_MENU_TEST_PAGE_3 = 0x42,
+    SUM_MENU_TEST_PAGE_4 = 0x43,
+    SUM_MENU_TEST_PAGE_5 = 0x44,
+
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-#define SUM_MENU_TEST_WS281x_PAGE_1 70
-#define SUM_MENU_TEST_WS281x_PAGE_2 71
-#define SUM_MENU_TEST_WS281x_PAGE_3 72
-#define SUM_MENU_TEST_WS281x_PAGE_4 73
+    SUM_MENU_TEST_WS281x_PAGE_1 = 0x50,
+    SUM_MENU_TEST_WS281x_PAGE_2 = 0x51,
+    SUM_MENU_TEST_WS281x_PAGE_3 = 0x52,
+    SUM_MENU_TEST_WS281x_PAGE_4 = 0x53,
 #endif
+
 #ifdef DHT11_PORT
-#define SUM_MENU_TEST_DHT11 80
+    SUM_MENU_TEST_DHT11 = 0x60,
 #endif
+
 #ifdef MCP_ENABLED
-#define SUM_MENU_TEST_MCP_IN 81
-#define SUM_MENU_TEST_MCP_OUT 82
+    SUM_MENU_TEST_MCP_IN = 0x71,
+    SUM_MENU_TEST_MCP_OUT = 0x72,
 #endif
+
+    SUM_MENU_UNKNOWN = 0xFF
+} SUM_MenuPage_t;
 
 /** SetUp Mode on/off. */
 bool SUM_mode = false;
@@ -123,24 +133,14 @@ uint8_t SUM_processBtn(uint8_t maxModes);
 
 #ifdef BM78_ENABLED
 
-void SUM_bm78InitializeDongle(void);
-
-bool SUM_bm78InitializationDone(void);
-
-/**
- * BM78 test mode periodical check hook. 
- */
-void SUM_bm78TestModeCheck(void);
-
 /**
  * BM78 test mode response handler.
  * 
- * @param length Length of response.
- * @param data Response data.
+ * @param response BM78 response.
+ * @param data Additional data.
  */
-void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data);
+void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data);
 
-#ifdef LCD_ADDRESS
 /**
  * BM78 error handler.
  * 
@@ -148,7 +148,16 @@ void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data);
  * @param data Response data.
  */
 void SUM_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
-#endif
+
+/**
+ * BM78 EEPROM Initialized handler.
+ */
+void SUM_bm78EEPROMInitializationSuccessHandler(void);
+
+/**
+ * BM78 EEPROM Initialization failed handler.
+ */
+void SUM_bm78EEPROMInitializationFailedHandler(void);
 
 #endif
 

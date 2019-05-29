@@ -3,13 +3,7 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "setup_mode.h"
-
-struct {
-    uint8_t timeout;
-    uint8_t stage;
-    uint8_t retries;
-    uint8_t index;
-} SUM_bm78ConfigCommand = { 0xFF, 0, 0, 0 };
+#include "bm78_eeprom.h"
 
 struct {
     uint8_t addr;
@@ -19,7 +13,7 @@ struct {
 #ifdef LCD_ADDRESS
 
 uint8_t SUM_setupModePush = 5;
-uint8_t SUM_setupPage = SUM_MENU_MAIN;
+SUM_MenuPage_t SUM_setupPage = SUM_MENU_MAIN;
 
 union {
     struct {
@@ -252,6 +246,9 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("A: Abort, D: Reset  ", 2, true);
             LCD_setString("#: Address  Con't (C", 3, true);
             break;
+        case SUM_MENU_BT_CONFIG_VIEWER:
+            // Nothing to do see SUM_processKey
+            break;
         case SUM_MENU_BT_SHOW_MAC_ADDRESS:
             LCD_setString("  Bluetooth's MAC   ", 0, true);
             LCD_setString("        ...         ", 1, true);
@@ -285,6 +282,9 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B: Previous, C: Next", 1, true);
             LCD_setString("A: Abort, D: Reset  ", 2, true);
             LCD_setString("#: Address  Con't (C", 3, true);
+            break;
+        case SUM_MENU_MEM_VIEWER:
+            // Nothing to do see SUM_processKey
             break;
 #endif
         case SUM_MENU_TEST_PAGE_1:
@@ -369,8 +369,10 @@ void SUM_showMenu(uint8_t page) {
         case SUM_MENU_TEST_WS281x_PAGE_4:
             LCD_setString("1) Chaise        [ ]", 0, false);
             LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_CHAISE ? 'X' : ' ', 18, 0, true);
-            LCD_setString("2) Theater       [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_THEATER ? 'X' : ' ', 18, 1, true);
+            LCD_setString("2) Spin          [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_SPIN ? 'X' : ' ', 18, 1, true);
+            LCD_setString("3) Theater       [ ]", 2, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_THEATER ? 'X' : ' ', 18, 2, true);
             LCD_setString("B) Back             ", 3, true);
             POC_testWS281xLight(sw.ws281xLight);
             break;
@@ -401,6 +403,9 @@ void SUM_showMenu(uint8_t page) {
             }
             break;
 #endif
+        case SUM_MENU_UNKNOWN:
+            // Nothing to do see SUM_processKey
+            break;
     }
 }
 
@@ -549,7 +554,7 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_BT_INITIALIZE);
                     printProgress("  Initializing BT   ", 0,
                             BM78_CONFIGURATION_SIZE + 3);
-                    SUM_bm78InitializeDongle();
+                    BM78EEPROM_initialize();
                     break;
                 case 'B': // Back
                     SUM_showMenu(SUM_MENU_BT_PAGE_3);
@@ -739,8 +744,7 @@ void SUM_executeMenu(uint8_t key) {
         case SUM_MENU_BT_READ_CONFIG: 
             switch(key) {
                 case 'C':
-                    BM78_resetToTestMode();
-                    __delay_ms(1000);
+                    BM78_resetTo(BM78_MODE_TEST);
                     BM78_openEEPROM();
                     SUM_mem.reg = 0x0000;
                     break;
@@ -784,7 +788,7 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_mem.reg = SUM_manual.address / 16 * 16;
                     SUM_manual.address = 0x0000;
                     SUM_manual.position = 0xFF;
-                    BM78_readEEPROM(SUM_mem.reg, 16);
+                    BM78_readEEPROM(SUM_mem.reg < BM78_EEPROM_SIZE - 16 ? SUM_mem.reg : BM78_EEPROM_SIZE - 16, 16);
                 }
             } else switch(key) { // Browse Memory
                 case 'B': // Previous
@@ -799,7 +803,7 @@ void SUM_executeMenu(uint8_t key) {
                     break;
                 case 'A': // Abort
                     //BM78_closeEEPROM();
-                    BM78_resetToAppMode();
+                    BM78_resetTo(BM78_MODE_APP);
                     SUM_showMenu(SUM_MENU_BT_PAGE_3);
                     break;
                 case 'D': // Reset
@@ -1133,6 +1137,10 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
                     break;
                 case '2':
+                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_SPIN ? WS281x_LIGHT_OFF : WS281x_LIGHT_SPIN;
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
+                    break;
+                case '3':
                     sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_THEATER ? WS281x_LIGHT_OFF : WS281x_LIGHT_THEATER;
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
                     break;
@@ -1403,160 +1411,58 @@ uint8_t SUM_processBtn(uint8_t maxModes) {
 
 #ifdef BM78_ENABLED
 
-void SUM_bm78InitializeDongle(void) {
-    BM78_resetToTestMode();
-    __delay_ms(1000);
-    SUM_bm78ConfigCommand.index = 0;
-    SUM_bm78ConfigCommand.retries = 0;
-    SUM_bm78ConfigCommand.stage = 0;
-    SUM_bm78ConfigCommand.timeout = 200;
-    BM78_openEEPROM();
-}
-
-bool SUM_bm78InitializationDone(void) {
-    return SUM_bm78ConfigCommand.stage = 3;
-}
-
-void SUM_bm78TestModeCheck(void) {
-    if (SUM_bm78ConfigCommand.timeout < 0xFF) {
-        if (SUM_bm78ConfigCommand.timeout == 0) {
-            SUM_bm78ConfigCommand.timeout = 0xFF;
-            FlashPacket_t config = BM78_configuration[SUM_bm78ConfigCommand.index];
-
-            //__delay_ms(500);
-            if (SUM_bm78ConfigCommand.stage == 0 || SUM_bm78ConfigCommand.retries >= 3) {
-                BM78_resetToAppMode();
-                __delay_ms(1000);
-                BM78_resetToTestMode();
-                __delay_ms(1000);
-                BM78_openEEPROM();
-                SUM_bm78ConfigCommand.stage = 0;
-                SUM_bm78ConfigCommand.retries = 0;
-            } else if (SUM_bm78ConfigCommand.stage == 1) {
-                BM78_clearEEPROM();
-            } else if (SUM_bm78ConfigCommand.retries >= 0x80) {
-                BM78_writeEEPROM(config.address, config.length, config.data);
-            } else {
-                BM78_readEEPROM(config.address, config.length);
-            }
-            
-            SUM_bm78ConfigCommand.timeout = 200;
-            SUM_bm78ConfigCommand.retries++;
-        } else {
-            SUM_bm78ConfigCommand.timeout--;
-        }
-    }
-}
-
-void SUM_bm78TestModeResponseHandler(uint8_t length, uint8_t *data) {
-    FlashPacket_t config;
-    uint8_t i, size;
+void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
 #ifdef LCD_ADDRESS
-    if (!SUM_mode || SUM_setupPage != SUM_MENU_BT_READ_CONFIG) {
-#endif
-        // EEPROM was opened
-        if (length == 4 && data[0] == 0x01 && data[1] == 0x03 && data[2] == 0x0C && data[3] == 0x00) {
-#ifdef LCD_ADDRESS
-            printProgress("  Initializing BT   ", 1, BM78_CONFIGURATION_SIZE + 3);
-#endif
-            //__delay_ms(500);
-            SUM_bm78ConfigCommand.retries = 0;
-            SUM_bm78ConfigCommand.stage = 1;
-            SUM_bm78ConfigCommand.timeout = 200;
-            BM78_clearEEPROM();
-        } else
-        // EEPROM was cleared
-        if (length == 4 && data[0] == 0x01 && data[1] == 0x2d && data[2] == 0xFC && data[3] == 0x00) {
-#ifdef LCD_ADDRESS
-            printProgress("  Initializing BT   ", 2, BM78_CONFIGURATION_SIZE + 3);
-#endif
-            config = BM78_configuration[SUM_bm78ConfigCommand.index];
-            //__delay_ms(500);
-            SUM_bm78ConfigCommand.retries = 0;
-            SUM_bm78ConfigCommand.stage = 2;
-            SUM_bm78ConfigCommand.timeout = 200;
-            BM78_readEEPROM(config.address, config.length);
-        } else
-        // Write response
-        if (length == 4 && data[0] == 0x01 && data[1] == 0x27 && data[2] == 0xFC && data[3] == 0x00) {
-            FlashPacket_t config = BM78_configuration[SUM_bm78ConfigCommand.index];
-            //__delay_ms(500);
-            SUM_bm78ConfigCommand.retries = 0;
-            SUM_bm78ConfigCommand.stage = 2;
-            SUM_bm78ConfigCommand.timeout = 200;
-            BM78_readEEPROM(config.address, config.length);
-        } else
-#ifdef LCD_ADDRESS
-        // Read response
-        if (SUM_setupPage == SUM_MENU_BT_CONFIG_VIEWER 
-                && length > 7 && data[0] == 0x01 && data[1] == 0x29 && data[2] == 0xFC && data[3] == 0x00) {
-            size = data[6];
-                if (length >= size + 7) {
-                    SUM_mem.reg = (data[4] << 8) | (data[5] & 0xFF);
-                    uint8_t display[16];
-                    for (i = 0; i < size; i++) {
-                        if (i < 16) display[i] = data[i + 7];
+    if (SUM_mode) switch (response.ISSC_Event.ogf) {
+        case BM78_ISSC_OGF_COMMAND:
+            switch (response.ISSC_Event.ocf) {
+                case BM78_ISSC_OCF_OPEN:
+                    if (SUM_setupPage == SUM_MENU_BT_READ_CONFIG) {
+                        SUM_setupPage = SUM_MENU_BT_CONFIG_VIEWER;
+                        SUM_mem.reg = 0x0000;
+                        BM78_readEEPROM(SUM_mem.reg, 16);
                     }
-                    POC_displayData(SUM_mem.reg, size, display);
-                }
-        } else
-#endif
-        // Read response
-        if (length > 7 && data[0] == 0x01 && data[1] == 0x29 && data[2] == 0xFC && data[3] == 0x00) {
-            config = BM78_configuration[SUM_bm78ConfigCommand.index];
-            size = data[6];
-            bool equals;
-            if (length >= size + 7) {
-                SUM_mem.reg = (data[4] << 8) | (data[5] & 0xFF);
-                equals = SUM_mem.reg == config.address && size == config.length;
-                if (equals) for (i = 0; i < size; i++) {
-                    equals = equals && data[i + 7] == config.data[i];
-                }
-            } else {
-                equals = false;
+                    break;
+                default:
+                    break;
             }
-            if (equals) {
-                SUM_bm78ConfigCommand.index++;
-#ifdef LCD_ADDRESS
-                printProgress("  Initializing BT   ", 3 + SUM_bm78ConfigCommand.index, BM78_CONFIGURATION_SIZE + 3);
-#endif
-                if (SUM_bm78ConfigCommand.index < BM78_CONFIGURATION_SIZE) {
-                    config = BM78_configuration[SUM_bm78ConfigCommand.index];
-                    //__delay_ms(500);
-                    SUM_bm78ConfigCommand.retries = 0;
-                    SUM_bm78ConfigCommand.stage = 2;
-                    SUM_bm78ConfigCommand.timeout = 200;
-                    BM78_readEEPROM(config.address, config.length);
-                } else {
-                    SUM_bm78ConfigCommand.stage = 3;
-                    SUM_bm78ConfigCommand.timeout = 0xFF;
-                    SUM_bm78ConfigCommand.retries = 0;
-                    BM78_resetToAppMode();
-#ifdef LCD_ADDRESS
-                    if (SUM_mode) SUM_showMenu(SUM_MENU_BT_PAGE_4);
-#endif
-                }
-            } else {
-                //__delay_ms(500);
-                SUM_bm78ConfigCommand.retries = 0x80;
-                SUM_bm78ConfigCommand.stage = 2;
-                SUM_bm78ConfigCommand.timeout = 200;
-                BM78_writeEEPROM(config.address, config.length, config.data);
+            break;
+        case BM78_ISSC_OGF_OPERATION:
+            switch (response.ISSC_Event.ocf) {
+                case BM78_ISSC_OCF_READ:
+                    if (SUM_setupPage == SUM_MENU_BT_CONFIG_VIEWER) {
+                        SUM_mem.reg = response.ISSC_ReadEvent.address;
+                        POC_displayData(SUM_mem.reg, response.ISSC_ReadEvent.data_length, data);
+                    }
+                    break;
+                default:
+                    break;
             }
-        }
-#ifdef LCD_ADDRESS
-    } else if (SUM_setupPage == SUM_MENU_BT_READ_CONFIG) {
-        SUM_setupPage = SUM_MENU_BT_CONFIG_VIEWER;
-        SUM_mem.reg = 0x0000;
-        BM78_readEEPROM(SUM_mem.reg, 16);
     }
 #endif
 }
 
-#ifdef LCD_ADDRESS
 void SUM_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
+#ifdef LCD_ADDRESS
     if (sw.showBtErrors) POC_bm78ErrorHandler(response, data);
-}
 #endif
+}
+
+void SUM_bm78EEPROMInitializationSuccessHandler(void) {
+#ifdef LCD_ADDRESS
+    if (SUM_mode) SUM_showMenu(SUM_MENU_BT_PAGE_4);
+#endif
+}
+
+void SUM_bm78EEPROMInitializationFailedHandler(void) {
+#ifdef LCD_ADDRESS
+    if (SUM_mode) {
+        SUM_showMenu(SUM_MENU_BT_PAGE_4);
+        LCD_clear();
+        LCD_setString("   Initialization   ", 1, true);
+        LCD_setString("       FAILED       ", 2, true);
+    }
+#endif
+}
 
 #endif
