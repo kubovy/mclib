@@ -97,7 +97,7 @@ inline void BMC_sendMCP23017(uint8_t address);
 
 #ifdef RGB_ENABLED
 /** Adds a RGB message to the send queue. */
-inline void BMC_sendRGB(void);
+inline void BMC_sendRGB(uint8_t index);
 #endif
 
 #ifdef WS281x_BUFFER

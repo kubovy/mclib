@@ -12,7 +12,7 @@ uint16_t LCD_memAddr;
 char LCD_cache[LCD_ROWS][LCD_COLS];
 #endif
 
-inline void LCD_clearContent(void) {
+inline void LCD_clearCache(void) {
     for (uint8_t row = 0; row < LCD_ROWS; row++) {
         for (uint8_t column = 0; column < LCD_COLS; column++) {
             LCD_setCache(row, column, ' ');
@@ -62,7 +62,7 @@ inline void LCD_clear(void) {
     LCD_send(LCD_CLEARDISPLAY, 0);
     LCD_send(LCD_RETURNHOME, 0);
     __delay_ms(200);
-    LCD_clearContent();  
+    LCD_clearCache();
 }
 
 inline char LCD_getCache(uint8_t row, uint8_t column) {
@@ -102,10 +102,7 @@ inline void LCD_selectLine(uint8_t line) {
 
 void LCD_displayCache(void) {
     for (uint8_t row = 0; row < LCD_ROWS; row++) {
-        LCD_selectLine(row);
-        for (uint8_t column = 0; column < LCD_COLS; column++) {
-            LCD_send(LCD_getCache(row, column), Rs);
-        }
+        LCD_displayLine(row);
     }
 }
 

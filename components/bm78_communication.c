@@ -64,9 +64,9 @@ inline void BMC_sendPIR(void) {
 #endif
 
 #ifdef RGB_ENABLED
-inline void BMC_sendRGB(void) {
+inline void BMC_sendRGB(uint8_t index) {
     if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE) {
-        BMC_enqueue(BM78_MESSAGE_KIND_RGB, 0);
+        BMC_enqueue(BM78_MESSAGE_KIND_RGB, index);
     }
 }
 #endif
@@ -176,23 +176,33 @@ void BMC_bm78MessageSentHandler(void) {
 #endif
 #ifdef RGB_ENABLED
             case BM78_MESSAGE_KIND_RGB:
-                BM78_addDataByte(0, BM78_MESSAGE_KIND_RGB);
-                BM78_addDataByte(1, RGB.pattern);         // Pattern
-                BM78_addDataByte(2, RGB.red);             // Red
-                BM78_addDataByte(3, RGB.green);           // Green
-                BM78_addDataByte(4, RGB.blue);            // Blue
-                BM78_addDataByte2(5, RGB.delay * RGB_TIMER_PERIOD);
-                BM78_addDataByte(7, RGB.min);             // Min
-                BM78_addDataByte(8, RGB.max);             // Max
-                BM78_addDataByte(9, RGB.count);           // Count
-                if (BM78_commitData(10, BM78_MAX_SEND_RETRIES)) BMC_tx.index++;
+                param = BMC_tx.param[BMC_tx.index] & BMC_PARAM_MASK; // index (max 128)
+                if (param < RGB_list.size && param  < RGB_LIST_SIZE) {
+                    BM78_addDataByte(0, BM78_MESSAGE_KIND_RGB);
+                    BM78_addDataByte(1, RGB_list.size);            // Size
+                    BM78_addDataByte(2, param & BMC_PARAM_MASK);   // Index
+                    BM78_addDataByte(3, RGB_items[param].pattern); // Pattern
+                    BM78_addDataByte(4, RGB_items[param].red);     // Red
+                    BM78_addDataByte(5, RGB_items[param].green);   // Green
+                    BM78_addDataByte(6, RGB_items[param].blue);    // Blue
+                    BM78_addDataByte2(7, RGB_items[param].delay * RGB_TIMER_PERIOD);
+                    BM78_addDataByte(9, RGB_items[param].min);     // Min
+                    BM78_addDataByte(10, RGB_items[param].max);     // Max
+                    BM78_addDataByte(11, RGB_items[param].timeout); // Count
+                    if (BM78_commitData(12, BM78_MAX_SEND_RETRIES)) {
+                        if ((param + 1) < RGB_list.size && (param + 1) < RGB_LIST_SIZE
+                                && (BMC_tx.param[BMC_tx.index] & BMC_PARAM_ALL)) {
+                            BMC_tx.param[BMC_tx.index]++;
+                        } else BMC_tx.index++;
+                    }
+                } else BMC_tx.index++;
                 break;
 #endif
 #ifdef WS281x_BUFFER
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
             case BM78_MESSAGE_KIND_WS281x_LIGHT:
                 param = BMC_tx.param[BMC_tx.index] & BMC_PARAM_MASK; // index (max 128)
-                if (param < WS281xLight_list.size) {
+                if (param < WS281xLight_list.size && param < WS281x_LIGHT_LIST_SIZE) {
                     BM78_addDataByte(0, BM78_MESSAGE_KIND_WS281x_LIGHT);
                     BM78_addDataByte(1, WS281xLight_list.size);  // Size
                     BM78_addDataByte(2, param & BMC_PARAM_MASK); // Index
@@ -225,7 +235,7 @@ void BMC_bm78MessageSentHandler(void) {
                     BM78_addDataByte(30, WS281xLight_items[param].max);
                     BM78_addDataByte(31, WS281xLight_items[param].timeout);
                     if (BM78_commitData(32, BM78_MAX_SEND_RETRIES)) {
-                        if ((param + 1) < WS281x_LED_COUNT
+                        if ((param + 1) < WS281xLight_list.size && (param + 1) < WS281x_LIGHT_LIST_SIZE
                                 && (BMC_tx.param[BMC_tx.index] & BMC_PARAM_ALL)) {
                             BMC_tx.param[BMC_tx.index]++;
                         } else BMC_tx.index++;
@@ -353,17 +363,22 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
 #endif
 #ifdef RGB_ENABLED
         case BM78_MESSAGE_KIND_RGB:
-            if (length == 1) BMC_sendRGB();
+            if (length == 1) BMC_sendRGB(BMC_PARAM_ALL);
+            else if (length == 2) BMC_sendRGB(*(data + 1));
             else if (length == 10) { // set RGB
-                // pattern, red, green, blue, delayH, delayL, min, max, count
-                RGB_set(*(data + 1),                      // Pattern
-                        *(data + 2),                      // Red
-                        *(data + 3),                      // Green
-                        *(data + 4),                      // Blue
-                        (*(data + 5) << 8) | *(data + 6), // Delay (High | Low)
-                        *(data + 7),                      // Min
-                        *(data + 8),                      // Max
-                        *(data + 9));                     // Count
+                if (*(data + 1) == RGB_PATTERN_OFF) WS281xLight_off();
+                else if (*(data + 1) & BMC_PARAM_ALL) RGB_set(
+                        *(data + 1) & BMC_PARAM_MASK,          // Pattern
+                        *(data + 2), *(data + 3), *(data + 4), // Color
+                        (*(data + 5) << 8) | *(data + 6),      // Delay
+                        *(data + 7), *(data + 8),              // Min - Max
+                        *(data + 9));                          // Timeout
+                else RGB_add(
+                        *(data + 1) & BMC_PARAM_MASK,          // Pattern
+                        *(data + 2), *(data + 3), *(data + 4), // Color
+                        (*(data + 5) << 8) | *(data + 6),      // Delay
+                        *(data + 7), *(data + 8),              // Min - Max
+                        *(data + 9));                          // Timeout
             }
             break;
 #endif
@@ -386,8 +401,7 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                         (*(data + 23) << 8) | *(data + 24),       // Delay
                         *(data + 25),                             // Width
                         *(data + 26),                             // Fading
-                        *(data + 27),                             // Min
-                        *(data + 28),                             // Max
+                        *(data + 27), *(data + 28),               // Min - Max
                         *(data + 29));                            // Timeout
                 else WS281xLight_add(
                         *(data + 1) & BMC_PARAM_MASK,             // Pattern
@@ -401,8 +415,7 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                         (*(data + 23) << 8) | *(data + 24),       // Delay
                         *(data + 25),                             // Width
                         *(data + 26),                             // Fading
-                        *(data + 27),                             // Min
-                        *(data + 28),                             // Max
+                        *(data + 27), *(data + 28),               // Min - Max
                         *(data + 29));                            // Timeout
             }
             break;
@@ -414,14 +427,12 @@ void BMC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                 WS281x_all(*(data + 1), *(data + 2), *(data + 3));
             } else if (length == 10) { // set WS281x
                 // led, pattern, red, green, blue, delayH, delayL, min, max
-                WS281x_set(*(data + 1),                   // LED
-                        *(data + 2),                      // Pattern
-                        *(data + 3),                      // Red
-                        *(data + 4),                      // Green
-                        *(data + 5),                      // Blue
-                        (*(data + 6) << 8) | *(data + 7), // Delay
-                        *(data + 8),                      // Min
-                        *(data + 9));                     // Max
+                WS281x_set(*(data + 1),                        // LED
+                        *(data + 2),                           // Pattern
+                        *(data + 3), *(data + 4), *(data + 5), // Color
+                        (*(data + 6) << 8) | *(data + 7),      // Delay
+                        *(data + 8),                           // Min
+                        *(data + 9));                          // Max
             }
             break;
 #endif

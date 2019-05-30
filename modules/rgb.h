@@ -26,37 +26,60 @@ extern "C" {
 
 #ifdef RGB_ENABLED
 
+#ifndef RGB_LIST_SIZE
+#define RGB_LIST_SIZE 20
+#endif
+
 #define RGB_INDEFINED 0xFF
 
 #ifndef RGB_TIMER_PERIOD
 #ifdef TIMER_PERIOD
+#warning "RGB: RGB_TIMER_PERIOD defaults to TIMER_PERIOD"
 #define RGB_TIMER_PERIOD TIMER_PERIOD
 #endif
+#endif
+    
+#ifndef RGB_SPEED
+#define RGB_SPEED 2 * RGB_TIMER_PERIOD
 #endif
 
 #ifndef RGB_DUTY_CYCLE_MAX
 #define RGB_DUTY_CYCLE_MAX 255
 #endif
+
+#define RGB_INDEFINED 0xFF
     
 typedef enum {
-    RGB_PATTERN_LIGHT = 0x00,
-    RGB_PATTERN_BLINK = 0x01,
-    RGB_PATTERN_FADE_IN = 0x02,
-    RGB_PATTERN_FADE_OUT = 0x03,
-    RGB_PATTERN_FADE_TOGGLE = 0x04
+    RGB_PATTERN_OFF= 0x00,
+    RGB_PATTERN_LIGHT = 0x01,
+    RGB_PATTERN_BLINK = 0x02,
+    RGB_PATTERN_FADE_IN = 0x03,
+    RGB_PATTERN_FADE_OUT = 0x04,
+    RGB_PATTERN_FADE_INOUT = 0x05
 } RGB_Pattern_t;
 
 #ifdef RGB_TIMER_PERIOD
-struct {
+typedef struct {
+    RGB_Pattern_t pattern;
     uint8_t red;
     uint8_t green;
     uint8_t blue;
-    uint8_t pattern;
     uint8_t delay;
     uint8_t min;
     uint8_t max;
-    uint8_t count;
-} RGB;
+    uint8_t timeout;
+} RGB_t;
+
+RGB_t RGB = {RGB_PATTERN_OFF, 0, 0, 0, 0, 0, 0, RGB_INDEFINED};
+
+struct {
+    uint8_t index;
+    uint8_t size;
+    uint8_t timeout;
+} RGB_list = {0, 0, RGB_INDEFINED};
+
+RGB_t RGB_items[RGB_LIST_SIZE];
+
 
 /**
  * Updates LED strip.
@@ -72,6 +95,20 @@ void RGB_update(void);
 inline void RGB_off(void);
 
 /**
+ * Add RGB LED strip configuration.
+ * 
+ * @param pattern Pattern.
+ * @param red Red component.
+ * @param green Green component.
+ * @param blue Blue component.
+ * @param delay Delay.
+ * @param min Minimum.
+ * @param max Maximum.
+ * @param count Count.
+ */
+void RGB_add(uint8_t pattern, uint8_t red, uint8_t green, uint8_t blue, uint16_t delay, uint8_t min, uint8_t max, uint8_t timeout);
+
+/**
  * Set RGB LED strip configuration.
  * 
  * @param pattern Pattern.
@@ -83,7 +120,7 @@ inline void RGB_off(void);
  * @param max Maximum.
  * @param count Count.
  */
-void RGB_set(uint8_t pattern, uint8_t red, uint8_t green, uint8_t blue, uint16_t delay, uint8_t min, uint8_t max, uint8_t count);
+void RGB_set(uint8_t pattern, uint8_t red, uint8_t green, uint8_t blue, uint16_t delay, uint8_t min, uint8_t max, uint8_t timeout);
 
 #endif
 

@@ -31,6 +31,10 @@ extern "C" {
 #endif
 #endif
     
+#ifndef WS281x_LIGHT_SPEED
+#define WS281x_LIGHT_SPEED 2 * WS281x_TIMER_PERIOD
+#endif
+    
 #ifndef WS281x_LIGHT_LIST_SIZE
 #define WS281x_LIGHT_LIST_SIZE 20
 #endif
@@ -49,8 +53,7 @@ typedef enum {
     WS281x_LIGHT_WIPE = 0x08,
     WS281x_LIGHT_LIGHTHOUSE = 0x09,
     WS281x_LIGHT_CHAISE = 0x0A,
-    WS281x_LIGHT_SPIN = 0x0B,
-    WS281x_LIGHT_THEATER = 0x0C,
+    WS281x_LIGHT_THEATER = 0x0B,
 } WS281xLight_Pattern_t;
 
 typedef struct { // 8+16+8+8+8+8+(6*8)=16+40+48=104 bytes
@@ -68,7 +71,7 @@ struct {
     uint8_t index;
     uint8_t size;
     uint8_t timeout;
-} WS281xLight_list = {0, 0};
+} WS281xLight_list = {0, 0, WS281x_LIGHT_INDEFINED};
 
 WS281xLight_t WS281xLight_items[WS281x_LIGHT_LIST_SIZE];
 

@@ -63,7 +63,7 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port);
 #endif
 #endif
 #ifdef RGB_ENABLED
-void POC_testRGB(void);
+void POC_testRGB(RGB_Pattern_t pattern);
 #endif
 #ifdef WS281x_BUFFER
 void POC_demoWS281x(void);

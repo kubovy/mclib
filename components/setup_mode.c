@@ -17,13 +17,15 @@ SUM_MenuPage_t SUM_setupPage = SUM_MENU_MAIN;
 
 union {
     struct {
+        bool rgbDemo       :1;
+        uint8_t rgb        :3;
         bool ws281xDemo    :1;
         uint8_t ws281xLight:4;
         bool lcdBacklight  :1;
         bool showKeypad    :1;
         bool showBtErrors  :1;
     };
-} sw = {false, WS281x_LIGHT_OFF, true, false, false};
+} sw = {false, RGB_PATTERN_OFF, false, WS281x_LIGHT_OFF, true, false, false};
 
 struct {
     uint8_t id;
@@ -115,7 +117,7 @@ void SUM_mcpChanged(uint8_t address) {
 
 void SUM_showMenu(uint8_t page) {
     SUM_setupPage = page;
-    LCD_clear();
+    LCD_clearCache();
     switch (SUM_setupPage) {
 //        case SUM_MENU_INTRO: // Introduction
 //            LCD_setString("     SetUp Mode     ", 0, true);
@@ -124,164 +126,162 @@ void SUM_showMenu(uint8_t page) {
 //            break;
         case SUM_MENU_MAIN: // Main Menu
 #ifdef BM78_ENABLED
-            LCD_setString("1) Bluetooth", 0, true);
+            LCD_setString("1) Bluetooth", 0, false);
 #else
-            LCD_setString("-) Bluetooth", 0, true);
+            LCD_setString("-) Bluetooth", 0, false);
 #endif
 #if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
-            LCD_setString("2) Memory", 1, true);
+            LCD_setString("2) Memory", 1, false);
 #else
-            LCD_setString("-) Memory", 1, true);
+            LCD_setString("-) Memory", 1, false);
 #endif
-            LCD_setString("3) Tests", 2, true);
-            LCD_setString("             Exit (D", 3, true);
+            LCD_setString("3) Tests", 2, false);
+            LCD_setString("             Exit (D", 3, false);
             break;
 #ifdef BM78_ENABLED
         case SUM_MENU_BT_PAGE_1: // Bluetooth Menu (Page 1)
             SUM_setBtStatus(SUM_bm78CurrentState.id);
             LCD_setString("1) State [         ]", 0, false);
-            LCD_replaceString(SUM_bm78CurrentState.name, 10, 0, true);
-            LCD_setString("2) Paired Devices   ", 1, true);
-            LCD_setString("3) Pairing Mode     ", 2, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceString(SUM_bm78CurrentState.name, 10, 0, false);
+            LCD_setString("2) Paired Devices   ", 1, false);
+            LCD_setString("3) Pairing Mode     ", 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_BT_PAGE_2: // Bluetooth Menu (Page 2)
-            LCD_setString("1) Device Name      ", 0, true);
+            LCD_setString("1) Device Name      ", 0, false);
             LCD_setString("2) PIN   [      ]   ", 1, false);
-            LCD_replaceString(BM78.pin, 10, 1, true);
+            LCD_replaceString(BM78.pin, 10, 1, false);
             if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE 
                     || BM78.status == BM78_STATUS_LE_CONNECTED_MODE) {
-                LCD_setString("3) Remote Device    ", 2, true);
+                LCD_setString("3) Remote Device    ", 2, false);
             }
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_BT_PAGE_3: // Bluetooth Menu (Page 3)
             LCD_setString("1) Show Errors   [ ]", 0, false);
-            LCD_replaceChar(sw.showBtErrors ? 'X' : ' ', 18, 0, true);
-            LCD_setString("2) Read Config      ", 1, true);
-            LCD_setString("3) MAC Address      ", 2, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceChar(sw.showBtErrors ? 'X' : ' ', 18, 0, false);
+            LCD_setString("2) Read Config      ", 1, false);
+            LCD_setString("3) MAC Address      ", 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_BT_PAGE_4: // Bluetooth Menu (Page 4)
-            LCD_setString("1) Initialize BM78  ", 0, true);
-            LCD_setString("B) Back             ", 3, true);
+            LCD_setString("1) Initialize BM78  ", 0, false);
+            LCD_setString("B) Back             ", 3, false);
             break;
         case SUM_MENU_BT_STATE: // Bluetooth: State
             LCD_setString("State:          ", 0, false);
-            LCD_replaceString(SUM_bm78CurrentState.name, 7, 0, true);
+            LCD_replaceString(SUM_bm78CurrentState.name, 7, 0, false);
             if (BM78.status== BM78_STATUS_IDLE_MODE) {
-                LCD_setString("1) StandBy/ Trust (2", 1, true);
-                LCD_setString("3) Beacon / Trust (4", 2, true);
+                LCD_setString("1) StandBy/ Trust (2", 1, false);
+                LCD_setString("3) Beacon / Trust (4", 2, false);
             } else if (BM78.status == BM78_STATUS_STANDBY_MODE) {
-                LCD_setString("1) Leave Stand-By   ", 1, true);
+                LCD_setString("1) Leave Stand-By   ", 1, false);
             } else if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE) {
-                LCD_setString("1) Disconnect SPP   ", 1, true);
+                LCD_setString("1) Disconnect SPP   ", 1, false);
             } else if (BM78.status == BM78_STATUS_LE_CONNECTED_MODE) {
-                LCD_setString("1) Disconnect LE    ", 1, true);
+                LCD_setString("1) Disconnect LE    ", 1, false);
             }
-            LCD_setString("B) Back             ", 3, true);
+            LCD_setString("B) Back             ", 3, false);
             break;
         case SUM_MENU_BT_PAIRED_DEVICES: // Bluetooth: Paired Devices
             if (BM78.pairedDevicesCount == 0) { // No paired devices yet
-                LCD_setString("*: Get devices      ", 0, true);
-                LCD_setString("#: Clear all paired ", 1, true);
-                LCD_setString("B) Back             ", 3, true);
+                LCD_setString("*: Get devices      ", 0, false);
+                LCD_setString("#: Clear all paired ", 1, false);
+                LCD_setString("B) Back             ", 3, false);
             } else { // Paired devices retrieved
                 for (uint8_t i = 0; i < 3; i++) {
                     if ((SUM_pairedDevices.page * 3 + i) < BM78.pairedDevicesCount) {
                         LCD_setString("-) ##:##:##:##:##:##", i, false);
                         LCD_replaceChar(i + 49, 0, i, false);
                         SUM_displayHWAddress(SUM_pairedDevices.page * 3 + i, i, 3);
-                        LCD_displayLine(i);
                     }
                 }
                 if ((SUM_pairedDevices.page + 1) * 3 < BM78.pairedDevicesCount) {
-                    LCD_setString("B) Back      Next (C", 3, true);
+                    LCD_setString("B) Back      Next (C", 3, false);
                 } else {
-                    LCD_setString("B) Back             ", 3, true);
+                    LCD_setString("B) Back             ", 3, false);
                 }
             }
             break;
         case SUM_MENU_BT_PAIRED_DEVICE: {
                 LCD_setString(" ##:##:##:##:##:##  ", 0, false);
                 SUM_displayHWAddress(SUM_pairedDevices.selected, 0, 1);
-                LCD_displayLine(0);
-                LCD_setString("1) Remove Device    ", 1, true);
-                LCD_setString("B) Back             ", 3, true);
+                LCD_setString("1) Remove Device    ", 1, false);
+                LCD_setString("B) Back             ", 3, false);
             }
             break;
         case SUM_MENU_BT_PAIRING_MODE:
-            LCD_setString(" ) PIN              ", 0, true);
-            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_PIN ? 'X' : '1', 0, 0, true);
+            LCD_setString(" ) PIN              ", 0, false);
+            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_PIN ? 'X' : '1', 0, 0, false);
             LCD_setString(" ) Just Work        ", 1, false);
-            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_JUST_WORK ? 'X' : '2', 0, 1, true);
+            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_JUST_WORK ? 'X' : '2', 0, 1, false);
             LCD_setString(" ) Passkey          ", 2, false);
-            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_PASSKEY ? 'X' : '3', 0, 2, true);
+            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_PASSKEY ? 'X' : '3', 0, 2, false);
             LCD_setString(" ) Confirm   Back (B", 3, false);
-            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_USER_CONFIRM ? 'X' : '4', 0, 3, true);
+            LCD_replaceChar(BM78.pairingMode == BM78_PAIRING_USER_CONFIRM ? 'X' : '4', 0, 3, false);
             break;
         case SUM_MENU_BT_SHOW_DEVICE_NAME:
-            LCD_setString(BM78.deviceName, 0, true);
-            LCD_setString("1) Refresh          ", 2, true);
-            LCD_setString("B) Back             ", 3, true);
+            LCD_setString(BM78.deviceName, 0, false);
+            LCD_setString("1) Refresh          ", 2, false);
+            LCD_setString("B) Back             ", 3, false);
             break;
         case SUM_MENU_BT_PIN_SETUP:
-            LCD_setString("        PIN         ", 0, true);
+            LCD_setString("        PIN         ", 0, false);
             LCD_setString("                    ", 1, false);
-            LCD_replaceString(BM78.pin, 7, 1, true);
-            LCD_setString("1) Change           ", 2, true);
-            LCD_setString("2) Refresh   Back (B", 3, true);
+            LCD_replaceString(BM78.pin, 7, 1, false);
+            LCD_setString("1) Change           ", 2, false);
+            LCD_setString("2) Refresh   Back (B", 3, false);
             break;
         case SUM_MENU_BT_SHOW_REMOTE_DEVICE:
-            LCD_setString("1) Refresh          ", 2, true);
-            LCD_setString("B) Back             ", 3, true);
+            LCD_setString("1) Refresh          ", 2, false);
+            LCD_setString("B) Back             ", 3, false);
             break;
         case SUM_MENU_BT_INITIALIZE:
-            LCD_setString("  Initializing BT   ", 1, true);
-            LCD_setString("  (please wait...)  ", 2, true);
+            LCD_setString("  Initializing BT   ", 1, false);
+            LCD_setString("  (please wait...)  ", 2, false);
             break;
         case SUM_MENU_BT_READ_CONFIG:
-            LCD_setString("Memory controls:    ", 0, true);
-            LCD_setString("B: Previous, C: Next", 1, true);
-            LCD_setString("A: Abort, D: Reset  ", 2, true);
-            LCD_setString("#: Address  Con't (C", 3, true);
+            LCD_setString("Memory controls:    ", 0, false);
+            LCD_setString("B: Previous, C: Next", 1, false);
+            LCD_setString("A: Abort, D: Reset  ", 2, false);
+            LCD_setString("#: Address  Con't (C", 3, false);
             break;
         case SUM_MENU_BT_CONFIG_VIEWER:
             // Nothing to do see SUM_processKey
             break;
         case SUM_MENU_BT_SHOW_MAC_ADDRESS:
-            LCD_setString("  Bluetooth's MAC   ", 0, true);
-            LCD_setString("        ...         ", 1, true);
-            LCD_setString("   (please wait)    ", 1, true);
-            LCD_setString("B) Back   Refresh (1", 3, true);
+            LCD_setString("  Bluetooth's MAC   ", 0, false);
+            LCD_setString("        ...         ", 1, false);
+            LCD_setString("   (please wait)    ", 1, false);
+            LCD_setString("B) Back   Refresh (1", 3, false);
             break;
 #endif
 #if defined MEM_ADDRESS || MEM_INTERNAL_SIZE
         case SUM_MENU_MEM_MAIN: // Memory Menu
 #ifdef MEM_INTERNAL_SIZE
-            LCD_setString("1) PIC Memory Viewer", 0, true);
+            LCD_setString("1) PIC Memory Viewer", 0, false);
 #else
-            LCD_setString("-) PIC Memory Viewer", 0, true);
+            LCD_setString("-) PIC Memory Viewer", 0, false);
 #endif
 #ifdef MEM_ADDRESS
-            LCD_setString("2) Memory Viewer    ", 1, true);
+            LCD_setString("2) Memory Viewer    ", 1, false);
 #else
-            LCD_setString("-) Memory Viewer    ", 1, true);
+            LCD_setString("-) Memory Viewer    ", 1, false);
 #endif
 #ifdef SM_MEM_ADDRESS
             if (I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START) == SM_STATUS_ENABLED) {
-                LCD_setString("3) Lock SM       [ ]", 2, true);
+                LCD_setString("3) Lock SM       [ ]", 2, false);
             } else {
-                LCD_setString("3) Unlock SM     [X]", 2, true);
+                LCD_setString("3) Unlock SM     [X]", 2, false);
             }
 #endif
-            LCD_setString("B) Back             ", 3, true);
+            LCD_setString("B) Back             ", 3, false);
             break;
         case SUM_MENU_MEM_VIEWER_INTRO: // Memory Viewer Introduction
-            LCD_setString("Memory controls:    ", 0, true);
-            LCD_setString("B: Previous, C: Next", 1, true);
-            LCD_setString("A: Abort, D: Reset  ", 2, true);
-            LCD_setString("#: Address  Con't (C", 3, true);
+            LCD_setString("Memory controls:    ", 0, false);
+            LCD_setString("B: Previous, C: Next", 1, false);
+            LCD_setString("A: Abort, D: Reset  ", 2, false);
+            LCD_setString("#: Address  Con't (C", 3, false);
             break;
         case SUM_MENU_MEM_VIEWER:
             // Nothing to do see SUM_processKey
@@ -289,117 +289,139 @@ void SUM_showMenu(uint8_t page) {
 #endif
         case SUM_MENU_TEST_PAGE_1:
 #ifdef DHT11_PORT
-            LCD_setString("1) DHT11 Test       ", 0, true);
+            LCD_setString("1) DHT11 Test       ", 0, false);
 #else
-            LCD_setString("-) DHT11 Test       ", 0, true);
+            LCD_setString("-) DHT11 Test       ", 0, false);
 #endif
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_PAGE_2: // Tests Menu (Page 1)
-            LCD_setString("1) LCD Test         ", 0, true);
+            LCD_setString("1) LCD Test         ", 0, false);
             LCD_setString("2) LCD Backlight [ ]", 1, false);
-            LCD_replaceChar(sw.lcdBacklight ? 'X' : ' ', 18, 1, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceChar(sw.lcdBacklight ? 'X' : ' ', 18, 1, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
 #ifdef MCP_ENABLED
-            LCD_setString("1) MCP23017 IN Test ", 0, true);
-            LCD_setString("2) MCP23017 OUT Test", 1, true);
+            LCD_setString("1) MCP23017 IN Test ", 0, false);
+            LCD_setString("2) MCP23017 OUT Test", 1, false);
 #else
-            LCD_setString("-) MCP23017 IN Test ", 0, true);
-            LCD_setString("-) MCP23017 OUT Test", 1, true);
+            LCD_setString("-) MCP23017 IN Test ", 0, false);
+            LCD_setString("-) MCP23017 OUT Test", 1, false);
 #endif
             LCD_setString("3) Show Keypad   [ ]", 2, false);
-            LCD_replaceChar(sw.showKeypad ? 'X' : ' ', 18, 2, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceChar(sw.showKeypad ? 'X' : ' ', 18, 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 3)
 #ifdef RGB_ENABLED
-            LCD_setString("1) RGB Test         ", 0, true);
+            LCD_setString("1) RGB Tests        ", 0, false);
+            LCD_setString("2) RGB Demo      [ ]", 1, false);
+            LCD_replaceChar(sw.rgbDemo ? 'X' : ' ', 18, 1, false);
 #else
-            LCD_setString("-) RGB Test         ", 0, true);
+            LCD_setString("-) RGB Test         ", 0, false);
+            LCD_setString("-) RGB Demo         ", 1, false);
 #endif
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-            LCD_setString("1) WS281x Tests     ", 0, true);
-            LCD_setString("-) WS281x Demo      ", 1, true);
-#elif defined WS281x_BUFFER
-            LCD_setString("1) WS281x Test      ", 0, true);
+            LCD_setString("1) WS281x Tests     ", 0, false);
             LCD_setString("2) WS281x Demo   [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xDemo ? 'X' : ' ', 18, 1, true);
+            LCD_replaceChar(sw.ws281xDemo ? 'X' : ' ', 18, 1, false);
+#elif defined WS281x_BUFFER
+            LCD_setString("1) WS281x Test      ", 0, false);
+            LCD_setString("2) WS281x Demo   [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xDemo ? 'X' : ' ', 18, 1, false);
 #else
-            LCD_setString("-) WS281x Test      ", 0, true);
-            LCD_setString("-) WS281x Demo      ", 1, true);
+            LCD_setString("-) WS281x Test      ", 0, false);
+            LCD_setString("-) WS281x Demo      ", 1, false);
 #endif
-            LCD_setString("B) Back             ", 3, true);
+            LCD_setString("B) Back             ", 3, false);
             break;
+#ifdef RGB_ENABLED
+        case SUM_MENU_TEST_RGB_PAGE_1:
+            LCD_setString("1) Full          [ ]", 0, false);
+            LCD_replaceChar(sw.rgb == RGB_PATTERN_LIGHT ? 'X' : ' ', 18, 0, false);
+            LCD_setString("2) Blink         [ ]", 1, false);
+            LCD_replaceChar(sw.rgb == RGB_PATTERN_BLINK? 'X' : ' ', 18, 1, false);
+            LCD_setString("3) Fade In       [ ]", 2, false);
+            LCD_replaceChar(sw.rgb == RGB_PATTERN_FADE_IN ? 'X' : ' ', 18, 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
+            POC_testRGB(sw.rgb);
+            break;
+        case SUM_MENU_TEST_RGB_PAGE_2:
+            LCD_setString("1) Fade Out      [ ]", 0, false);
+            LCD_replaceChar(sw.rgb == RGB_PATTERN_FADE_OUT? 'X' : ' ', 18, 0, false);
+            LCD_setString("2) Fade In-Out   [ ]", 1, false);
+            LCD_replaceChar(sw.rgb == RGB_PATTERN_FADE_INOUT ? 'X' : ' ', 18, 1, false);
+            LCD_setString("B) Back             ", 3, false);
+            POC_testRGB(sw.rgb);
+            break;
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
         case SUM_MENU_TEST_WS281x_PAGE_1:
             LCD_setString("1) Full          [ ]", 0, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FULL ? 'X' : ' ', 18, 0, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FULL ? 'X' : ' ', 18, 0, false);
             LCD_setString("2) Blink         [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_BLINK ? 'X' : ' ', 18, 1, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_BLINK ? 'X' : ' ', 18, 1, false);
             LCD_setString("3) Fade In       [ ]", 2, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_IN ? 'X' : ' ', 18, 2, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_IN ? 'X' : ' ', 18, 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             POC_testWS281xLight(sw.ws281xLight);
             break;
         case SUM_MENU_TEST_WS281x_PAGE_2:
             LCD_setString("1) Fade Out      [ ]", 0, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_OUT ? 'X' : ' ', 18, 0, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_OUT ? 'X' : ' ', 18, 0, false);
             LCD_setString("2) Fade In-Out   [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_INOUT ? 'X' : ' ', 18, 1, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_INOUT ? 'X' : ' ', 18, 1, false);
             LCD_setString("3) Fade Toggle   [ ]", 2, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_TOGGLE ? 'X' : ' ', 18, 2, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_FADE_TOGGLE ? 'X' : ' ', 18, 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             POC_testWS281xLight(sw.ws281xLight);
             break;
         case SUM_MENU_TEST_WS281x_PAGE_3:
             LCD_setString("1) Rotation      [ ]", 0, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_ROTATION ? 'X' : ' ', 18, 0, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_ROTATION ? 'X' : ' ', 18, 0, false);
             LCD_setString("2) Wipe          [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_WIPE ? 'X' : ' ', 18, 1, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_WIPE ? 'X' : ' ', 18, 1, false);
             LCD_setString("3) Lighthouse    [ ]", 2, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_LIGHTHOUSE ? 'X' : ' ', 18, 2, true);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_LIGHTHOUSE ? 'X' : ' ', 18, 2, false);
+            LCD_setString("B) Back      Next (C", 3, false);
             POC_testWS281xLight(sw.ws281xLight);
             break;
         case SUM_MENU_TEST_WS281x_PAGE_4:
             LCD_setString("1) Chaise        [ ]", 0, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_CHAISE ? 'X' : ' ', 18, 0, true);
-            LCD_setString("2) Spin          [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_SPIN ? 'X' : ' ', 18, 1, true);
-            LCD_setString("3) Theater       [ ]", 2, false);
-            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_THEATER ? 'X' : ' ', 18, 2, true);
-            LCD_setString("B) Back             ", 3, true);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_CHAISE ? 'X' : ' ', 18, 0, false);
+            LCD_setString("2) Theater       [ ]", 1, false);
+            LCD_replaceChar(sw.ws281xLight == WS281x_LIGHT_THEATER ? 'X' : ' ', 18, 1, false);
+            LCD_setString("B) Back             ", 3, false);
             POC_testWS281xLight(sw.ws281xLight);
             break;
 #endif
 #ifdef DHT11_PORT
         case SUM_MENU_TEST_DHT11:
             POC_testDHT11();
-            LCD_setString("B) Back   Refresh (C", 3, true);
+            LCD_setString("B) Back   Refresh (C", 3, false);
             break;
 #endif
 #ifdef MCP_ENABLED
         case SUM_MENU_TEST_MCP_IN:
             POC_testMCP23017Input(SUM_mcpTest.addr);
-            LCD_setString("B) Back      Next (C", 3, true);
+            LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_MCP_OUT:
             if (SUM_mcpTest.addr == 0) {
-                LCD_setString("0) 0x20      0x24 (4", 0, true);
-                LCD_setString("1) 0x21      0x25 (5", 1, true);
-                LCD_setString("2) 0x22      0x26 (6", 2, true);
-                LCD_setString("3) 0x23      0x27 (7", 3, true);
+                LCD_setString("0) 0x20      0x24 (4", 0, false);
+                LCD_setString("1) 0x21      0x25 (5", 1, false);
+                LCD_setString("2) 0x22      0x26 (6", 2, false);
+                LCD_setString("3) 0x23      0x27 (7", 3, false);
             } else if (SUM_mcpTest.port == 0xFF) {
-                LCD_setString("A) Port A           ", 0, true);
-                LCD_setString("B) Port B           ", 1, true);
+                LCD_setString("A) Port A           ", 0, false);
+                LCD_setString("B) Port B           ", 1, false);
             } else {
                 POC_testMCP23017Output(SUM_mcpTest.addr, SUM_mcpTest.port);
-                LCD_setString("B) Back    Repeat (C", 3, true);
+                LCD_setString("B) Back    Repeat (C", 3, false);
             }
             break;
 #endif
@@ -407,6 +429,7 @@ void SUM_showMenu(uint8_t page) {
             // Nothing to do see SUM_processKey
             break;
     }
+    LCD_displayCache();
 }
 
 void SUM_defaultFunction(uint8_t key) {
@@ -455,7 +478,7 @@ void SUM_executeMenu(uint8_t key) {
                     break;
                 case 'D': // Exit
                     SUM_mode = false;
-                    LCD_clear();
+                    LCD_clearCache();
 #ifdef MEM_SUM_LCD_CACHE_START
                     for (SUM_i = 0; SUM_i < LCD_ROWS; SUM_i++) {
                         for (SUM_j = 0; SUM_j < LCD_COLS; SUM_j++) {
@@ -463,12 +486,12 @@ void SUM_executeMenu(uint8_t key) {
                             LCD_setCache(SUM_i, SUM_j, I2C_readRegister16(MEM_ADDRESS, SUM_mem.reg));
                         }
                     }
-                    LCD_displayCache();
 #else
                     for (uint8_t i = 0; i < LCD_ROWS; i++) {
-                        LCD_setString(lcdCache[i], i, true);
+                        LCD_setString(lcdCache[i], i, false);
                     }
 #endif
+                    LCD_displayCache();
                     break;
                 default:
                     SUM_defaultFunction(key);
@@ -699,6 +722,7 @@ void SUM_executeMenu(uint8_t key) {
                     LCD_replaceChar(key, SUM_manual.position + 7, 1, true);
                     SUM_manual.position++;
                     if (SUM_manual.position >= 4) LCD_setString("A) Abort  Confirm (C", 3, true);
+                    else LCD_setString("A) Abort            ", 3, true);
                 } else switch(key) {
                     case 'C': // Confirm
                         if (SUM_manual.position >= 4) {
@@ -816,8 +840,9 @@ void SUM_executeMenu(uint8_t key) {
                     BM78_readEEPROM(SUM_mem.reg, 16);
                     break;
                 case '#':
-                    LCD_clear();
-                    LCD_setString("GOTO: ....          ", 2, true);
+                    LCD_clearCache();
+                    LCD_setString("GOTO: ....          ", 2, false);
+                    LCD_displayCache();
                     SUM_manual.position = 3;
                     break;
                 default:
@@ -931,8 +956,9 @@ void SUM_executeMenu(uint8_t key) {
                     POC_testMem(SUM_mem.addr, SUM_mem.reg);
                     break;
                 case '#':
-                    LCD_clear();
-                    LCD_setString("GOTO: ....          ", 2, true);
+                    LCD_clearCache();
+                    LCD_setString("GOTO: ....          ", 2, false);
+                    LCD_displayCache();
                     SUM_manual.position = 3;
                     break;
                 default:
@@ -1012,8 +1038,12 @@ void SUM_executeMenu(uint8_t key) {
         case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 3)
             switch(key) {
 #ifdef RGB_ENABLED
-                case '1': // RGB Test
-                    POC_testRGB();
+                case '1': // RGB Tests
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
+                    break;
+                case '2': // RGB Demo
+                    sw.rgbDemo = !sw.rgbDemo;
+                    POC_testRGB(sw.rgbDemo ? 0xFF : RGB_PATTERN_OFF);
                     SUM_showMenu(SUM_MENU_TEST_PAGE_4);
                     break;
 #endif
@@ -1041,8 +1071,13 @@ void SUM_executeMenu(uint8_t key) {
                     break;
                 case '2': // WS281x Demo
                     sw.ws281xDemo = !sw.ws281xDemo;
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+                    if (sw.ws281xDemo) POC_testWS281xLight(0xFF);
+                    else WS281xLight_off();
+#else
                     if (sw.ws281xDemo) POC_demoWS281x();
                     else WS281x_off();
+#endif
                     SUM_showMenu(SUM_MENU_TEST_PAGE_5);
                     break;
 #endif
@@ -1054,6 +1089,51 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
+#ifdef RGB_ENABLED
+        case SUM_MENU_TEST_RGB_PAGE_1:
+            switch(key) {
+                case '1':
+                    sw.rgb = sw.rgb == RGB_PATTERN_LIGHT ? RGB_PATTERN_OFF : RGB_PATTERN_LIGHT;
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
+                    break;
+                case '2':
+                    sw.rgb = sw.rgb == RGB_PATTERN_BLINK ? RGB_PATTERN_OFF : RGB_PATTERN_BLINK;
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
+                    break;
+                case '3':
+                    sw.rgb = sw.rgb == RGB_PATTERN_FADE_IN ? RGB_PATTERN_OFF : RGB_PATTERN_FADE_IN;
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
+                    break;
+                case 'C':
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_2);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_TEST_RGB_PAGE_2:
+            switch(key) {
+                case '1':
+                    sw.rgb = sw.rgb == RGB_PATTERN_FADE_OUT ? RGB_PATTERN_OFF : RGB_PATTERN_FADE_OUT;
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_2);
+                    break;
+                case '2':
+                    sw.rgb = sw.rgb == RGB_PATTERN_FADE_INOUT ? RGB_PATTERN_OFF : RGB_PATTERN_FADE_INOUT;
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_2);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
         case SUM_MENU_TEST_WS281x_PAGE_1:
             switch(key) {
@@ -1137,10 +1217,6 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
                     break;
                 case '2':
-                    sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_SPIN ? WS281x_LIGHT_OFF : WS281x_LIGHT_SPIN;
-                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
-                    break;
-                case '3':
                     sw.ws281xLight = sw.ws281xLight == WS281x_LIGHT_THEATER ? WS281x_LIGHT_OFF : WS281x_LIGHT_THEATER;
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_4);
                     break;
@@ -1458,9 +1534,10 @@ void SUM_bm78EEPROMInitializationFailedHandler(void) {
 #ifdef LCD_ADDRESS
     if (SUM_mode) {
         SUM_showMenu(SUM_MENU_BT_PAGE_4);
-        LCD_clear();
-        LCD_setString("   Initialization   ", 1, true);
-        LCD_setString("       FAILED       ", 2, true);
+        LCD_clearCache();
+        LCD_setString("   Initialization   ", 1, false);
+        LCD_setString("       FAILED       ", 2, false);
+        LCD_displayCache();
     }
 #endif
 }

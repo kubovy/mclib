@@ -82,79 +82,75 @@ inline Color_t WS281xLight_color(uint8_t rainbow, uint8_t led, uint8_t pos, uint
 inline void WS281xLight_all(WS281xLight_Pattern_t pattern) {
     uint8_t percent;
     switch (pattern) {
-        case WS281x_LIGHT_OFF:
-            if (WS281xLight_list.timeout > 0
-                    && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.timeout * 100 / WS281x_TIMER_PERIOD) == WS281xLight.timeout * 100 / WS281x_TIMER_PERIOD - 1) {
-                // Timeout x 100 ms
-                WS281xLight_list.timeout--;
-            }
-            percent = 0;
-            break;
         case WS281x_LIGHT_BLINK:
+            percent = WS281xLight_counter / WS281xLight.delay % 2;
             if (WS281xLight_list.timeout > 0
                     && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.delay * 2) == WS281xLight.delay * 2 - 1) {
+                    && percent > (WS281xLight_counter - 1) / WS281xLight.delay % 2) {
                 // Timeout x times
                 WS281xLight_list.timeout--;
             }
-            percent = (WS281xLight_counter / WS281xLight.delay) % 2 == 0 ? WS281xLight.min : WS281xLight.max;
+            percent = percent > 0 ? WS281xLight.min : WS281xLight.max;
             break;
         case WS281x_LIGHT_FADE_IN:
+            percent = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % 100;
             if (WS281xLight_list.timeout > 0
                     && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.delay * 100) == WS281xLight.delay * 100 - 1) {
+                    && WS281xLight_counter > 0
+                    && percent > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % 100) {
                 // Timeout x times
                 WS281xLight_list.timeout--;
             }
-            percent = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % 100;
             percent = ((uint16_t) (WS281xLight.max - WS281xLight.min) * percent) / 99 + WS281xLight.min;
             break;
         case WS281x_LIGHT_FADE_OUT:
+            percent = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % 100;
             if (WS281xLight_list.timeout > 0
                     && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.delay * 100) == WS281xLight.delay * 100 - 1) {
+                    && WS281xLight_counter > 0
+                    && percent > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % 100) {
                 // Timeout x times
                 WS281xLight_list.timeout--;
             }
-            percent = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % 100;
             percent = WS281xLight.max - ((uint16_t) (WS281xLight.max - WS281xLight.min) * percent) / 99;
             break;
         case WS281x_LIGHT_FADE_INOUT:
+            percent = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % 200;
             if (WS281xLight_list.timeout > 0
                     && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.delay * 200) == WS281xLight.delay * 200 - 1) {
+                    && WS281xLight_counter > 0
+                    && percent > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % 200) {
                 // Timeout x times
                 WS281xLight_list.timeout--;
             }
-            percent = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % 200;
             percent = percent > 100 ? 200 - percent : percent;
             percent = (WS281xLight.max - WS281xLight.min) * percent / 100 + WS281xLight.min;
             break;
         case WS281x_LIGHT_FADE_TOGGLE:
+            percent = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % 200;
             if (WS281xLight_list.timeout > 0
                     && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.delay * 200) == WS281xLight.delay * 200 - 1) {
+                    && WS281xLight_counter > 0
+                    && percent > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % 200) {
                 // Timeout x times
                 WS281xLight_list.timeout--;
             }
-            percent = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % 200;
             percent = percent > 100 ? 200 - percent : percent;
             percent = (WS281xLight.max - WS281xLight.min) * percent / 100 + WS281xLight.min;
             break;
-        default: // WS281x_LIGHT_FULL
+        default: // WS281x_LIGHT_FULL, WS281x_LIGHT_OFF
             if (WS281xLight_list.timeout > 0
                     && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-                    && WS281xLight_counter % (WS281xLight.timeout * 100 / WS281x_TIMER_PERIOD) == WS281xLight.timeout * 100 / WS281x_TIMER_PERIOD - 1) {
+                    && WS281xLight_counter % WS281xLight.delay == WS281xLight.delay - 1) {
                 // Timeout x 100 ms
                 WS281xLight_list.timeout--;
             }
-            percent = WS281xLight.max;
+            percent = pattern == WS281x_LIGHT_OFF ? 0 : WS281xLight.max;
             break;
     }
 
     uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.fading) : 0; // % 256
+    uint8_t colorShift = rainbow ? (WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.fading) : 0; // % 256
     
     // Rows (up to 4 rows, color1..color4 for each row)
     for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
@@ -186,16 +182,16 @@ inline void WS281xLight_all(WS281xLight_Pattern_t pattern) {
 }
 
 inline void WS281xLight_rotation(void) {
-    uint8_t shift = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % WS281x_LIGHT_ROW_COUNT;
+    uint8_t shift = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % WS281x_LIGHT_ROW_COUNT;
     if (WS281xLight_list.timeout > 0
             && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-            && shift == WS281x_LIGHT_ROW_COUNT - 1) {
+            && shift > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % WS281x_LIGHT_ROW_COUNT) {
         // Timeout x times
         WS281xLight_list.timeout--;
     }
 
     uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) : 0; // % 256
+    uint8_t colorShift = rainbow ? (WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay) : 0; // % 256
     
     // Rows (up to 4 rows, color1..color4 for each row)
     for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
@@ -231,16 +227,16 @@ inline void WS281xLight_rotation(void) {
 }
 
 inline void WS281xLight_wipe(void) {
-    uint8_t shift = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % (WS281x_LIGHT_ROW_COUNT * 2);
+    uint8_t shift = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % (WS281x_LIGHT_ROW_COUNT * 2);
     if (WS281xLight_list.timeout > 0
             && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-            && shift == WS281x_LIGHT_ROW_COUNT * 2 - 1) {
+            && shift > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % (WS281x_LIGHT_ROW_COUNT * 2)) {
         // Timeout x times
         WS281xLight_list.timeout--;
     }
 
     uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.fading) : 0; // % 256
+    uint8_t colorShift = rainbow ? (WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.fading) : 0; // % 256
 
     // Rows (up to 4 rows, color1..color4 for each row)
     for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
@@ -271,17 +267,17 @@ inline void WS281xLight_wipe(void) {
 }
 
 inline void WS281xLight_lighthouse(void) {
-    uint8_t shift1 = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % WS281x_LIGHT_ROW_COUNT;
+    uint8_t shift1 = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % WS281x_LIGHT_ROW_COUNT;
     uint8_t shift2 = (shift1 + WS281x_LIGHT_ROW_COUNT / 2) % WS281x_LIGHT_ROW_COUNT;
     if (WS281xLight_list.timeout > 0
             && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-            && shift1 == WS281x_LIGHT_ROW_COUNT - 1) {
+            && shift1 > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % WS281x_LIGHT_ROW_COUNT) {
         // Timeout x times
         WS281xLight_list.timeout--;
     }
 
     uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) : 0; // % 256
+    uint8_t colorShift = rainbow ? (WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay) : 0; // % 256
     
     // Rows (up to 4 rows, color1..color4 for each quarter)
     for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
@@ -332,16 +328,16 @@ inline void WS281xLight_lighthouse(void) {
 }
 
 inline void WS281xLight_chaise(void) {
-    uint8_t shift = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % WS281x_LIGHT_ROW_COUNT;
+    uint8_t shift = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % WS281x_LIGHT_ROW_COUNT;
     if (WS281xLight_list.timeout > 0
             && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-            && shift == WS281x_LIGHT_ROW_COUNT - 1) {
+            && shift > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % WS281x_LIGHT_ROW_COUNT) {
         // Timeout x times
         WS281xLight_list.timeout--;
     }
     
     uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) : 0; // % 256
+    uint8_t colorShift = rainbow ? (WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay) : 0; // % 256
     
     // Rows (up to 4 rows, color1..color4 for each row)
     for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
@@ -393,64 +389,17 @@ inline void WS281xLight_chaise(void) {
     }
 }
 
-inline void WS281xLight_spin(void) {
-    uint8_t shift = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % WS281x_LIGHT_ROW_COUNT;
-    uint16_t speed = WS281xLight_counter / WS281xLight.timeout;
-    if (WS281xLight_list.timeout > 0
-            && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-            && shift == WS281x_LIGHT_ROW_COUNT - 1) {
-        // Timeout x times
-        WS281xLight_list.timeout--;
-    }
-
-    shift = (shift + speed * 2) % WS281x_LIGHT_ROW_COUNT;
-    uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) : 0; // % 256
-    
-    // Rows (up to 4 rows, color1..color4 for each row)
-    for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
-        for (uint8_t i = 0; i < WS281x_LIGHT_ROW_COUNT; i++) {
-            uint8_t led = row * WS281x_LIGHT_ROW_COUNT + i;
-            if ((i >= shift && i < shift + WS281xLight.width)
-                    || (shift + WS281xLight.width > WS281x_LIGHT_ROW_COUNT
-                    && i < shift + WS281xLight.width - WS281x_LIGHT_ROW_COUNT)) {
-
-                uint8_t percent = i >= shift ? i - shift : WS281x_LIGHT_ROW_COUNT - shift + i;
-                percent = WS281xLight.width - percent;
-                percent = percent * WS281xLight.fading < WS281xLight.max ? WS281xLight.max - (percent * WS281xLight.fading) : 0;
-                percent = percent > WS281xLight.min ? percent : 0;
-
-                Color_t color = WS281xLight_color(rainbow, led, i, colorShift, WS281xLight.color[row % 4]);
-                WS281xLight_led(led, 0, color.r * percent / 255);
-                WS281xLight_led(led, 1, color.g * percent / 255);
-                WS281xLight_led(led, 2, color.b * percent / 255);
-            } else {
-                WS281xLight_led(led, 0, WS281xLight.color[6].r);
-                WS281xLight_led(led, 1, WS281xLight.color[6].g);
-                WS281xLight_led(led, 2, WS281xLight.color[6].b);
-            }
-        }
-    }
-    
-    // Rest LEDs (color5..color6 always 100%)
-    for (uint8_t led = WS281x_LED_COUNT - WS281x_LIGHT_REST; led < WS281x_LED_COUNT; led++) {
-        WS281xLight_led(led, 0, WS281xLight.color[4 + (led % 2)].r);
-        WS281xLight_led(led, 1, WS281xLight.color[4 + (led % 2)].g);
-        WS281xLight_led(led, 2, WS281xLight.color[4 + (led % 2)].b);
-    }
-}
-
 inline void WS281xLight_theater(void) {
-    uint8_t shift = (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.delay) % (WS281xLight.width * 2);
+    uint8_t shift = WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.delay % (WS281xLight.width * 2);
     if (WS281xLight_list.timeout > 0
             && WS281xLight_list.timeout < WS281x_LIGHT_INDEFINED
-            && shift == WS281xLight.width * 2 - 1) {
+            && shift > (WS281xLight_counter + 1) * WS281x_LIGHT_SPEED / WS281xLight.delay % (WS281xLight.width * 2)) {
         // Timeout x times
         WS281xLight_list.timeout--;
     }
    
     uint8_t rainbow = WS281xLight_isRainbow();
-    uint8_t colorShift = rainbow ? (WS281xLight_counter * 2 * WS281x_TIMER_PERIOD / WS281xLight.fading) : 0; // % 256
+    uint8_t colorShift = rainbow ? (WS281xLight_counter * WS281x_LIGHT_SPEED / WS281xLight.fading) : 0; // % 256
 
     // Rows (up to 4 rows, color1..color4 for each row)
     for (uint8_t row = 0; row < WS281x_LIGHT_ROWS; row++) {
@@ -483,7 +432,7 @@ void WS281xLight_update(void) {
         if (WS281xLight_list.index + 1 < WS281xLight_list.size) WS281xLight_list.index++;
         else WS281xLight_list.index = 0;
         WS281xLight = WS281xLight_items[WS281xLight_list.index];
-        WS281xLight_list.timeout = WS281xLight_items[WS281xLight_list.index].timeout;
+        WS281xLight_list.timeout = WS281xLight.timeout;
         WS281xLight_counter = 1; // Starts with 1 not to decrease timer 1st run
     }
     switch (WS281xLight.pattern) {
@@ -507,9 +456,6 @@ void WS281xLight_update(void) {
             break;
         case WS281x_LIGHT_CHAISE:
             WS281xLight_chaise();
-            break;
-        case WS281x_LIGHT_SPIN:
-            WS281xLight_spin();
             break;
         case WS281x_LIGHT_THEATER:
             WS281xLight_theater();
@@ -537,7 +483,7 @@ void WS281xLight_off(void) {
                     10);              // Timeout (x 100ms)
 }
 
-inline void WS281xLight_setInternal(WS281xLight_Pattern_t pattern, 
+inline WS281xLight_t WS281xLight_assemble(WS281xLight_Pattern_t pattern, 
                     uint8_t red1, uint8_t green1, uint8_t blue1,
                     uint8_t red2, uint8_t green2, uint8_t blue2,
                     uint8_t red3, uint8_t green3, uint8_t blue3,
@@ -547,34 +493,36 @@ inline void WS281xLight_setInternal(WS281xLight_Pattern_t pattern,
                     uint8_t red7, uint8_t green7, uint8_t blue7,
                     uint16_t delay, uint8_t width, uint8_t fading,
                     uint8_t min, uint8_t max, uint8_t timeout) {
-    WS281xLight.pattern = pattern;
-    WS281xLight.color[0].r = red1;
-    WS281xLight.color[0].g = green1;
-    WS281xLight.color[0].b = blue1;
-    WS281xLight.color[1].r = red2;
-    WS281xLight.color[1].g = green2;
-    WS281xLight.color[1].b = blue2;
-    WS281xLight.color[2].r = red3;
-    WS281xLight.color[2].g = green3;
-    WS281xLight.color[2].b = blue3;
-    WS281xLight.color[3].r = red4;
-    WS281xLight.color[3].g = green4;
-    WS281xLight.color[3].b = blue4;
-    WS281xLight.color[4].r = red5;
-    WS281xLight.color[4].g = green5;
-    WS281xLight.color[4].b = blue5;
-    WS281xLight.color[5].r = red6;
-    WS281xLight.color[5].g = green6;
-    WS281xLight.color[5].b = blue6;
-    WS281xLight.color[6].r = red7;
-    WS281xLight.color[6].g = green7;
-    WS281xLight.color[6].b = blue7;
-    WS281xLight.delay = delay / WS281x_TIMER_PERIOD;
-    WS281xLight.width = width;
-    WS281xLight.fading = fading;
-    WS281xLight.min = min;
-    WS281xLight.max = max;
-    WS281xLight.timeout = timeout;
+    WS281xLight_t light;
+    light.pattern = pattern;
+    light.color[0].r = red1;
+    light.color[0].g = green1;
+    light.color[0].b = blue1;
+    light.color[1].r = red2;
+    light.color[1].g = green2;
+    light.color[1].b = blue2;
+    light.color[2].r = red3;
+    light.color[2].g = green3;
+    light.color[2].b = blue3;
+    light.color[3].r = red4;
+    light.color[3].g = green4;
+    light.color[3].b = blue4;
+    light.color[4].r = red5;
+    light.color[4].g = green5;
+    light.color[4].b = blue5;
+    light.color[5].r = red6;
+    light.color[5].g = green6;
+    light.color[5].b = blue6;
+    light.color[6].r = red7;
+    light.color[6].g = green7;
+    light.color[6].b = blue7;
+    light.delay = delay / WS281x_TIMER_PERIOD;
+    light.width = width;
+    light.fading = fading;
+    light.min = min;
+    light.max = max;
+    light.timeout = timeout;
+    return light;
 }
 
 inline void WS281xLight_add(WS281xLight_Pattern_t pattern, 
@@ -587,7 +535,8 @@ inline void WS281xLight_add(WS281xLight_Pattern_t pattern,
                     uint8_t red7, uint8_t green7, uint8_t blue7,
                     uint16_t delay, uint8_t width, uint8_t fading,
                     uint8_t min, uint8_t max, uint8_t timeout) {
-    WS281xLight_setInternal(pattern, 
+    WS281xLight_items[WS281xLight_list.size++] = WS281xLight_assemble(
+            pattern, 
             red1, green1, blue1,
             red2, green2, blue2,
             red3, green3, blue3,
@@ -596,8 +545,6 @@ inline void WS281xLight_add(WS281xLight_Pattern_t pattern,
             red6, green6, blue6,
             red7, green7, blue7,
             delay, width, fading, min, max, timeout);
-
-    WS281xLight_items[WS281xLight_list.size++] = WS281xLight;
 }
 
 
@@ -611,7 +558,8 @@ inline void WS281xLight_set(WS281xLight_Pattern_t pattern,
                     uint8_t red7, uint8_t green7, uint8_t blue7,
                     uint16_t delay, uint8_t width, uint8_t fading,
                     uint8_t min, uint8_t max, uint8_t timeout) {
-    WS281xLight_setInternal(pattern, 
+    WS281xLight = WS281xLight_assemble(
+            pattern, 
             red1, green1, blue1,
             red2, green2, blue2,
             red3, green3, blue3,

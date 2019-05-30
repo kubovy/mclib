@@ -14,13 +14,14 @@ extern "C" {
 #include <stdarg.h>
 #include "../lib/requirements.h"
 
-//#ifdef I2C_ENABLED    
+#ifdef I2C_ENABLED    
 
 #if defined I2C_MSSP
 #include "../../mcc_generated_files/i2c1.h"
-uint8_t writeBuffer[3];
 #elif defined I2C_MSSP_FOUNDATION
-#include "../../mcc_generated_files/i2c1.h"
+#include "../../mcc_generated_files/i2c1_driver.h"
+#include "../../mcc_generated_files/drivers/i2c_master.h"
+#include "../../mcc_generated_files/drivers/i2c_simple_master.h"
 #else
 #include "../../mcc_generated_files/i2c1.h"
 #endif
@@ -101,7 +102,7 @@ inline void I2C_writeRegister16(uint8_t address, uint16_t reg, uint8_t byte);
  */
 inline void I2C_writeData(uint8_t address, uint8_t len, uint8_t *data);
 
-//#endif
+#endif
 
 #ifdef	__cplusplus
 }

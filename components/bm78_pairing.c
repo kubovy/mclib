@@ -16,7 +16,7 @@ struct {
     BMP_CommandType_t type;
     uint8_t step;
     uint16_t timeout;
-} BMP_progress = {0, 0, 0};
+} BMP_progress = {BMP_CMD_TYPE_NOTHING, 0, 0};
 
 #ifdef BM78_ADVANCED_PAIRING
 bool BMP_waitingForPasskeyConfirmation = false;
@@ -196,7 +196,7 @@ void BMP_removeAllPairedDevices(void) {
     //BM78_execute(BM78_CMD_READ_STATUS, 0);
 }
 
-inline void BMP_bm78DeleteAllPairedDevicesEventHandler(BM78_Response_t response, uint8_t *data) {
+inline void BMP_bm78ProcessEventHandler(BM78_Response_t response, uint8_t *data) {
     switch (BMP_progress.type) {
         case BMP_CMD_TYPE_ENTER_PAIRABLE_MODE:
             switch (response.op_code) {
@@ -208,6 +208,7 @@ inline void BMP_bm78DeleteAllPairedDevicesEventHandler(BM78_Response_t response,
                             BM78.enforceState = BM78_STANDBY_MODE_ENTER;
                             BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_ENTER);
                         } else {
+                            BM78.enforceState = BM78_STANDBY_MODE_ENTER;
                             BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78_STANDBY_MODE_LEAVE);
                         }
                     }
@@ -297,7 +298,7 @@ void BMP_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
 #ifdef BM78_ADVANCED_PAIRING
     BMP_bm78PairingEventHandler(response, data);
 #endif
-    BMP_bm78DeleteAllPairedDevicesEventHandler(response, data);
+    BMP_bm78ProcessEventHandler(response, data);
 }
 
 #endif

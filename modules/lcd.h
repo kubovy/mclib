@@ -129,6 +129,9 @@ const uint8_t LCD_CHAR_BACKSLASH[8] = {
  */
 void LCD_init(void);
 
+/** Clers the content cache of the LCD. */
+inline void LCD_clearCache(void);
+
 /** Clear the content of the LCD. */
 inline void LCD_clear(void);
 
