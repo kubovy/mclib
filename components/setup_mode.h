@@ -25,7 +25,7 @@ extern "C" {
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 #include "../modules/mcp23017.h"
 #endif
 #ifdef RGB_ENABLED
@@ -92,9 +92,9 @@ typedef enum {
     SUM_MENU_TEST_DHT11 = 0x70,
 #endif
 
-#ifdef MCP_ENABLED
-    SUM_MENU_TEST_MCP_IN = 0x81,
-    SUM_MENU_TEST_MCP_OUT = 0x82,
+#ifdef MCP23017_ENABLED
+    SUM_MENU_TEST_MCP23017_IN = 0x81,
+    SUM_MENU_TEST_MCP23017_OUT = 0x82,
 #endif
 
     SUM_MENU_UNKNOWN = 0xFF
@@ -103,7 +103,7 @@ typedef enum {
 /** SetUp Mode on/off. */
 bool SUM_mode = false;
 
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 /**
  * Propaged change of MCP23017.
  * 

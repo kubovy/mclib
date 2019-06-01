@@ -4,7 +4,7 @@
  */
 #include "state_machine_transfer.h"
 
-#if defined BM78_ENABLED && defined SM_MEM_ADDRESS
+#if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 
 /** State machine transmission state. */
 struct {
@@ -29,13 +29,13 @@ struct {
  */
 void SMT_transmitNextBlock(void) {
     if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !BM78_awatingConfirmation()) {
-        if (smTX.length > 0 && BM78_isChecksumCorrect()) {
+        if (smTX.length > 0 && SCOM_isChecksumCorrect()) {
             // 32 = CRC(1) + reserve(1)  + MSGTYPE(1) + LEN(2) + ADR(2) + DATA(25)
             smTX.address = smTX.address + (SMT_BLOCK_SIZE - 7);
         }
 
         if (smTX.length > 0 && smTX.address < smTX.length) {
-            BM78_addDataByte(0, BM78_MESSAGE_KIND_SM_PUSH);
+            BM78_addDataByte(0, MESSAGE_KIND_SM_PUSH);
             BM78_addDataByte2(1, smTX.length);
             BM78_addDataByte2(3, smTX.address);
 
@@ -74,15 +74,15 @@ void SMT_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
     }
 }
 
-void SMT_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
+void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     switch(*(data)) {
-        case BM78_MESSAGE_KIND_SM_CONFIGURATION: // SM checksum requested
-            BMC_enqueue(BM78_MESSAGE_KIND_SM_CONFIGURATION, 0);
+        case MESSAGE_KIND_SM_CONFIGURATION: // SM checksum requested
+            SCOM_enqueue(channel, MESSAGE_KIND_SM_CONFIGURATION, 0);
             break;
-        case BM78_MESSAGE_KIND_SM_PULL: // SM pull requested
-            BMC_enqueue(BM78_MESSAGE_KIND_SM_PUSH, 0);
+        case MESSAGE_KIND_SM_PULL: // SM pull requested
+            SCOM_enqueue(channel, MESSAGE_KIND_SM_PUSH, 0);
             break;
-        case BM78_MESSAGE_KIND_SM_PUSH: // SM block pushed
+        case MESSAGE_KIND_SM_PUSH: // SM block pushed
             if (length > 5) {
                 uint8_t byte, read;
                 uint16_t size = (*(data + 1) << 8) | (*(data + 2) & 0xFF);
@@ -126,19 +126,19 @@ void SMT_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
                 }
             }
             break;
-        case BM78_MESSAGE_KIND_SM_GET_STATE:
-            BMC_enqueue(BM78_MESSAGE_KIND_MCP23017, SM_IN1_ADDRESS);
-            BMC_enqueue(BM78_MESSAGE_KIND_MCP23017, SM_IN2_ADDRESS);
-            BMC_enqueue(BM78_MESSAGE_KIND_MCP23017, SM_OUT_ADDRESS);
-            BMC_enqueue(BM78_MESSAGE_KIND_SM_SET_STATE, 0);
+        case MESSAGE_KIND_SM_GET_STATE:
+            SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_IN1_ADDRESS);
+            SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_IN2_ADDRESS);
+            SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_OUT_ADDRESS);
+            SCOM_enqueue(channel, MESSAGE_KIND_SM_SET_STATE, 0);
 #ifdef WS281x_BUFFER
-            BMC_enqueue(BM78_MESSAGE_KIND_WS281x, BMC_PARAM_ALL);
+            SCOM_enqueue(channel, MESSAGE_KIND_WS281x, SCOM_PARAM_ALL);
 #endif
 #ifdef LCD_ADDRESS
-            BMC_enqueue(BM78_MESSAGE_KIND_LCD, BMC_PARAM_ALL);
+            SCOM_enqueue(channel, MESSAGE_KIND_LCD, SCOM_PARAM_ALL);
 #endif
             break;
-        case BM78_MESSAGE_KIND_SM_ACTION:
+        case MESSAGE_KIND_SM_ACTION:
             if (SM_executeAction && length > 1) {
                 uint8_t count = *(data + 1);
                 uint8_t index = 2;
@@ -158,27 +158,27 @@ void SMT_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
     }
 }
 
-bool SMT_bmcNextMessageHandler(uint8_t what, uint8_t param) {
+bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t param) {
     if (smTX.length > 0) { // Transferring state machine
         SMT_transmitNextBlock();
         return false;
     } else {
         switch (what) {
-            case BM78_MESSAGE_KIND_SM_CONFIGURATION:
-                BM78_addDataByte(0, BM78_MESSAGE_KIND_SM_CONFIGURATION);
-                BM78_addDataByte(1, SM_checksum());
-                return BM78_commitData(2, BM78_MAX_SEND_RETRIES);
+            case MESSAGE_KIND_SM_CONFIGURATION:
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_SM_CONFIGURATION);
+                SCOM_addDataByte(channel, 1, SM_checksum());
+                return SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES);
                 break;
-            case BM78_MESSAGE_KIND_SM_PUSH:
+            case MESSAGE_KIND_SM_PUSH:
                 smTX.address = 0;
                 smTX.length = SM_dataLength();
-                BM78_resetChecksum();
+                SCOM_resetChecksum();
                 SMT_transmitNextBlock();
                 return smTX.length == 0; // Consume if nothing to send.
                 break;
-            case BM78_MESSAGE_KIND_SM_SET_STATE:
-                BM78_addDataByte(0, BM78_MESSAGE_KIND_SM_SET_STATE);
-                //BM78_addDataByte(1, )
+            case MESSAGE_KIND_SM_SET_STATE:
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_SM_SET_STATE);
+                //SCOM_addDataByte(1, )
                 break;
         }
         return true;

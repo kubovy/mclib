@@ -13,19 +13,36 @@ extern "C" {
 #include <stdint.h>
 #include "../lib/requirements.h"
 
-#if defined UART || defined EUSART
+#if defined UART_ENABLED || defined EUSART_ENABLED
 
-#if defined UART
+#ifdef UART1_ENABLED
 #include "../../mcc_generated_files/uart1.h"
-#elif defined EUSART
+#endif
+#ifdef UART2_ENABLED
+#include "../../mcc_generated_files/uart2.h"
+#endif
+#ifdef EUSART_ENABLED
 #include "../../mcc_generated_files/eusart.h"
 #endif
 
-inline bool UART_isRXReady(void);
-inline bool UART_isTXReady(void);
-inline bool UART_isTXDone(void);
-inline uint8_t UART_read(void);
-inline void UART_write(uint8_t byte);
+typedef enum {
+#if defined UART1_ENABLED && defined UART2_ENABLED
+    UART_1,
+    UART_2
+#elif defined UART1_ENABLED
+    UART_1
+#elif defined UART2_ENABLED
+    UART_2
+#elif defined EUSART_ENABLED
+    UART_EUSART
+#endif
+} UART_Connection_t;
+
+inline bool UART_isRXReady(UART_Connection_t connection);
+inline bool UART_isTXReady(UART_Connection_t connection);
+inline bool UART_isTXDone(UART_Connection_t connection);
+inline uint8_t UART_read(UART_Connection_t connection);
+inline void UART_write(UART_Connection_t connection, uint8_t byte);
 
 #endif    
 

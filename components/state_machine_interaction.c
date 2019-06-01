@@ -30,13 +30,14 @@ void SMI_start(void) {
     SMI_enterState(0);
 }
 
-#if defined BM78_ENABLED && defined MCP_ENABLED && defined SM_IN1_ADDRESS && defined SM_IN2_ADDRESS
+#if defined MCP23017_ENABLED && defined SM_IN1_ADDRESS && defined SM_IN2_ADDRESS
 void SMI_stateGetter(uint8_t *state) {
-    *(state + 0) = MCP_read(SM_IN1_ADDRESS, MCP_GPIOA);
-    *(state + 1) = MCP_read(SM_IN1_ADDRESS, MCP_GPIOB);
-    *(state + 2) = MCP_read(SM_IN2_ADDRESS, MCP_GPIOA);
-    *(state + 3) = MCP_read(SM_IN2_ADDRESS, MCP_GPIOB);
+    *(state + 0) = MCP23017_read(SM_IN1_ADDRESS, MCP23017_GPIOA);
+    *(state + 1) = MCP23017_read(SM_IN1_ADDRESS, MCP23017_GPIOB);
+    *(state + 2) = MCP23017_read(SM_IN2_ADDRESS, MCP23017_GPIOA);
+    *(state + 3) = MCP23017_read(SM_IN2_ADDRESS, MCP23017_GPIOB);
     *(state + 4) = 0;
+#ifdef BM78_ENABLED
     switch(BM78.status) {
         case BM78_STATUS_STANDBY_MODE:
         case BM78_STATUS_LINK_BACK_MODE:
@@ -49,21 +50,21 @@ void SMI_stateGetter(uint8_t *state) {
             //*(state + 4) &= 0b00000001;
             break;
     }
-    
+#endif
 }
 #endif
 
 void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
-#if defined MCP_ENABLED && defined SM_OUT_ADDRESS
+#if defined MCP23017_ENABLED && defined SM_OUT_ADDRESS
     if (device >= SM_DEVICE_MCP23017_OUT_START && device <= SM_DEVICE_MCP23017_OUT_END) {
         if (length >= 1) {
-            uint8_t byte = MCP_read(SM_OUT_ADDRESS, MCP_GPIOA + SM_OUT_PORT);
+            uint8_t byte = MCP23017_read(SM_OUT_ADDRESS, MCP23017_GPIOA + SM_OUT_PORT);
             if (*value & 0x01) {
                 byte |= 0x01 << (device - SM_DEVICE_MCP23017_OUT_START);
             } else {
                 byte &= 0x00 << (device - SM_DEVICE_MCP23017_OUT_START);
             }
-            MCP_write(SM_OUT_ADDRESS, MCP_OLATA + SM_OUT_PORT, byte);
+            MCP23017_write(SM_OUT_ADDRESS, MCP23017_OLATA + SM_OUT_PORT, byte);
         }
     } else
 #endif

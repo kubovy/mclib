@@ -14,6 +14,17 @@ typedef struct {
     uint8_t chksum;
 } DHT11_Response;
 
+Procedure_t DHT11_onStart;
+Procedure_t DHT11_onFinished;
+
+void DHT11_setOnStartHandler(Procedure_t onStart) {
+    DHT11_onStart = onStart;
+}
+
+void DHT11_setOnFinishedHandler(Procedure_t onFinished) {
+    DHT11_onFinished = onFinished;
+}
+
 DHT11_Response DHT11_read(void){
     bool raw[40];
     DHT11_Response result;
@@ -99,6 +110,8 @@ DHT11_Result DHT11_measure(void) {
     DHT11_Response data;
     result.retries = 0;
     bool isValid;
+    if (DHT11_onStart) DHT11_onStart();
+    DHT11_measuring = true;
 
     DHT11_read(); // The sensor returns last value - ensure measurement here
     __delay_ms(50);
@@ -107,6 +120,9 @@ DHT11_Result DHT11_measure(void) {
         data = DHT11_read();
         isValid = (data.rh_decimal /*+ data.rh_integral*/ + data.temp_decimal /*+ data.temp_integral*/) == data.chksum;
     } while(!isValid && result.retries++ < 5);
+    
+    DHT11_measuring = false;
+    if (DHT11_onFinished) DHT11_onFinished();
 
     if(data.chksum != 0) {
         if(isValid) {

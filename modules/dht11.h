@@ -31,6 +31,12 @@ typedef struct {
     uint8_t retries; // Number of retries
 } DHT11_Result;
 
+bool DHT11_measuring = false;
+
+void DHT11_setOnStartHandler(Procedure_t onStart);
+
+void DHT11_setOnFinishedHandler(Procedure_t onFinished);
+
 /**
  * Requests a measurement from the DHT11 module.
  * 

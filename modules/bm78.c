@@ -16,7 +16,7 @@
 struct {
     uint8_t index;                           // Byte index in a message.
     BM78_Response_t response;                // Response.
-    uint8_t buffer[BM78_DATA_PACKET_MAX_SIZE + 7];
+    uint8_t buffer[SCOM_MAX_PACKET_SIZE + 7];
 } BM78_rx = {0};
 
 struct {
@@ -33,15 +33,8 @@ union {
 } BM78_init = { 0, 0, false };
 
 struct {
-    uint8_t length;         // Transmission length: 0 = nothing to transmit
-                            // (only used for transparent data transmission)
-    uint8_t chksumExpected; // Expected checksum calculated before sending.
-    uint8_t chksumReceived; // Received checksum by the peer.
-    uint16_t timeout;       // Timeout countdown used by retry trigger.
-    uint8_t retries;        // Number of transparent transmissions retries
-    uint8_t buffer[BM78_DATA_PACKET_MAX_SIZE + 7];
-    uint8_t data[BM78_DATA_PACKET_MAX_SIZE + 1]; // Only for transparent data
-} BM78_tx = {0, 0x00, 0xFF, 0, 0xFF};
+    uint8_t buffer[SCOM_MAX_PACKET_SIZE + 7];
+} BM78_tx;
 
 BM78_EventState_t BM78_state = BM78_STATE_IDLE;
 
@@ -53,12 +46,12 @@ const uint8_t BM78_CMD_EEPROM_CLEAR[5] = {0x01, 0x2d, 0xfc, 0x01, 0x08};
 const uint8_t BM78_CMD_EEPROM_WRITE[7] = {0x01, 0x27, 0xfc, 0x00, 0x00, 0x00, 0x00};
 const uint8_t BM78_CMD_EEPROM_READ[7]  = {0x01, 0x29, 0xfc, 0x03, 0x00, 0x00, 0x01};
 
-BM78_SetupAttemptHandler_t BM78_setupAttemptHandler;
+UART_Connection_t BM78_uart;
 BM78_SetupHandler_t BM78_setupHandler;
 BM78_EventHandler_t BM78_appModeEventHandler;
 BM78_EventHandler_t BM78_testModeEventHandler;
-BM78_DataHandler_t BM78_transparentDataHandler;
-Procedure_t BM78_messageSentHandler;
+DataHandler_t BM78_transparentDataHandler;
+Procedure_t BM78_cancelTransmissionHandler;
 BM78_EventHandler_t BM78_appModeErrorHandler;
 BM78_EventHandler_t BM78_testModeErrorHandler;
 
@@ -122,20 +115,20 @@ void BM78_retryInitialization(void) {
 }
 
 void BM78_initialize(
-               BM78_SetupAttemptHandler_t setupAttemptHandler,
-               BM78_SetupHandler_t setupHandler,
-               BM78_EventHandler_t appModeEventHandler,
-               BM78_EventHandler_t testModeResponseHandler,
-               BM78_DataHandler_t transparentDataHandler,
-               Procedure_t messageSentHandler,
-               BM78_EventHandler_t appModeErrorHandler,
-               BM78_EventHandler_t testModeErrorHandler) {
-    BM78_setupAttemptHandler = setupAttemptHandler;
+                UART_Connection_t uart,
+                BM78_SetupHandler_t setupHandler,
+                BM78_EventHandler_t appModeEventHandler,
+                BM78_EventHandler_t testModeResponseHandler,
+                DataHandler_t transparentDataHandler,
+                Procedure_t cancelTransmissionHandler,
+                BM78_EventHandler_t appModeErrorHandler,
+                BM78_EventHandler_t testModeErrorHandler) {
+    BM78_uart = uart;
     BM78_setupHandler = setupHandler;
     BM78_appModeEventHandler = appModeEventHandler;
     BM78_testModeEventHandler = testModeResponseHandler;
     BM78_transparentDataHandler = transparentDataHandler;
-    BM78_messageSentHandler = messageSentHandler;
+    BM78_cancelTransmissionHandler = cancelTransmissionHandler;
     BM78_appModeErrorHandler = appModeErrorHandler;
     BM78_testModeErrorHandler = testModeErrorHandler;
     BM78_setup(true);
@@ -144,9 +137,7 @@ void BM78_initialize(
 void BM78_clear() {
     BM78_rx.index = 0;
     BM78_state = BM78_STATE_IDLE;
-    BM78_tx.length = 0;
-    BM78_tx.chksumExpected = 0x00;
-    BM78_tx.chksumReceived = 0xFF;
+    if (BM78_cancelTransmissionHandler) BM78_cancelTransmissionHandler();
 }
 
 void BM78_power(bool on) {
@@ -190,11 +181,8 @@ void BM78_setup(bool keep) {
     switch (BM78.mode) {
         case BM78_MODE_INIT:
             if (BM78_init.attempt < 7) {
-                if (BM78_setupAttemptHandler) BM78_setupAttemptHandler(
-                        BM78_init.attempt, BM78_init.stage);
-                
                 BM78_init.attempt++;
-                while(UART_isRXReady()) UART_read();
+                while(UART_isRXReady(BM78_uart)) UART_read(BM78_uart);
                 if (BM78_init.attempt == 3) BM78_reset(); // Soft reset
                 BM78_state = BM78_STATE_IDLE;
                 BM78_retryInitialization();
@@ -202,16 +190,15 @@ void BM78_setup(bool keep) {
             }
             // no break here
         case BM78_MODE_APP:
-            if (BM78_setupAttemptHandler) BM78_setupAttemptHandler(0, 0);
             printStatus("      .             ");
-            while(UART_isRXReady()) UART_read();
+            while(UART_isRXReady(BM78_uart)) UART_read(BM78_uart);
             BM78_state = BM78_STATE_IDLE;
             BM78.mode = BM78_MODE_INIT;
             BM78_counters.idle = 0;
             BM78_counters.missedStatusUpdate = 0;
             BM78_init.stage = 0;
             BM78_init.attempt = 0;
-            BM78_tx.length = 0; // Abort ongoing transmission
+            if (BM78_cancelTransmissionHandler) BM78_cancelTransmissionHandler();
             BM78_power(true);
             BM78_reset();
             break;
@@ -233,9 +220,9 @@ void BM78_sendPacket(uint8_t length, uint8_t *data) {
     BM78_counters.idle = 0; // Reset idle counter
 
     for (uint8_t i = 0; i < length; i++) { // Send the command bits, along with the parameters
-        while (!UART_isTXReady()); // Wait till we can start sending.
-        UART_write(*(data + i)); // Store each byte in the storePacket into the UART write buffer
-        while (!UART_isTXDone()); // Wait until UART TX is done.
+        while (!UART_isTXReady(BM78_uart)); // Wait till we can start sending.
+        UART_write(BM78_uart, *(data + i)); // Store each byte in the storePacket into the UART write buffer
+        while (!UART_isTXDone(BM78_uart)); // Wait until UART TX is done.
     }
     BM78_counters.idle = 0; // Reset idle counter
     BM78_state = BM78_STATE_IDLE;
@@ -344,7 +331,7 @@ void BM78_AsyncEventResponse() {
                 // ... on connection, both LE or SPP, abort ongoing transmission.
                 case BM78_EVENT_LE_CONNECTION_COMPLETE:
                 case BM78_EVENT_SPP_CONNECTION_COMPLETE:
-                    BM78_tx.length = 0; // Abort ongoing transmission.
+                    if (BM78_cancelTransmissionHandler) BM78_cancelTransmissionHandler();
                     break;
                 case BM78_EVENT_COMMAND_COMPLETE:
                     // Initialization flow:
@@ -508,7 +495,7 @@ void BM78_AsyncEventResponse() {
                     //    BM78_execute(BM78_CMD_INVISIBLE_SETTING, 1, BM78.enforceState);
                     case BM78_EVENT_LE_CONNECTION_COMPLETE:
                     case BM78_EVENT_SPP_CONNECTION_COMPLETE:
-                        BM78_tx.length = 0; // Abort ongoing transmission.
+                        if (BM78_cancelTransmissionHandler) BM78_cancelTransmissionHandler();
                         break;
                     case BM78_EVENT_COMMAND_COMPLETE:
                         switch (BM78_rx.response.CommandComplete_0x80.command) {
@@ -553,7 +540,7 @@ void BM78_AsyncEventResponse() {
                                 // No break here
                             case BM78_STATUS_LINK_BACK_MODE:
                             case BM78_STATUS_LE_CONNECTED_MODE:
-                                BM78_tx.length = 0; // Abort ongoing transmission.
+                                if (BM78_cancelTransmissionHandler) BM78_cancelTransmissionHandler();
                                 break;
                             case BM78_STATUS_SPP_CONNECTED_MODE:
                                 break;
@@ -569,43 +556,8 @@ void BM78_AsyncEventResponse() {
                         break;
                     case BM78_EVENT_RECEIVED_TRANSPARENT_DATA:
                     case BM78_EVENT_RECEIVED_SPP_DATA:
-                        chksum = 0; // Calculated checksum
-                        for (uint8_t i = 1; i < BM78_rx.response.ReceivedTransparentData_0x9A.length - 2; i++) {
-                            chksum = chksum + BM78_rx.buffer[i];
-                        }
-                        if (chksum == BM78_rx.buffer[0]) { // Compare calculated with received checksum
-                            switch (BM78_rx.buffer[1]) {
-                                case BM78_MESSAGE_KIND_CRC:
-                                    if (BM78_rx.response.ReceivedTransparentData_0x9A.length == 5) {
-                                        BM78_tx.chksumReceived = BM78_rx.buffer[2];
-                                    }
-                                    break;
-                                case BM78_MESSAGE_KIND_IDD:
-                                    // Do nothing, just ping.
-                                    break;
-                                default:
-                                    // Shift data in the array one up to reuse it
-                                    for (uint8_t i = 1; i < BM78_rx.response.ReceivedTransparentData_0x9A.length - 2; i++) {
-                                        if ((i - 1) < BM78_DATA_PACKET_MAX_SIZE) {
-                                            BM78_rx.buffer[i - 1] = BM78_rx.buffer[i];
-                                        }
-                                    }
-
-                                    if (BM78_transparentDataHandler) {
-                                        BM78_transparentDataHandler(BM78_rx.response.ReceivedTransparentData_0x9A.length - 3, BM78_rx.buffer);
-                                    }
-
-                                    // Shift data in the array one down to rebuild original data
-                                    for (uint8_t i = BM78_rx.response.ReceivedTransparentData_0x9A.length - 3; i > 0; i--) {
-                                        if (i < BM78_DATA_PACKET_MAX_SIZE) {
-                                            BM78_rx.buffer[i] = BM78_rx.buffer[i - 1];
-                                        }
-                                    }
-                                    BM78_rx.buffer[0] = chksum; // reconstruct 1st byte
-
-                                    BM78_execute(BM78_CMD_SEND_TRANSPARENT_DATA, 4, 0x00, chksum, BM78_MESSAGE_KIND_CRC, chksum);
-                                    break;
-                            }
+                        if (BM78_transparentDataHandler) {
+                            BM78_transparentDataHandler(BM78_rx.response.ReceivedTransparentData_0x9A.length - 2, BM78_rx.buffer);
                         }
                         break;
                     default:
@@ -699,121 +651,39 @@ void BM78_data(uint8_t command, uint8_t length, uint8_t *data) {
     BM78_commandCommit(length);
 }
 
-bool BM78_awatingConfirmation(void) {
-    return BM78_tx.length > 0;
-}   
-
-void BM78_retryTrigger(void) {
-    if (BM78.status != BM78_STATUS_SPP_CONNECTED_MODE) {
-        BM78_tx.length = 0; // Cancel transmission
+void BM78_sendTransparentData(uint8_t length, uint8_t *data) {
+    BM78_commandPrepareBuffer(BM78_CMD_SEND_TRANSPARENT_DATA, length + 1);
+    BM78_tx.buffer[4] = 0x00; // Reserved by BM78
+    for (uint8_t i = 0; i < length; i++) {
+        BM78_tx.buffer[i + 5] = *(data + i);
     }
-    if (BM78_tx.length > 0 && BM78_isChecksumCorrect()) {
-        BM78_tx.length = 0;
-        if (BM78_messageSentHandler) BM78_messageSentHandler();
-    } else if (BM78_tx.length > 0 && !BM78_isChecksumCorrect() && BM78_tx.timeout == 0) {
-        if (BM78_tx.retries == 0) {
-            BM78_tx.retries = BM78_NO_RETRY_LIMIT;
-            BM78_tx.length = 0; // Cancel transmission
-            if (BM78_messageSentHandler) BM78_messageSentHandler();
-            return;
-        } else if (BM78_tx.retries < BM78_NO_RETRY_LIMIT) BM78_tx.retries--;
-        BM78_tx.timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
-        BM78_commandPrepareBuffer(BM78_CMD_SEND_TRANSPARENT_DATA, BM78_tx.length + 1);
-        BM78_tx.buffer[4] = 0x00; // Reserved by BM78
-        
-        // (Re)calculate Transparent Checksum
-        BM78_tx.chksumExpected = 0x00;
-        for (uint8_t i = 1; i < BM78_tx.length; i++) {
-            BM78_tx.chksumExpected = BM78_tx.chksumExpected + BM78_tx.data[i];
-        }
-        BM78_tx.data[0] = BM78_tx.chksumExpected;
-        BM78_tx.chksumReceived = BM78_tx.chksumExpected == 0x00 ? 0xFF : 0x00;
-        
-        // Fill TX buffer
-        for (uint8_t i = 0; i < BM78_tx.length; i++) {
-            BM78_tx.buffer[i + 5] = BM78_tx.data[i];
-        }
-        BM78_tx.buffer[BM78_tx.length + 5] = 0xFF - BM78_commandCalculateChecksum(BM78_tx.length + 1) + 1;
-        BM78_commandCommit(BM78_tx.length + 1);
-    } else if (BM78_tx.length == 0 && BM78_tx.timeout == 0) {
-        // Periodically try message sent handler if someone has something to send
-        BM78_tx.timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
-        if (BM78_messageSentHandler) BM78_messageSentHandler();
-    } else if (BM78_tx.timeout > 0) {
-        BM78_tx.timeout--;
-    }
-}
-
-inline void BM78_addDataByte(uint8_t position, uint8_t byte) {
-    if (BM78_tx.length == 0) BM78_tx.data[position + 1] = byte;
-}
-
-inline void BM78_addDataByte2(uint8_t position, uint16_t word) {
-    if (BM78_tx.length == 0) {
-        BM78_tx.data[position + 1] = word >> 8;
-        BM78_tx.data[position + 2] = word & 0xFF;
-    }
-}
-
-inline void BM78_addDataBytes(uint8_t position, uint8_t length, uint8_t *data) {
-    if (BM78_tx.length == 0)  for (uint8_t i = 0; i < length; i++) {
-        BM78_tx.data[position + i + 1] = *(data + i);
-    }
-}
-
-bool BM78_commitData(uint8_t length, uint8_t maxRetries) {
-    if (BM78_tx.length == 0) {
-        BM78_tx.length = length + 1;
-        BM78_tx.timeout = 0; // Send right-away
-        BM78_tx.retries = maxRetries;
-        BM78_resetChecksum();
-        //BM78_retryTrigger(); this will be triggered by a timer.
-        return true;
-    }
-    return false;
-}
-
-void BM78_transmitData(uint8_t length, uint8_t *data, uint8_t maxRetries) {
-    if (BM78_tx.length == 0) {
-        for (uint8_t i = 0; i < length; i++) {
-            BM78_addDataByte(i, *(data + i));
-        }
-        BM78_commitData(length, maxRetries);
-    }
-}
-
-void BM78_resetChecksum(void) {
-    BM78_tx.chksumExpected = 0x00;
-    BM78_tx.chksumReceived = 0xFF;
-}
-
-bool BM78_isChecksumCorrect(void) {
-    return BM78_tx.chksumExpected == BM78_tx.chksumReceived;
+    BM78_tx.buffer[length + 5] = 0xFF - BM78_commandCalculateChecksum(length + 1) + 1;
+    BM78_commandCommit(length + 1);
 }
 
 void BM78_processByteInAppMode(uint8_t byte) {
     switch (BM78_state) {
         case BM78_STATE_IDLE:
             if (byte == 0xAA) { // SYNC WORD
-                BM78_rx.response.checksum_calculated = 0;
+                BM78_rx.response.checksum = 0;
                 BM78_state = BM78_EVENT_STATE_LENGTH_HIGH;
             }
             break;
         case BM78_EVENT_STATE_LENGTH_HIGH:
             // Ignoring lengthHigh byte - max length: 255
             BM78_rx.response.length = (byte << 8);
-            BM78_rx.response.checksum_calculated += byte;
+            BM78_rx.response.checksum += byte;
             BM78_state = BM78_EVENT_STATE_LENGTH_LOW;
             break;
         case BM78_EVENT_STATE_LENGTH_LOW:
             BM78_rx.response.length |= (byte & 0x00FF);
-            BM78_rx.response.checksum_calculated += byte;
+            BM78_rx.response.checksum += byte;
             //BM78_rx.index = 0;
             BM78_state = BM78_EVENT_STATE_OP_CODE;
             break;
         case BM78_EVENT_STATE_OP_CODE:
             BM78_rx.response.op_code = byte;
-            BM78_rx.response.checksum_calculated += byte;
+            BM78_rx.response.checksum += byte;
             //BM78_rx.index++;
             BM78_rx.index = 1;
             BM78_state = BM78_EVENT_STATE_ADDITIONAL;
@@ -916,12 +786,11 @@ void BM78_processByteInAppMode(uint8_t byte) {
                         BM78_state = BM78_STATE_IDLE;
                         break;
                 }
-                BM78_rx.response.checksum_calculated += byte;
+                BM78_rx.response.checksum += byte;
                 BM78_rx.index++;
             } else {
-                BM78_rx.response.checksum_received = byte;
-                BM78_rx.response.checksum_calculated = 0xFF - BM78_rx.response.checksum_calculated + 1;
-                if (BM78_rx.response.checksum_calculated == BM78_rx.response.checksum_received) {
+                BM78_rx.response.checksum = 0xFF - BM78_rx.response.checksum + 1;
+                if (BM78_rx.response.checksum == byte) {
                     BM78_AsyncEventResponse();
                 } else if (BM78_appModeErrorHandler) {
                     BM78_appModeErrorHandler(BM78_rx.response, BM78_rx.buffer);
@@ -1016,9 +885,9 @@ void BM78_processByteInTestMode(uint8_t byte) {
 }
 
 void BM78_checkNewDataAsync(void) {
-    if (UART_isRXReady()) {
+    if (UART_isRXReady(BM78_uart)) {
         BM78_counters.idle = 0; // Reset idle counter
-        uint8_t byte = UART_read();
+        uint8_t byte = UART_read(BM78_uart);
         switch (BM78.mode) {
             case BM78_MODE_INIT:
             case BM78_MODE_APP:

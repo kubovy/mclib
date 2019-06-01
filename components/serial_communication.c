@@ -1,0 +1,684 @@
+/* 
+ * File:   serial_communication.c
+ * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
+ * 
+ * A component must include configuration and can additionally include modules,
+ * libs, but no components.
+ */
+#include "serial_communication.h"
+
+#if defined USB_ENABLED || defined BM78_ENABLED
+
+typedef struct {
+    uint8_t length;         // Transmission length: 0 = nothing to transmit
+    uint8_t chksumExpected; // Expected checksum calculated before sending.
+    uint8_t chksumReceived; // Received checksum from the peer.
+    uint16_t timeout;       // Timeout countdown used by retry trigger.
+    uint8_t retries;        // Number of transparent transmissions retries
+    uint8_t data[SCOM_MAX_PACKET_SIZE]; // Checksum + Data
+} SCOM_TX_t;
+
+SCOM_TX_t SCOM_tx[SCOM_CHANNEL_COUNT]; // = {0, 0x00, 0xFF, 0, 0xFF};
+
+/** 
+ * Queue of message types to be send out over BT. Should be cleared when 
+ * connection ends for whatever reason. 
+ */
+typedef struct {
+    uint8_t index;                        // Sent index.
+    uint8_t tail;                         // Tail index.
+    uint8_t queue[SCOM_QUEUE_SIZE]; // Transmission message type queue.
+    uint8_t param[SCOM_QUEUE_SIZE];       // Possible parameters to the queue items.
+} SCOM_Queue_t;
+
+SCOM_Queue_t SCOM_queue[SCOM_CHANNEL_COUNT]; // = {0, 0};
+
+SCOM_NextMessageHandler_t SCOM_nextMessageHandler[SCOM_CHANNEL_COUNT];
+
+void SCOM_cancelTransmission(SCOM_Channel_t channel) {
+    SCOM_tx[channel].length = 0;
+    SCOM_resetChecksum(channel);
+}
+
+void SCOM_resetChecksum(SCOM_Channel_t channel) {
+    SCOM_tx[channel].chksumExpected = 0x00;
+    SCOM_tx[channel].chksumReceived = 0xFF;
+}
+
+bool SCOM_awatingConfirmation(SCOM_Channel_t channel) {
+    return SCOM_tx[channel].length > 0;
+}   
+
+bool SCOM_isChecksumCorrect(SCOM_Channel_t channel) {
+    return SCOM_tx[channel].chksumExpected == SCOM_tx[channel].chksumReceived;
+}
+
+inline bool SCOM_canEnqueue(SCOM_Channel_t channel) {
+    switch (channel) {
+#ifdef USB_ENABLED
+        case SCOM_CHANNEL_USB:
+            return true;
+#endif
+#ifdef BM78_ENABLED
+        case SCOM_CHANNEL_BT:
+            return BM78.status == BM78_STATUS_SPP_CONNECTED_MODE;
+#endif
+    }
+}
+
+inline bool SCOM_canSend(SCOM_Channel_t channel) {
+    switch (channel) {
+#ifdef USB_ENABLED
+        case SCOM_CHANNEL_USB:
+            return !SCOM_awatingConfirmation(channel);
+#endif
+#ifdef BM78_ENABLED
+        case SCOM_CHANNEL_BT:
+            return BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !SCOM_awatingConfirmation(channel);
+#endif
+    }
+}
+
+void SCOM_retryTrigger(void) {
+    for (uint8_t channel = 0; channel < SCOM_CHANNEL_COUNT; channel++) {
+        if (!SCOM_canEnqueue(channel)) {
+            SCOM_cancelTransmission(channel);
+        }
+
+        if (SCOM_tx[channel].length > 0 && SCOM_isChecksumCorrect(channel)) {
+
+            SCOM_cancelTransmission(channel);
+            SCOM_messageSentHandler(channel);
+
+        } else if (SCOM_tx[channel].length > 0
+                && !SCOM_isChecksumCorrect(channel)
+                && SCOM_tx[channel].timeout == 0) {
+
+            if (SCOM_tx[channel].retries == 0) {
+                SCOM_tx[channel].retries = SCOM_NO_RETRY_LIMIT;
+                SCOM_cancelTransmission(channel); // Cancel transmission
+                SCOM_messageSentHandler(channel);
+                return;
+            } else if (SCOM_tx[channel].retries < SCOM_NO_RETRY_LIMIT) {
+                SCOM_tx[channel].retries--;
+            }
+
+            SCOM_tx[channel].timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
+
+            // (Re)calculate Transparent Checksum
+            SCOM_tx[channel].chksumExpected = 0x00;
+            for (uint8_t i = 1; i < SCOM_tx[channel].length; i++) {
+                SCOM_tx[channel].chksumExpected = SCOM_tx[channel].chksumExpected + SCOM_tx[channel].data[i];
+            }
+            SCOM_tx[channel].data[0] = SCOM_tx[channel].chksumExpected;
+            SCOM_tx[channel].chksumReceived = SCOM_tx[channel].chksumExpected == 0x00 ? 0xFF : 0x00;
+
+            switch(channel) {
+#ifdef USB_ENABLED
+                case SCOM_CHANNEL_USB:
+                    MCP22xx_send(SCOM_tx[channel].length, SCOM_tx[channel].data);
+                    break;
+#endif
+#ifdef BM78_ENABLED
+                case SCOM_CHANNEL_BT:
+                    BM78_sendTransparentData(SCOM_tx[channel].length, SCOM_tx[channel].data);
+                    break;
+#endif  
+            }
+
+        } else if (SCOM_tx[channel].length == 0 && SCOM_tx[channel].timeout == 0) {
+
+            // Periodically try message sent handler if someone has something to send
+            SCOM_tx[channel].timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
+            SCOM_messageSentHandler(channel);
+
+        } else if (SCOM_tx[channel].timeout > 0) {
+
+            SCOM_tx[channel].timeout--;
+
+        }
+    }
+}
+
+inline void SCOM_addDataByte(SCOM_Channel_t channel, uint8_t position, uint8_t byte) {
+    if (SCOM_tx[channel].length == 0) SCOM_tx[channel].data[position + 1] = byte;
+}
+
+inline void SCOM_addDataByte2(SCOM_Channel_t channel, uint8_t position, uint16_t word) {
+    if (SCOM_tx[channel].length == 0) {
+        SCOM_tx[channel].data[position + 1] = word >> 8;
+        SCOM_tx[channel].data[position + 2] = word & 0xFF;
+    }
+}
+
+inline void SCOM_addDataBytes(SCOM_Channel_t channel, uint8_t position, uint8_t length, uint8_t *data) {
+    if (SCOM_tx[channel].length == 0)  for (uint8_t i = 0; i < length; i++) {
+        SCOM_tx[channel].data[position + i + 1] = *(data + i);
+    }
+}
+
+bool SCOM_commitData(SCOM_Channel_t channel, uint8_t length, uint8_t maxRetries) {
+    if (SCOM_tx[channel].length == 0) {
+        SCOM_tx[channel].length = length + 1;
+        SCOM_tx[channel].timeout = 0; // Send right-away
+        SCOM_tx[channel].retries = maxRetries;
+        SCOM_resetChecksum(channel);
+        //SCOM_retryTrigger(); this will be triggered by a timer.
+        return true;
+    }
+    return false;
+}
+
+void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, uint8_t maxRetries) {
+    if (SCOM_tx[channel].length == 0 && length < SCOM_MAX_PACKET_SIZE - 1) {
+        for (uint8_t i = 0; i < length; i++) {
+            SCOM_addDataByte(channel, i, *(data + i));
+        }
+        SCOM_commitData(channel, length, maxRetries);
+    }
+}
+
+#ifdef BM78_ENABLED
+inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_BT_SETTINGS, 0);
+    }
+}
+#endif
+
+#ifdef DHT11_PORT
+inline void SCOM_sendDHT11(SCOM_Channel_t channel) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_DHT11, 0);
+    }
+}
+#endif
+
+#ifdef LCD_ADDRESS
+inline void SCOM_sendLCD(SCOM_Channel_t channel, uint8_t line) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_LCD, line);
+    }
+}
+
+inline void SCOM_sendLCDBacklight(SCOM_Channel_t channel, bool on) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_LCD,
+                on ? SCOM_PARAM_LCD_BACKLIGH : SCOM_PARAM_LCD_NO_BACKLIGH);
+    }
+}
+#endif
+
+#ifdef MCP23017_ENABLED
+inline void SCOM_sendMCP23017(SCOM_Channel_t channel, uint8_t address) {
+    if (SCOM_canEnqueue(channel)
+            && address >= MCP23017_START_ADDRESS
+            && address <= MCP23017_END_ADDRESS) {
+        SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, address);
+    }
+}
+#endif
+
+#ifdef PIR_PORT
+inline void SCOM_sendPIR(SCOM_Channel_t channel) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_PIR, 0);
+    }
+}
+#endif
+
+#ifdef RGB_ENABLED
+inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index) {
+    if (SCOM_canEnqueue(channel)
+            && (index & SCOM_PARAM_MASK) < RGB_list.size) {
+        SCOM_enqueue(channel, MESSAGE_KIND_RGB, index);
+    }
+}
+#endif
+
+#ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+inline void SCOM_sendWS281xLight(SCOM_Channel_t channel, uint8_t index) {
+    if (SCOM_canEnqueue(channel)
+            && (index & SCOM_PARAM_MASK) < WS281xLight_list.size) {
+        SCOM_enqueue(channel, MESSAGE_KIND_WS281x_LIGHT, index);
+    }
+}
+#else
+inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led) {
+    if (SCOM_canEnqueue(channel) 
+            && (led &  < SCOM_PARAM_MASK) < WS281x_LED_COUNT) {
+        SCOM_enqueue(channel, MESSAGE_KIND_WS281x, led);
+    }
+}
+#endif
+#endif
+
+inline void SCOM_sendDebug(SCOM_Channel_t channel, uint8_t debug) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_DEBUG, debug);
+    }
+}
+
+void SCOM_setNextMessageHandler(SCOM_Channel_t channel, SCOM_NextMessageHandler_t nextMessageHandler) {
+    SCOM_nextMessageHandler[channel] = nextMessageHandler;
+}
+
+void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param) {
+    uint8_t index = SCOM_queue[channel].index;
+    while (index != SCOM_queue[channel].tail) {
+        // Will be transmitted in the future, don't add again.
+        if (SCOM_queue[channel].queue[index++] == what) return;
+    }
+    if ((SCOM_queue[channel].tail + 1) != SCOM_queue[channel].index) { // Do nothing if queue is full.
+        SCOM_queue[channel].queue[SCOM_queue[channel].tail] = what;
+        SCOM_queue[channel].param[SCOM_queue[channel].tail] = param;
+        SCOM_queue[channel].tail++;
+    }
+    SCOM_messageSentHandler(channel);
+}
+
+void SCOM_messageSentHandler(SCOM_Channel_t channel) {
+    uint8_t param;
+#ifdef DHT11_PORT
+    DHT11_Result result;
+#endif
+    if (SCOM_canSend(channel)) {
+        uint8_t messageKind = SCOM_queue[channel].index != SCOM_queue[channel].tail
+                ? SCOM_queue[channel].queue[SCOM_queue[channel].index]
+                : MESSAGE_KIND_UNKNOWN;
+        switch (messageKind) {
+#ifdef BM78_ENABLED
+            case MESSAGE_KIND_BT_SETTINGS:
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_BT_SETTINGS);
+                SCOM_addDataByte(channel, 1, BM78.pairingMode);
+                SCOM_addDataBytes(channel, 2, 6, (uint8_t *) BM78.pin);
+                SCOM_addDataBytes(channel, 8, 16, (uint8_t *) BM78.deviceName);
+                if (SCOM_commitData(channel, 24, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                break;
+#endif
+#ifdef DHT11_PORT
+            case MESSAGE_KIND_DHT11: 
+                result = DHT11_measure();
+                if (result.status == DHT11_OK) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_DHT11);
+                    SCOM_addDataByte(channel, 1, result.temp);
+                    SCOM_addDataByte(channel, 2, result.rh);
+                    if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                }
+                break;
+#endif
+#ifdef LCD_ADDRESS
+            case MESSAGE_KIND_LCD:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index]; 
+                if (param == SCOM_PARAM_LCD_BACKLIGH || param == SCOM_PARAM_LCD_NO_BACKLIGH) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD);  // Kind
+                    SCOM_addDataByte(channel, 1, LCD_backlight == LCD_BACKLIGHT);
+                    if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                } else if ((param & SCOM_PARAM_MASK) < LCD_ROWS) { // Max. 127 lines
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD);  // Kind
+                    SCOM_addDataByte(channel, 1, LCD_backlight == LCD_BACKLIGHT);
+                    SCOM_addDataByte(channel, 2, param & SCOM_PARAM_MASK); // Line
+                    SCOM_addDataByte(channel, 3, LCD_COLS);               // Characters
+
+                    for (uint8_t line = 0; line < LCD_COLS; line++) {
+                        SCOM_addDataByte(channel, line + 4, 
+                                LCD_getCache(param & SCOM_PARAM_MASK, line));
+                    }
+
+                    if (SCOM_commitData(channel, LCD_COLS + 4, BM78_MAX_SEND_RETRIES)) {
+                        if (((param & SCOM_PARAM_MASK) + 1) < LCD_ROWS
+                                && (param & SCOM_PARAM_ALL)) {
+                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
+                        } else SCOM_queue[channel].index++;
+                    }
+                } else SCOM_queue[channel].index++; // Line overflow - consuming
+                break;
+#endif
+#ifdef MCP23017_ENABLED
+            case MESSAGE_KIND_MCP23017:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index];
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_MCP23017); // Kind
+                SCOM_addDataByte(channel, 1, param);                      // Address
+                SCOM_addDataByte(channel, 2, MCP23017_read(param, MCP23017_GPIOA)); // GPIO A
+                SCOM_addDataByte(channel, 3, MCP23017_read(param, MCP23017_GPIOB)); // GPIO B
+                if (SCOM_commitData(channel, 4, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                break;
+#endif
+#ifdef PIR_PORT
+            case MESSAGE_KIND_PIR:
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_PIR);
+                SCOM_addDataByte(channel, 1, PIR_PORT);
+                if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                break;
+#endif
+#ifdef RGB_ENABLED
+            case MESSAGE_KIND_RGB:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // index (max 128)
+                if (param < RGB_list.size && param  < RGB_LIST_SIZE) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_RGB);
+                    SCOM_addDataByte(channel, 1, RGB_list.size);            // Size
+                    SCOM_addDataByte(channel, 2, param & SCOM_PARAM_MASK);   // Index
+                    SCOM_addDataByte(channel, 3, RGB_items[param].pattern); // Pattern
+                    SCOM_addDataByte(channel, 4, RGB_items[param].red);     // Red
+                    SCOM_addDataByte(channel, 5, RGB_items[param].green);   // Green
+                    SCOM_addDataByte(channel, 6, RGB_items[param].blue);    // Blue
+                    SCOM_addDataByte2(channel, 7, RGB_items[param].delay * RGB_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 9, RGB_items[param].min);     // Min
+                    SCOM_addDataByte(channel, 10, RGB_items[param].max);     // Max
+                    SCOM_addDataByte(channel, 11, RGB_items[param].timeout); // Count
+                    if (SCOM_commitData(channel, 12, BM78_MAX_SEND_RETRIES)) {
+                        if ((param + 1) < RGB_list.size && (param + 1) < RGB_LIST_SIZE
+                                && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
+                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
+                        } else SCOM_queue[channel].index++;
+                    }
+                } else SCOM_queue[channel].index++;
+                break;
+#endif
+#ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+            case MESSAGE_KIND_WS281x_LIGHT:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // index (max 128)
+                if (param < WS281xLight_list.size && param < WS281x_LIGHT_LIST_SIZE) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x_LIGHT);
+                    SCOM_addDataByte(channel, 1, WS281xLight_list.size);  // Size
+                    SCOM_addDataByte(channel, 2, param & SCOM_PARAM_MASK); // Index
+                    SCOM_addDataByte(channel, 3, WS281xLight_items[param].pattern);
+                    SCOM_addDataByte(channel, 4, WS281xLight_items[param].color[0].r);
+                    SCOM_addDataByte(channel, 5, WS281xLight_items[param].color[0].g);
+                    SCOM_addDataByte(channel, 6, WS281xLight_items[param].color[0].b);
+                    SCOM_addDataByte(channel, 7, WS281xLight_items[param].color[1].r);
+                    SCOM_addDataByte(channel, 8, WS281xLight_items[param].color[1].g);
+                    SCOM_addDataByte(channel, 9, WS281xLight_items[param].color[1].b);
+                    SCOM_addDataByte(channel, 10, WS281xLight_items[param].color[2].r);
+                    SCOM_addDataByte(channel, 11, WS281xLight_items[param].color[2].g);
+                    SCOM_addDataByte(channel, 12, WS281xLight_items[param].color[2].b);
+                    SCOM_addDataByte(channel, 13, WS281xLight_items[param].color[3].r);
+                    SCOM_addDataByte(channel, 14, WS281xLight_items[param].color[3].g);
+                    SCOM_addDataByte(channel, 15, WS281xLight_items[param].color[3].b);
+                    SCOM_addDataByte(channel, 16, WS281xLight_items[param].color[4].r);
+                    SCOM_addDataByte(channel, 17, WS281xLight_items[param].color[4].g);
+                    SCOM_addDataByte(channel, 18, WS281xLight_items[param].color[4].b);
+                    SCOM_addDataByte(channel, 19, WS281xLight_items[param].color[5].r);
+                    SCOM_addDataByte(channel, 20, WS281xLight_items[param].color[5].g);
+                    SCOM_addDataByte(channel, 21, WS281xLight_items[param].color[5].b);
+                    SCOM_addDataByte(channel, 22, WS281xLight_items[param].color[6].r);
+                    SCOM_addDataByte(channel, 23, WS281xLight_items[param].color[6].g);
+                    SCOM_addDataByte(channel, 24, WS281xLight_items[param].color[6].b);
+                    SCOM_addDataByte2(channel, 25, WS281xLight_items[param].delay * WS281x_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 27, WS281xLight_items[param].width);
+                    SCOM_addDataByte(channel, 28, WS281xLight_items[param].fading);
+                    SCOM_addDataByte(channel, 29, WS281xLight_items[param].min);
+                    SCOM_addDataByte(channel, 30, WS281xLight_items[param].max);
+                    SCOM_addDataByte(channel, 31, WS281xLight_items[param].timeout);
+                    if (SCOM_commitData(channel, 32, BM78_MAX_SEND_RETRIES)) {
+                        if ((param + 1) < WS281xLight_list.size && (param + 1) < WS281x_LIGHT_LIST_SIZE
+                                && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
+                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
+                        } else SCOM_queue[channel].index++;
+                    }
+                } else SCOM_queue[channel].index++;
+                break;
+#else
+            case MESSAGE_KIND_WS281x:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // LED (max 128)
+                if ((param) < WS281x_LED_COUNT) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x);
+                    SCOM_addDataByte(channel, 1, WS281x_LED_COUNT);        // LED Count
+                    SCOM_addDataByte(channel, 2, param); // LED
+                    SCOM_addDataByte(channel, 3, WS281x_ledPattern[param]);// Pattern
+                    SCOM_addDataByte(channel, 4, WS281x_ledRed[param]);    // Red
+                    SCOM_addDataByte(channel, 5, WS281x_ledGreen[param]);  // Green
+                    SCOM_addDataByte(channel, 6, WS281x_ledBlue[param]);   // Blue
+                    SCOM_addDataByte2(channel, 7, WS281x_ledDelay[param] * WS281x_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 8, WS281x_ledMin[param]);    // Min
+                    SCOM_addDataByte(channel, 10, WS281x_ledMax[param]);   // Max
+                    if (SCOM_commitData(channel, 11, BM78_MAX_SEND_RETRIES)) {
+                        if ((param + 1) < WS281x_LED_COUNT
+                                && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
+                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
+                        } else SCOM_queue[channel].index++;
+                    }
+                } else SCOM_queue[channel].index++;
+                break;
+#endif
+#endif
+            case MESSAGE_KIND_DEBUG:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index];
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_DEBUG);
+                SCOM_addDataByte(channel, 1, param);
+                if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
+                    SCOM_queue[channel].index++;
+                }
+                break;
+            case MESSAGE_KIND_UNKNOWN:
+                // do nothing
+                break;
+            default:
+                if (SCOM_nextMessageHandler[channel]) { // An external handler exist
+                    // if it consumed the message successfully
+                    if (SCOM_nextMessageHandler[channel](
+                            SCOM_queue[channel].queue[SCOM_queue[channel].index],
+                            SCOM_queue[channel].param[SCOM_queue[channel].index])) {
+                        SCOM_queue[channel].index++;
+                    }
+                } else { // Don't know what to do with the message - drop it
+                    SCOM_queue[channel].index++;
+                }
+                break;
+        }
+        
+    } else if (!SCOM_canEnqueue(channel)) {
+        // Reset transmit queue if connection lost.
+        SCOM_queue[channel].index = 0;
+        SCOM_queue[channel].tail = 0;
+    }
+}
+
+void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
+    uint8_t chksum = 0; // Calculated checksum
+    uint8_t buffer[3];
+    for (uint8_t i = 1; i < length; i++) {
+        chksum = chksum + *(data + i);
+    }
+    
+    if (chksum == *(data) && *(data + 1) != MESSAGE_KIND_CRC) switch (channel) {
+#ifdef USB_ENABLED
+        case SCOM_CHANNEL_USB:
+            buffer[0] = chksum;
+            buffer[1] = MESSAGE_KIND_CRC;
+            buffer[2] = chksum;
+            MCP22xx_send(3, buffer);
+            //MCP22xx_execute(3, chksum, MESSAGE_KIND_CRC, chksum);
+            break;
+#endif
+#ifdef BM78_ENABLED
+        case SCOM_CHANNEL_BT:
+            BM78_execute(BM78_CMD_SEND_TRANSPARENT_DATA, 4, 0x00, chksum, MESSAGE_KIND_CRC, chksum);
+            break;
+#endif
+    }
+    
+    if (chksum == *(data)) switch(*(data + 1)) {
+        case MESSAGE_KIND_CRC:
+            if (length == 3) SCOM_tx[channel].chksumReceived = *(data + 2);
+            break;
+        case MESSAGE_KIND_IDD:
+            // Do nothing, just ping.
+            break;
+#ifdef BM78_ENABLED
+        case MESSAGE_KIND_BT_SETTINGS:
+            if (length == 2) SCOM_sendBluetoothSettings(channel);
+            else if (length == 25) {
+                uint8_t i;
+                BM78.pairingMode = *(data + 2);
+                for (i = 0; i < 6; i++) {
+                    BM78.pin[i] = *(data + i + 3);
+                }
+                for (i = 0; i < 16; i++) {
+                    BM78.deviceName[i] = *(data + i + 9);
+                }
+                BM78_setup(false);
+            } 
+            break;
+#endif
+#ifdef DHT11_PORT
+        case MESSAGE_KIND_DHT11:
+            if (length == 2) SCOM_sendDHT11(channel);
+            break;
+#endif
+#ifdef PIR_PORT
+        case MESSAGE_KIND_PIR:
+            if (length == 2) SCOM_sendPIR(channel);
+            break;
+#endif
+#ifdef LCD_ADDRESS
+        case MESSAGE_KIND_LCD:
+            if (length == 2) SCOM_sendLCD(channel, SCOM_PARAM_ALL);
+            else if (length == 3) switch (*(data + 2)) {
+                case SCOM_PARAM_LCD_CLEAR:
+                    LCD_clear();
+                    break;
+                case SCOM_PARAM_LCD_RESET:
+                    LCD_reset();
+                    break;
+                case SCOM_PARAM_LCD_BACKLIGH:
+                case SCOM_PARAM_LCD_NO_BACKLIGH:
+                    LCD_setBacklight(*(data + 2) == SCOM_PARAM_LCD_BACKLIGH);
+                    break;
+                default:
+                    SCOM_sendLCD(channel, *(data + 2));
+                    break;
+            } else if (length > 4) {
+                LCD_setString("                    ", *(data + 2), true);
+                for (uint8_t i = 0; i < *(data + 3); i++) {
+                    if (i < length && i < LCD_COLS) {
+                        LCD_replaceChar(*(data + i + 4), i, *(data + 2), false);
+                    }
+                }
+                LCD_displayLine(*(data + 2));
+            }
+            break;
+#endif
+#ifdef MCP23017_ENABLED
+        case MESSAGE_KIND_MCP23017:
+            if (length == 3) SCOM_sendMCP23017(channel, *(data + 2));
+            else if (length == 5 || length == 6) switch (*(data + 3)) {
+                case 0b00000001: // Only port A
+                    MCP23017_write(*(data + 2), MCP23017_OLATA, *(data + 4));
+                    break;
+                case 0b00000010: // Only port B
+                    MCP23017_write(*(data + 2), MCP23017_OLATB, *(data + 4));
+                    break;
+                case 0b00000011: // Both, port A and port B
+                    if (length == 6) {
+                        MCP23017_write(*(data + 2), MCP23017_OLATA, *(data + 5));
+                        MCP23017_write(*(data + 2), MCP23017_OLATB, *(data + 6));
+                    }
+                    break;
+            }
+            break;
+#endif
+#ifdef RGB_ENABLED
+        case MESSAGE_KIND_RGB:
+            if (length == 2) SCOM_sendRGB(channel, SCOM_PARAM_ALL);
+            else if (length == 3) SCOM_sendRGB(channel, *(data + 2));
+            else if (length == 11) { // set RGB
+                if (*(data + 2) == RGB_PATTERN_OFF) WS281xLight_off();
+                else if (*(data + 2) & SCOM_PARAM_ALL) RGB_set(
+                        *(data + 2) & SCOM_PARAM_MASK,         // Pattern
+                        *(data + 3), *(data + 4), *(data + 5), // Color
+                        (*(data + 6) << 8) | *(data + 7),      // Delay
+                        *(data + 8), *(data + 9),              // Min - Max
+                        *(data + 10));                         // Timeout
+                else RGB_add(
+                        *(data + 2) & SCOM_PARAM_MASK,         // Pattern
+                        *(data + 3), *(data + 4), *(data + 5), // Color
+                        (*(data + 6) << 8) | *(data + 7),      // Delay
+                        *(data + 8), *(data + 9),              // Min - Max
+                        *(data + 10));                         // Timeout
+            }
+            break;
+#endif
+#ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+        case MESSAGE_KIND_WS281x_LIGHT:
+            if (length == 2) SCOM_sendWS281xLight(channel, SCOM_PARAM_ALL);
+            else if (length == 3) SCOM_sendWS281xLight(channel, *(data + 2));
+            else if (length == 31) {
+                if (*(data + 2) == WS281x_LIGHT_OFF) WS281xLight_off();
+                else if (*(data + 2) & SCOM_PARAM_ALL) WS281xLight_set(
+                        *(data + 2) & SCOM_PARAM_MASK,            // Pattern
+                        *(data + 3), *(data + 4), *(data + 5),    // Color 1
+                        *(data + 6), *(data + 7), *(data + 8),    // Color 2
+                        *(data + 9), *(data + 10), *(data + 11),  // Color 3
+                        *(data + 12), *(data + 13), *(data + 14), // Color 4
+                        *(data + 15), *(data + 16), *(data + 17), // Color 5
+                        *(data + 18), *(data + 19), *(data + 20), // Color 6
+                        *(data + 21), *(data + 22), *(data + 23), // Color 7
+                        (*(data + 24) << 8) | *(data + 25),       // Delay
+                        *(data + 26),                             // Width
+                        *(data + 27),                             // Fading
+                        *(data + 28), *(data + 29),               // Min - Max
+                        *(data + 30));                            // Timeout
+                else WS281xLight_add(
+                        *(data + 2) & SCOM_PARAM_MASK,            // Pattern
+                        *(data + 3), *(data + 4), *(data + 5),    // Color 1
+                        *(data + 6), *(data + 7), *(data + 8),    // Color 2
+                        *(data + 9), *(data + 10), *(data + 11),  // Color 3
+                        *(data + 12), *(data + 13), *(data + 14), // Color 4
+                        *(data + 15), *(data + 16), *(data + 17), // Color 5
+                        *(data + 18), *(data + 19), *(data + 20), // Color 6
+                        *(data + 21), *(data + 22), *(data + 23), // Color 7
+                        (*(data + 24) << 8) | *(data + 25),       // Delay
+                        *(data + 26),                             // Width
+                        *(data + 27),                             // Fading
+                        *(data + 28), *(data + 29),               // Min - Max
+                        *(data + 30));                            // Timeout
+            }
+            break;
+#else
+        case MESSAGE_KIND_WS281x:
+            if (length == 2) SCOM_sendWS281xLED(channel, SCOM_PARAM_ALL);
+            else if (length == 3) SCOM_sendWS281xLED(channel, *(data + 2));
+            else if (length == 5) { // set all WS281x LEDs
+                WS281x_all(*(data + 2), *(data + 3), *(data + 4));
+            } else if (length == 11) { // set WS281x
+                // led, pattern, red, green, blue, delayH, delayL, min, max
+                WS281x_set(*(data + 2),                        // LED
+                        *(data + 3),                           // Pattern
+                        *(data + 4), *(data + 5), *(data + 6), // Color
+                        (*(data + 7) << 8) | *(data + 8),      // Delay
+                        *(data + 9),                           // Min
+                        *(data + 10));                         // Max
+            }
+            break;
+#endif
+#endif
+#ifdef LCD_ADDRESS
+        case MESSAGE_KIND_PLAIN:
+        case MESSAGE_KIND_DEBUG:
+            LCD_clearCache();
+            switch (channel) {
+                case SCOM_CHANNEL_USB:
+                    LCD_setString("    USB Message:    ", 0, false);
+                    break;
+                case SCOM_CHANNEL_BT:
+                    LCD_setString("     BT Message:    ", 0, false);
+                    break;
+            }
+            LCD_setString("                    ", 2, false);
+            for(uint8_t i = 2; i < length; i++) {
+                if (i < LCD_COLS) LCD_replaceChar(*(data + i + 2), i, 2, false);
+            }
+            LCD_displayCache();
+            if (*(data + 1) == MESSAGE_KIND_DEBUG) {
+                SCOM_sendDebug(channel, *(data + 2));
+            }
+            break;
+#endif
+    }
+}
+
+#endif

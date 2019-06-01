@@ -36,6 +36,7 @@ typedef uint8_t (*Provider_t)();
 typedef void (*Consumer_t)(uint8_t);
 typedef uint8_t (*Function_t)(uint8_t);
 typedef bool (*Condition_t)(void);
+typedef void (*DataHandler_t)(uint8_t, uint8_t*);
 
 #ifdef	__cplusplus
 }

@@ -37,11 +37,11 @@ struct {
 char lcdCache[LCD_ROWS][LCD_COLS + 1];
 #endif
 
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 struct {
     uint8_t addr;
     uint8_t port;
-} SUM_mcpTest = { MCP_START_ADDRESS, MCP_PORTA };
+} SUM_mcpTest = { MCP23017_START_ADDRESS, MCP23017_PORTA };
 #endif
 
 struct {
@@ -106,9 +106,9 @@ void SUM_displayHWAddress(uint8_t index, uint8_t line, uint8_t start) {
 
 #endif
 
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 void SUM_mcpChanged(uint8_t address) {
-    if (SUM_mode && SUM_setupPage == SUM_MENU_TEST_MCP_IN) {
+    if (SUM_mode && SUM_setupPage == SUM_MENU_TEST_MCP23017_IN) {
         SUM_mcpTest.addr = address;
         POC_testMCP23017Input(SUM_mcpTest.addr);
     }
@@ -302,7 +302,7 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
             LCD_setString("1) MCP23017 IN Test ", 0, false);
             LCD_setString("2) MCP23017 OUT Test", 1, false);
 #else
@@ -405,12 +405,12 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back   Refresh (C", 3, false);
             break;
 #endif
-#ifdef MCP_ENABLED
-        case SUM_MENU_TEST_MCP_IN:
+#ifdef MCP23017_ENABLED
+        case SUM_MENU_TEST_MCP23017_IN:
             POC_testMCP23017Input(SUM_mcpTest.addr);
             LCD_setString("B) Back      Next (C", 3, false);
             break;
-        case SUM_MENU_TEST_MCP_OUT:
+        case SUM_MENU_TEST_MCP23017_OUT:
             if (SUM_mcpTest.addr == 0) {
                 LCD_setString("0) 0x20      0x24 (4", 0, false);
                 LCD_setString("1) 0x21      0x25 (5", 1, false);
@@ -1009,15 +1009,15 @@ void SUM_executeMenu(uint8_t key) {
             break;
         case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
             switch (key) {
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
                 case '1': // MCP23017 Input Test
-                    SUM_mcpTest.addr = MCP_START_ADDRESS;
-                    SUM_showMenu(SUM_MENU_TEST_MCP_IN);
+                    SUM_mcpTest.addr = MCP23017_START_ADDRESS;
+                    SUM_showMenu(SUM_MENU_TEST_MCP23017_IN);
                     break;
                 case '2': // MCP23017 Output Test
                     SUM_mcpTest.addr = 0x00;
                     SUM_mcpTest.port = 0xFF;
-                    SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
+                    SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
                     break;
 #endif
                 case '3': // Show Keypad
@@ -1244,8 +1244,8 @@ void SUM_executeMenu(uint8_t key) {
             }
             break;
 #endif
-#ifdef MCP_ENABLED
-        case SUM_MENU_TEST_MCP_IN:
+#ifdef MCP23017_ENABLED
+        case SUM_MENU_TEST_MCP23017_IN:
             switch (key) {
                 case 'A': // Abort
                     SUM_showMenu(SUM_MENU_TEST_PAGE_3);
@@ -1255,20 +1255,20 @@ void SUM_executeMenu(uint8_t key) {
                         SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     } else {
                         SUM_mcpTest.addr--;
-                        SUM_showMenu(SUM_MENU_TEST_MCP_IN);
+                        SUM_showMenu(SUM_MENU_TEST_MCP23017_IN);
                     }
                     break;
                 case 'C': // Next
-                    SUM_mcpTest.addr = SUM_mcpTest.addr == (MCP_END_ADDRESS - MCP_START_ADDRESS) 
+                    SUM_mcpTest.addr = SUM_mcpTest.addr == (MCP23017_END_ADDRESS - MCP23017_START_ADDRESS) 
                             ? 0 : SUM_mcpTest.addr + 1;
-                    SUM_showMenu(SUM_MENU_TEST_MCP_IN);
+                    SUM_showMenu(SUM_MENU_TEST_MCP23017_IN);
                     break;
                 default:
                     SUM_defaultFunction(key);
                     break;
             }
             break;
-        case SUM_MENU_TEST_MCP_OUT:
+        case SUM_MENU_TEST_MCP23017_OUT:
             switch (key) {
                 case '0':
                 case '1':
@@ -1278,21 +1278,21 @@ void SUM_executeMenu(uint8_t key) {
                 case '5':
                 case '6':
                 case '7':
-                    if (SUM_mcpTest.addr == 0) SUM_mcpTest.addr = MCP_START_ADDRESS + (key - '0');
-                    SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
+                    if (SUM_mcpTest.addr == 0) SUM_mcpTest.addr = MCP23017_START_ADDRESS + (key - '0');
+                    SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
                     break;
                 case 'A':
                 case 'B':
-                    if (SUM_mcpTest.addr >= MCP_START_ADDRESS && SUM_mcpTest.port == 0xFF) {
-                        SUM_mcpTest.port = MCP_PORTA + (key - 'A');
-                        SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
+                    if (SUM_mcpTest.addr >= MCP23017_START_ADDRESS && SUM_mcpTest.port == 0xFF) {
+                        SUM_mcpTest.port = MCP23017_PORTA + (key - 'A');
+                        SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
                     } else {
                         SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     }
                     break;
                 case 'C':
-                    if (SUM_mcpTest.addr >= MCP_START_ADDRESS && SUM_mcpTest.port != 0xFF) {
-                        SUM_showMenu(SUM_MENU_TEST_MCP_OUT);
+                    if (SUM_mcpTest.addr >= MCP23017_START_ADDRESS && SUM_mcpTest.port != 0xFF) {
+                        SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
                     }
                     break;
                 default:

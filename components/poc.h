@@ -27,7 +27,7 @@ extern "C" {
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 #include "../modules/mcp23017.h"
 #endif
 #ifdef RGB_ENABLED
@@ -39,6 +39,10 @@ extern "C" {
 #include "../modules/ws281x_light.h"
 #endif
 #endif
+#ifdef SCOM_ENABLED
+#include "serial_communication.h"
+#endif
+
 
 #ifdef DHT11_PORT
 void POC_testDHT11(void);
@@ -47,8 +51,10 @@ void POC_testDHT11(void);
 #ifdef BM78_ENABLED
 void POC_bm78InitializationHandler(char *deviceName, char *pin);
 void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data);
-void POC_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
 void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
+#endif
+#ifdef SCOM_ENABLED
+void POC_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
 #endif
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data);
 #if defined I2C_ENABLED || defined MEM_INTERNAL_SIZE
@@ -56,7 +62,7 @@ void POC_testMem(uint8_t address, uint16_t reg);
 //void POC_testMemPage(void);
 #endif
 void POC_testDisplay(void);
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 void POC_showKeypad(uint8_t address, uint8_t port);
 void POC_testMCP23017Input(uint8_t address);
 void POC_testMCP23017Output(uint8_t address, uint8_t port);

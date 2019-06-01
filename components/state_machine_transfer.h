@@ -15,7 +15,7 @@ extern "C" {
 #include <stdbool.h>
 #include "../lib/requirements.h"
 
-#if defined BM78_ENABLED && defined SM_MEM_ADDRESS
+#if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 
 #include "../modules/bm78.h"
 #include "../modules/i2c.h"
@@ -23,15 +23,15 @@ extern "C" {
 #include "../modules/lcd.h"
 #endif
 #include "../modules/state_machine.h"
-#include "bm78_communication.h"
+#include "serial_communication.h"
 
 // Configuration with default values
 #ifndef SMT_BLOCK_SIZE
-#ifdef BM78_DATA_PACKET_MAX_SIZE
-#warning "SMT: Block size defaults to BM78_DATA_PACKET_MAX_SIZE"
-#define SMT_BLOCK_SIZE BM78_DATA_PACKET_MAX_SIZE
+#ifdef SCOM_MAX_PACKET_SIZE
+#warning "SMT: Block size defaults to SCOM_MAX_PACKET_SIZE"
+#define SMT_BLOCK_SIZE SCOM_MAX_PACKET_SIZE
 #else
-#error "SMT: One of SMT_BLOCK_SIZE or BM78_DATA_PACKET_MAX_SIZE must be defined!"
+#error "SMT: One of SMT_BLOCK_SIZE or SCOM_MAX_PACKET_SIZE must be defined!"
 #endif
 #endif
     
@@ -49,7 +49,7 @@ void SMT_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data);
  * @param length Transparent data length.
  * @param data Transparent data.
  */
-void SMT_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
+void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
 
 /**
  * State machine's BM78 communication next message handler implementation.
@@ -58,7 +58,7 @@ void SMT_bm78TransparentDataHandler(uint8_t length, uint8_t *data);
  * @return Whether the message type was sent, or not (e.g. something else was 
  *         being sent at the time).
  */
-bool SMT_bmcNextMessageHandler(uint8_t what, uint8_t param);
+bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t param);
 
 #endif
 

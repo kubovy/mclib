@@ -22,7 +22,7 @@ extern "C" {
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 #include "../modules/mcp23017.h"
 #if !defined SM_IN1_ADDRESS || !defined SM_IN2_ADDRESS
 #warning "SMI: No MCP23017 used for inputs"
@@ -39,7 +39,7 @@ extern "C" {
 /** Start state machine interaction. */
 void SMI_start(void);
 
-#if defined BM78_ENABLED && defined MCP_ENABLED && defined SM_IN1_ADDRESS && defined SM_IN2_ADDRESS
+#if defined BM78_ENABLED && defined MCP23017_ENABLED && defined SM_IN1_ADDRESS && defined SM_IN2_ADDRESS
 /** 
  * State machine state getter implementation. 
  * 

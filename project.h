@@ -45,8 +45,11 @@ extern "C" {
 #ifdef LCD_ADDRESS
 #include "modules/lcd.h"
 #endif
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 #include "modules/mcp23017.h"
+#endif
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
+#include "modules/mcp22xx.h"
 #endif
 //#include "modules/mem.h"
 #ifdef RGB_ENABLED
@@ -55,7 +58,7 @@ extern "C" {
 #ifdef SM_MEM_ADDRESS
 #include "modules/state_machine.h"
 #endif
-#if defined UART || defined EUSART
+#if defined UART_ENABLED || defined EUSART_ENABLED
 #include "modules/uart.h"
 #endif
 #ifdef WS281x_BUFFER
@@ -69,9 +72,12 @@ extern "C" {
 // Components
 #ifdef BM78_ENABLED
 #include "components/bm78_pairing.h"
-#include "components/bm78_communication.h"
+//#include "components/bm78_communication.h"
 #endif
 #include "components/poc.h"
+#ifdef SCOM_ENABLED
+#include "components/serial_communication.h"
+#endif
 #ifdef SM_MEM_ADDRESS
 #include "components/state_machine_interaction.h"
 #ifdef BM78_ENABLED

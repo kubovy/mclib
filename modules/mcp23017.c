@@ -4,53 +4,53 @@
  */
 #include "mcp23017.h"
 
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 
-uint8_t MCP_read(uint8_t address, uint8_t reg) {
+uint8_t MCP23017_read(uint8_t address, MCP23017_Register_t reg) {
     return I2C_readRegister(address, reg);
 }
 
-void MCP_write(uint8_t address, uint8_t reg, uint8_t data) {
+void MCP23017_write(uint8_t address, MCP23017_Register_t reg, uint8_t data) {
     I2C_writeRegister(address, reg, data);
 }
 
-void MCP_init_keypad(uint8_t address, uint8_t port) {
-    MCP_write(address, MCP_IODIRA + port, 0b00001111); // GPIOx 0-3 input, 4-7 output
-    MCP_write(address, MCP_IPOLA + port, 0b11111111); // Reverse polarity on GPIOx
-    MCP_write(address, MCP_GPPUA + port, 0b11111111); // Enable pull-up on GPIOx
-    MCP_write(address, MCP_GPINTENA + port, 0b00001111); // Enable interrupt on GPIOx
-    MCP_write(address, MCP_INTCONA + port, 0b00000000); // Interrupt-on-change (default)
-    MCP_write(address, MCP_OLATA + port, 0b00000000); // Ground all outputs
-    MCP_read(address, MCP_INTCAPA + port); // Read to clear interrupt
+void MCP23017_init_keypad(uint8_t address, uint8_t port) {
+    MCP23017_write(address, MCP23017_IODIRA + port, 0b00001111); // GPIOx 0-3 input, 4-7 output
+    MCP23017_write(address, MCP23017_IPOLA + port, 0b11111111); // Reverse polarity on GPIOx
+    MCP23017_write(address, MCP23017_GPPUA + port, 0b11111111); // Enable pull-up on GPIOx
+    MCP23017_write(address, MCP23017_GPINTENA + port, 0b00001111); // Enable interrupt on GPIOx
+    MCP23017_write(address, MCP23017_INTCONA + port, 0b00000000); // Interrupt-on-change (default)
+    MCP23017_write(address, MCP23017_OLATA + port, 0b00000000); // Ground all outputs
+    MCP23017_read(address, MCP23017_INTCAPA + port); // Read to clear interrupt
 }
 
-uint8_t MCP_read_keypad(uint8_t address, uint8_t port) {
+uint8_t MCP23017_read_keypad(uint8_t address, uint8_t port) {
     uint8_t cols, combination;
-    uint8_t rows = (MCP_read(address, MCP_INTCAPA + port) | MCP_read(address, MCP_GPIOA + port)) & 0x0F;
+    uint8_t rows = (MCP23017_read(address, MCP23017_INTCAPA + port) | MCP23017_read(address, MCP23017_GPIOA + port)) & 0x0F;
     
-    MCP_write(address, MCP_GPINTENA + port, 0b00000000); // Disable interrupt on GPIOx
-    MCP_write(address, MCP_IODIRA + port, 0b11110000); // GPIOx 0-3 output, 4-7 inputs
-    MCP_write(address, MCP_OLATA + port, 0b00000000); // Ground all outputs
+    MCP23017_write(address, MCP23017_GPINTENA + port, 0b00000000); // Disable interrupt on GPIOx
+    MCP23017_write(address, MCP23017_IODIRA + port, 0b11110000); // GPIOx 0-3 output, 4-7 inputs
+    MCP23017_write(address, MCP23017_OLATA + port, 0b00000000); // Ground all outputs
                 
-    cols = (MCP_read(address, MCP_INTCAPA + port) | MCP_read(address, MCP_GPIOA + port)) & 0xF0;
-#ifdef MCP_KEYPAD_INVERSE
+    cols = (MCP23017_read(address, MCP23017_INTCAPA + port) | MCP23017_read(address, MCP23017_GPIOA + port)) & 0xF0;
+#ifdef MCP23017_KEYPAD_INVERSE
     cols >>= 4;
     rows <<= 4;
 #endif
     combination = cols | rows;
     
-    MCP_write(address, MCP_IODIRA + port, 0b00001111); // GPIOB 0-3 input, 4-7 output
-    MCP_write(address, MCP_IPOLA + port, 0b11111111); // Reverse polarity on GPIOx
-    MCP_write(address, MCP_GPPUA + port, 0b11111111); // Enable pull-up on GPIOx
-    MCP_write(address, MCP_GPINTENA + port, 0b11111111); // Enable interrupt on GPIOx
-    MCP_write(address, MCP_INTCONA + port, 0b00000000); // Interrupt-on-change (default)
-    MCP_write(address, MCP_OLATA + port, 0b00000000); // Ground all outputs
-    MCP_read(address, MCP_INTCAPA + port); // Read to clear interrupt
+    MCP23017_write(address, MCP23017_IODIRA + port, 0b00001111); // GPIOB 0-3 input, 4-7 output
+    MCP23017_write(address, MCP23017_IPOLA + port, 0b11111111); // Reverse polarity on GPIOx
+    MCP23017_write(address, MCP23017_GPPUA + port, 0b11111111); // Enable pull-up on GPIOx
+    MCP23017_write(address, MCP23017_GPINTENA + port, 0b11111111); // Enable interrupt on GPIOx
+    MCP23017_write(address, MCP23017_INTCONA + port, 0b00000000); // Interrupt-on-change (default)
+    MCP23017_write(address, MCP23017_OLATA + port, 0b00000000); // Ground all outputs
+    MCP23017_read(address, MCP23017_INTCAPA + port); // Read to clear interrupt
     
     return combination;
 }
 
-char MCP_read_keypad_char(uint8_t address, uint8_t port) {
+char MCP23017_read_keypad_char(uint8_t address, uint8_t port) {
     /* |----------| *
      * |X|   |0123| *
      * |-----|----| *
@@ -61,7 +61,7 @@ char MCP_read_keypad_char(uint8_t address, uint8_t port) {
      * |----------| *
      * |0bXXXXYYYY| *
      * |----------| */
-    switch (MCP_read_keypad(address, port)) {
+    switch (MCP23017_read_keypad(address, port)) {
         case 0b00010001:
             return '1';
         case 0b00100001:

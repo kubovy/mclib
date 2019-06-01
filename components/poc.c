@@ -157,22 +157,6 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
     }
 }
 
-void POC_bm78TransparentDataHandler(uint8_t length, uint8_t *data) {
-    switch(*(data)) {
-        case BM78_MESSAGE_KIND_PLAIN:
-            LCD_clear();
-            LCD_setString("                    ", 2, false);
-            for(uint8_t i = 0; i < length; i++) {
-                if (i < 20) {
-                    LCD_replaceChar(*(data + i), i, 2, false);
-                }
-            }
-            LCD_setString("    BT Message:     ", 0, true);
-            LCD_displayLine(2);
-            break;
-    }
-}
-
 void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
     uint8_t i;
     //                      11 11 11 12
@@ -185,6 +169,38 @@ void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
     LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status / 16 % 16), 9, 3, false);
     LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status % 16), 10, 3, false);
     LCD_displayLine(3);
+}
+#endif
+
+#ifdef SCOM_ENABLED
+void POC_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
+    switch(*(data)) {
+        case MESSAGE_KIND_PLAIN:
+            LCD_clearCache();
+            switch (channel) {
+#ifdef USB_ENABLED
+                case SCOM_CHANNEL_USB:
+                    LCD_setString("    USB Message:    ", 0, false);
+                    break;
+#endif
+#ifdef BM78_ENABLED
+                case SCOM_CHANNEL_BT:
+                    LCD_setString("    BT Message:     ", 0, false);
+                    break;
+#endif
+                default:
+                    LCD_setString("  Unknown Message:  ", 0, false);
+                    break;
+            }
+            LCD_setString("                    ", 2, false);
+            for(uint8_t i = 0; i < length; i++) {
+                if (i < 20) {
+                    LCD_replaceChar(*(data + i), i, 2, false);
+                }
+            }
+            LCD_displayCache();
+            break;
+    }
 }
 #endif
 
@@ -303,10 +319,10 @@ void POC_testDisplay(void) {
     LCD_setString("|c|center\n|l|left\n|r|right\nEND\0", 0, true);
 }
 
-#ifdef MCP_ENABLED
+#ifdef MCP23017_ENABLED
 
 void POC_showKeypad(uint8_t address, uint8_t port) {
-    uint8_t byte = MCP_read_keypad_char(address, port);
+    uint8_t byte = MCP23017_read_keypad_char(address, port);
     if (byte > 0x00) {
         LCD_setString("       KEY: ?       ", 1, false);
         LCD_replaceChar(byte, 12, 1, true);
@@ -319,7 +335,7 @@ void POC_testMCP23017Input(uint8_t address) {
     LCD_replaceChar(dec2hex(address % 16), 13, 0, true);
 
     for (uint8_t i = 0; i < 2; i++) {
-        uint8_t byte = MCP_read(address, MCP_GPIOA + i);
+        uint8_t byte = MCP23017_read(address, MCP23017_GPIOA + i);
         
         LCD_setString("GPIOx: 0b           ", i + 1, false);
         LCD_replaceChar('A' + 1, 4, i + 1, false);
@@ -332,7 +348,7 @@ void POC_testMCP23017Input(uint8_t address) {
 }
 
 void POC_testMCP23017Output(uint8_t address, uint8_t port) {
-    uint8_t original = MCP_read(address, MCP_GPIOA + port);
+    uint8_t original = MCP23017_read(address, MCP23017_GPIOA + port);
 
     LCD_setString("MCP23017: 0xXX", 0, true);
     LCD_replaceChar(dec2hex(address / 16), 12, 0, true);
@@ -342,8 +358,8 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
     LCD_replaceChar('A' + 1, 4, 1, false);
 
     
-    MCP_write(address, MCP_OLATA + port, 0b10101010);
-    uint8_t byte = MCP_read(address, MCP_GPIOA + port);
+    MCP23017_write(address, MCP23017_OLATA + port, 0b10101010);
+    uint8_t byte = MCP23017_read(address, MCP23017_GPIOA + port);
     for (uint8_t i = 0; i < 8; i++) {
         LCD_replaceChar((byte & 0b10000000) ? '1' : '0', i + 9, 1, false);
         byte <<= 1;
@@ -352,8 +368,8 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
 
     __delay_ms(1000);
 
-    MCP_write(address, MCP_OLATA + port, 0b01010101);
-    byte = MCP_read(address, MCP_GPIOA + port);
+    MCP23017_write(address, MCP23017_OLATA + port, 0b01010101);
+    byte = MCP23017_read(address, MCP23017_GPIOA + port);
     for (uint8_t i = 0; i < 8; i++) {
         LCD_replaceChar((byte & 0b10000000) ? '1' : '0', i + 9, 1, false);
         byte <<= 1;
@@ -362,7 +378,7 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port) {
     
     __delay_ms(1000);
     
-    MCP_write(address, MCP_OLATA + port, original);
+    MCP23017_write(address, MCP23017_OLATA + port, original);
 }
 
 #endif

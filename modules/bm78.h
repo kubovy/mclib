@@ -73,54 +73,12 @@ extern "C" {
 #define BM78_STATUS_MISS_MAX_COUNT 5 // Number of status refresh attempts before reseting the device.
 #endif
 
-#ifndef BM78_DATA_PACKET_MAX_SIZE
-#warning "BM78: Maximal data packet size default to 32 bytes"
-#define BM78_DATA_PACKET_MAX_SIZE 32
-#endif
-    
-// Message kinds:
-#define BM78_MESSAGE_KIND_CRC 0x00
-#define BM78_MESSAGE_KIND_IDD 0x01
-#define BM78_MESSAGE_KIND_PLAIN 0x02
-#define BM78_MESSAGE_KIND_SETTINGS 0x03
-#define BM78_MESSAGE_KIND_IO 0x10
-#ifdef DHT11_PORT
-#define BM78_MESSAGE_KIND_DHT11 0x11
-#endif
-#ifdef LCD_ADDRESS
-#define BM78_MESSAGE_KIND_LCD 0x12
-#endif
-#define BM78_MESSAGE_KIND_MCP23017 0x13
-#ifdef PIR_PORT
-#define BM78_MESSAGE_KIND_PIR 0x14
-#endif
-#ifdef RGB_ENABLED
-#define BM78_MESSAGE_KIND_RGB 0x15
-#endif
-#ifdef WS281x_BUFFER
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-#define BM78_MESSAGE_KIND_WS281x_LIGHT 0x17
-#else
-#define BM78_MESSAGE_KIND_WS281x 0x16
-#endif
-#endif
-#ifdef SM_MEM_ADDRESS
-#define BM78_MESSAGE_KIND_SM_CONFIGURATION 0x80
-#define BM78_MESSAGE_KIND_SM_PULL 0x81
-#define BM78_MESSAGE_KIND_SM_PUSH 0x82
-#define BM78_MESSAGE_KIND_SM_GET_STATE 0x83
-#define BM78_MESSAGE_KIND_SM_SET_STATE 0x84
-#define BM78_MESSAGE_KIND_SM_ACTION 0x85
-#endif
-#define BM78_MESSAGE_KIND_UNKNOWN 0xFF    
-
 #ifndef BM78_MAX_SEND_RETRIES
 #warning "BM78 maximum number of retries defaults to 10"
 #define BM78_MAX_SEND_RETRIES 10
 #endif
 
 #define BM78_EEPROM_SIZE 0x1FF0
-#define BM78_NO_RETRY_LIMIT 0xFF // no retry limit
 
 typedef enum {
     //                                                AUTO PATTERN                   MANUAL PATTERN
@@ -370,38 +328,33 @@ typedef union {
     struct {
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
     };
 #ifdef BM78_ADVANCED_PAIRING
     struct { // Passkey Entry Req (0x60)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
     } PasskeyEntryReq_0x60;
 #endif
     struct { // Pairing Complete (0x61)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         BM78_PairingResult_t result;
     } PairingComplete_0x61;
 #ifdef BM78_ADVANCED_PAIRING
     struct { // Passkey Display YesNo Req (0x62)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         uint8_t passkey[6];
     } PasskeyDisplayYesNoReq_0x62;
 #endif
     struct { // LE Connection Complete (0x71)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         uint8_t status;
         uint8_t connection_handle;
         uint8_t role;
@@ -414,16 +367,14 @@ typedef union {
     struct { // Disconnection Complete (0x72)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         uint8_t connection_handle;
         uint8_t reason;
     } DisconnectionComplete_0x72;
     struct { // SPP Connection Complete (0x74)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         BM78_StatusCode_t status;
         uint8_t connection_handle;
         uint8_t peer_address[6];
@@ -431,8 +382,7 @@ typedef union {
     struct { // Command Complete (0x80)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         BM78_CommanddOpCode_t command;
         BM78_StatusCode_t status;
         // return parameters (x bytes)
@@ -440,24 +390,21 @@ typedef union {
     struct { // BM77 Status Report (0x81)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         BM78_Status_t status;
     } StatusReport_0x81;
 #ifndef BM78_MANUAL_MODE
     struct { // Configure Mode Status (0x8F)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         uint8_t status;
     } ConfigureModeStatus_0x8F;
 #endif
     struct { // Received Transparent Data (0x9A)
         uint16_t length;
         BM78_EventOpCode_t op_code;
-        uint8_t checksum_calculated;
-        uint8_t checksum_received;
+        uint8_t checksum;
         uint8_t reserved;
         // data (n bytes)
     } ReceivedTransparentData_0x9A;
@@ -500,10 +447,8 @@ struct {
 
 uint8_t BM78_advData[22];
 
-typedef void (*BM78_SetupAttemptHandler_t)(uint8_t attempt, uint8_t stage);
 typedef void (*BM78_SetupHandler_t)(char* deviceName, char* pin);
 typedef void (*BM78_EventHandler_t)(BM78_Response_t, uint8_t*);
-typedef void (*BM78_DataHandler_t)(uint8_t, uint8_t*);
 
 /**
  * BM78 Initialization.
@@ -519,14 +464,14 @@ typedef void (*BM78_DataHandler_t)(uint8_t, uint8_t*);
  * @param errorHandler Triggered in event retrieval error.
  */
 void BM78_initialize(
-               BM78_SetupAttemptHandler_t setupAttemptHandler,
-               BM78_SetupHandler_t setupHandler,
-               BM78_EventHandler_t appModeEventHandler,
-               BM78_EventHandler_t testModeEventHandler,
-               BM78_DataHandler_t transparentDataHandler,
-               Procedure_t messageSentHandler,
-               BM78_EventHandler_t appModeErrorHandler,
-               BM78_EventHandler_t testModeErrorHandler);
+                UART_Connection_t uart,
+                BM78_SetupHandler_t setupHandler,
+                BM78_EventHandler_t appModeEventHandler,
+                BM78_EventHandler_t testModeEventHandler,
+                DataHandler_t transparentDataHandler,
+                Procedure_t cancelTransmissionHandler,
+                BM78_EventHandler_t appModeErrorHandler,
+                BM78_EventHandler_t testModeErrorHandler);
 
 /**
  * Powers the device on or off.
@@ -671,72 +616,13 @@ void BM78_execute(uint8_t command, uint8_t length, ...);
  */
 void BM78_data(uint8_t command, uint8_t length, uint8_t *data);
 
-/** Whether still awaiting confirmation for last command. */
-bool BM78_awatingConfirmation(void);
-
 /**
- * Add one data byte to the prepared message.
- *
- * @param position Position to put the byte to.
- * @param byte The data byte.
- */
-inline void BM78_addDataByte(uint8_t position, uint8_t byte);
-
-/**
- * Add one word (2 bytes) to the prepared message.
- *
- * @param position Starting position.
- * @param word The word.
- */
-inline void BM78_addDataByte2(uint8_t position, uint16_t word);
-
-/**
- * Add data bytes to the prepared message.
- *
- * @param position Starting position.
- * @param length Length of the data.
- * @param data The data.
- */
-inline void BM78_addDataBytes(uint8_t position, uint8_t length, uint8_t *data);
-
-/**
- * Commit prepared message and send it.
- *
- * @param length Total length of the message.
- * @param maxRetries Maximum number of retries.
- * @return Whether committing was successful or not. Only one message may be
- *         sent at a time. In case a message is currently being send, calling
- *         this function will have no effect and return false.
- */
-bool BM78_commitData(uint8_t length, uint8_t maxRetries);
-
-/**
- * Transmit transparent data over the bluetooth module.
+ * Sends transparent data over the BM78 module.
  * 
- * @param length Length of the data
- * @param data Data pointer
+ * @param length Data length.
+ * @param data Data.
  */
-void BM78_transmitData(uint8_t length, uint8_t *data, uint8_t maxRetries);
-
-/**
- * Transparent data transmission retry trigger.
- * 
- * This function should be called periodically, e.g. by a timer.
- */
-void BM78_retryTrigger(void);
-
-/**
- * Validates checksum of last transparent data reception.
- *
- * @return Whether the last received checksum is valid with the last transmitted
- *         message
- */
-bool BM78_isChecksumCorrect(void);
-
-/**
- * Resets checksum of last transparent data reception.
- */
-void BM78_resetChecksum(void);
+void BM78_sendTransparentData(uint8_t length, uint8_t *data);
 
 /**
  * Checks new data asynchronously.
