@@ -1,9 +1,6 @@
 /* 
  * File:   serial_communication.c
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
- * 
- * A component must include configuration and can additionally include modules,
- * libs, but no components.
  */
 #include "serial_communication.h"
 
@@ -478,7 +475,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
 
 void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     uint8_t chksum = 0; // Calculated checksum
-    uint8_t buffer[3];
+    uint8_t buffer[4];
     for (uint8_t i = 1; i < length; i++) {
         chksum = chksum + *(data + i);
     }
@@ -486,16 +483,19 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     if (chksum == *(data) && *(data + 1) != MESSAGE_KIND_CRC) switch (channel) {
 #ifdef USB_ENABLED
         case SCOM_CHANNEL_USB:
-            buffer[0] = chksum;
-            buffer[1] = MESSAGE_KIND_CRC;
-            buffer[2] = chksum;
+            buffer[0] = chksum;           // Checksum of the packet
+            buffer[1] = MESSAGE_KIND_CRC; // Message kind
+            buffer[2] = chksum;           // Payload
             MCP22xx_send(3, buffer);
-            //MCP22xx_execute(3, chksum, MESSAGE_KIND_CRC, chksum);
             break;
 #endif
 #ifdef BM78_ENABLED
         case SCOM_CHANNEL_BT:
-            BM78_execute(BM78_CMD_SEND_TRANSPARENT_DATA, 4, 0x00, chksum, MESSAGE_KIND_CRC, chksum);
+            buffer[0] = 0x00;             // Reserved
+            buffer[1] = chksum;           // Checksum of the packet
+            buffer[2] = MESSAGE_KIND_CRC; // Message kind
+            buffer[3] = chksum;           // Payload
+            BM78_data(BM78_CMD_SEND_TRANSPARENT_DATA, 4, buffer);
             break;
 #endif
     }

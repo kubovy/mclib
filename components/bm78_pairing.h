@@ -2,8 +2,7 @@
  * File:   bm78_pairing.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  * 
- * A component must include configuration and can additionally include modules,
- * libs, but no components.
+ * Implementation of advanced pairing methods for BM78 module.
  */
 #ifndef BM78_PAIRING_H
 #define	BM78_PAIRING_H

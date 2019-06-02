@@ -1,6 +1,8 @@
 /* 
  * File:   i2c.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
+ * 
+ * I2C wrapper.
  */
 #ifndef I2C_H
 #define	I2C_H

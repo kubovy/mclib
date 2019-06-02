@@ -25,24 +25,23 @@ void MCP22xx_initialize(UART_Connection_t uart, DataHandler_t dataHandler) {
    MCP22xx_dataHandler = dataHandler;
 }
 
-void MCP22xx_execute(uint8_t length, ...) {
-    va_list argp;
-    va_start(argp, length);
-    
-    for (uint8_t i = 0; i < length; i++) { // Send the command bits, along with the parameters
-        while (!UART_isTXReady(MCP22xx_uart)); // Wait till we can start sending.
-        UART_write(MCP22xx_uart, va_arg(argp, uint8_t)); // Store each byte in the storePacket into the UART write buffer
-        while (!UART_isTXDone(MCP22xx_uart)); // Wait until UART TX is done.
-    }
-    va_end(argp);
+inline void MCP22xx_sendByte(uint8_t byte) {
+    while (!UART_isTXReady(MCP22xx_uart)); // Wait till we can start sending.
+    UART_write(MCP22xx_uart, byte); // Store each byte in the storePacket into the UART write buffer
+    while (!UART_isTXDone(MCP22xx_uart));  // Wait until UART TX is done.
 }
 
 void MCP22xx_send(uint8_t length, uint8_t *data) {
+    uint8_t chksum = 0x00 + length;
+    MCP22xx_sendByte(0xAA);
+    MCP22xx_sendByte(0x00); // Length High
+    MCP22xx_sendByte(length); // Length Low
+    
     for (uint8_t i = 0; i < length; i++) {     // Send the command bits, along with the parameters
-        while (!UART_isTXReady(MCP22xx_uart)); // Wait till we can start sending.
-        UART_write(MCP22xx_uart, *(data + i)); // Store each byte in the storePacket into the UART write buffer
-        while (!UART_isTXDone(MCP22xx_uart));  // Wait until UART TX is done.
+        MCP22xx_sendByte(*(data + i));
+        chksum += *(data + i);
     }
+    MCP22xx_sendByte(0xFF - chksum + 1);
 }
 
 void MCP22xx_processByte(uint8_t byte) {

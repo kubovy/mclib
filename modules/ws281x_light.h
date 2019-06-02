@@ -73,12 +73,56 @@ struct {
     uint8_t timeout;
 } WS281xLight_list = {0, 0, WS281x_LIGHT_INDEFINED};
 
+/**
+ * WS281x Light configuration list.
+ */
 WS281xLight_t WS281xLight_items[WS281x_LIGHT_LIST_SIZE];
 
+/**
+ * Update.
+ * 
+ * This function should be called periodically by a timer. The timers period
+ * should match WS281x_TIMER_PERIOD constant.
+ */
 void WS281xLight_update(void);
 
+/**
+ * Turns WS281x LED strip off.
+ */
 void WS281xLight_off(void);
 
+/**
+ * Add a configuration to the configuration list.
+ * 
+ * @param pattern Pattern.
+ * @param red1 Color 1 red component.
+ * @param green1 Color 1 green component.
+ * @param blue1 Color 1 blue component.
+ * @param red2 Color 2 red component.
+ * @param green2 Color 2 green component.
+ * @param blue2 Color 2 blue component.
+ * @param red3 Color 3 red component.
+ * @param green3 Color 3 green component.
+ * @param blue3 Color 3 blue component.
+ * @param red4 Color 4 red component.
+ * @param green4 Color 4 green component.
+ * @param blue4 Color 4 blue component.
+ * @param red5 Color 5 red component.
+ * @param green5 Color 5 green component.
+ * @param blue5 Color 5 blue component.
+ * @param red6 Color 6 red component.
+ * @param green6 Color 6 green component.
+ * @param blue6 Color 6 blue component.
+ * @param red7 Color 7 red component.
+ * @param green7 Color 7 green component.
+ * @param blue7 Color 7 blue component.
+ * @param delay Delay.
+ * @param width Width.
+ * @param fading Fading.
+ * @param min Min. value.
+ * @param max Max. value.
+ * @param timeout Timeout.
+ */
 inline void WS281xLight_add(WS281xLight_Pattern_t pattern, 
                     uint8_t red1, uint8_t green1, uint8_t blue1,
                     uint8_t red2, uint8_t green2, uint8_t blue2,
@@ -90,6 +134,38 @@ inline void WS281xLight_add(WS281xLight_Pattern_t pattern,
                     uint16_t delay, uint8_t width, uint8_t fading,
                     uint8_t min, uint8_t max, uint8_t timeout);
 
+/**
+ * Sets a configuration replacing the whole configuration list.
+ * 
+ * @param pattern Pattern.
+ * @param red1 Color 1 red component.
+ * @param green1 Color 1 green component.
+ * @param blue1 Color 1 blue component.
+ * @param red2 Color 2 red component.
+ * @param green2 Color 2 green component.
+ * @param blue2 Color 2 blue component.
+ * @param red3 Color 3 red component.
+ * @param green3 Color 3 green component.
+ * @param blue3 Color 3 blue component.
+ * @param red4 Color 4 red component.
+ * @param green4 Color 4 green component.
+ * @param blue4 Color 4 blue component.
+ * @param red5 Color 5 red component.
+ * @param green5 Color 5 green component.
+ * @param blue5 Color 5 blue component.
+ * @param red6 Color 6 red component.
+ * @param green6 Color 6 green component.
+ * @param blue6 Color 6 blue component.
+ * @param red7 Color 7 red component.
+ * @param green7 Color 7 green component.
+ * @param blue7 Color 7 blue component.
+ * @param delay Delay.
+ * @param width Width.
+ * @param fading Fading.
+ * @param min Min. value.
+ * @param max Max. value.
+ * @param timeout Timeout.
+ */
 inline void WS281xLight_set(WS281xLight_Pattern_t pattern, 
                     uint8_t red1, uint8_t green1, uint8_t blue1,
                     uint8_t red2, uint8_t green2, uint8_t blue2,

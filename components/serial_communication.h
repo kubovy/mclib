@@ -2,7 +2,6 @@
  * File:   serial_communication.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
-
 #ifndef SERIAL_COMMUNICATION_H
 #define	SERIAL_COMMUNICATION_H
 
@@ -90,21 +89,31 @@ typedef enum {
  */
 typedef bool (*SCOM_NextMessageHandler_t)(uint8_t what, uint8_t param);
 
-void SCOM_setMessageSentHandler(Procedure_t messageSentHandler);
-
+/**
+ * Cancels any ongoing transmission.
+ * 
+ * @param channel Channel to use.
+ */
 void SCOM_cancelTransmission(SCOM_Channel_t channel);
 
 /**
- * Resets checksum of last transparent data reception.
+ * Resets checksum.
+ * 
+ * @param channel Channel to use.
  */
 void SCOM_resetChecksum(SCOM_Channel_t channel);
 
-/** Whether still awaiting confirmation for last command. */
+/**
+ * Whether still awaiting confirmation for last command.
+ * 
+ * @param channel Channel to use.
+ */
 bool SCOM_awatingConfirmation(SCOM_Channel_t channel);
 
 /**
  * Validates checksum of last transparent data reception.
  *
+ * @param channel Channel to use.
  * @return Whether the last received checksum is valid with the last transmitted
  *         message
  */
@@ -113,13 +122,14 @@ bool SCOM_isChecksumCorrect(SCOM_Channel_t channel);
 /**
  * Transparent data transmission retry trigger.
  * 
- * This function should be called periodically, e.g. by a timer.
+ * This function should be called periodically, e.g. inside the program loop.
  */
 void SCOM_retryTrigger(void);
 
 /**
  * Add one data byte to the prepared message.
  *
+ * @param channel Channel to use.
  * @param position Position to put the byte to.
  * @param byte The data byte.
  */
@@ -128,6 +138,7 @@ inline void SCOM_addDataByte(SCOM_Channel_t channel, uint8_t position, uint8_t b
 /**
  * Add one word (2 bytes) to the prepared message.
  *
+ * @param channel Channel to use.
  * @param position Starting position.
  * @param word The word.
  */
@@ -136,6 +147,7 @@ inline void SCOM_addDataByte2(SCOM_Channel_t channel, uint8_t position, uint16_t
 /**
  * Add data bytes to the prepared message.
  *
+ * @param channel Channel to use.
  * @param position Starting position.
  * @param length Length of the data.
  * @param data The data.
@@ -145,6 +157,7 @@ inline void SCOM_addDataBytes(SCOM_Channel_t channel, uint8_t position, uint8_t 
 /**
  * Commit prepared message and send it.
  *
+ * @param channel Channel to use.
  * @param length Total length of the message.
  * @param maxRetries Maximum number of retries.
  * @return Whether committing was successful or not. Only one message may be
@@ -154,8 +167,9 @@ inline void SCOM_addDataBytes(SCOM_Channel_t channel, uint8_t position, uint8_t 
 bool SCOM_commitData(SCOM_Channel_t channel, uint8_t length, uint8_t maxRetries);
 
 /**
- * Transmit transparent data over the bluetooth module.
+ * Transmit transparent data over the channel.
  * 
+ * @param channel Channel to use.
  * @param length Length of the data
  * @param data Data pointer
  */
@@ -165,6 +179,7 @@ void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, ui
 /**
  * Adds a settings message to the send queue. 
  * 
+ * @param channel Channel to use.
  * @param channel Channel to send the message over.
  */
 inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel);
@@ -174,7 +189,7 @@ inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel);
 /**
  * Adds a DHT11 message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  */
 inline void SCOM_sendDHT11(SCOM_Channel_t channel);
 #endif
@@ -183,7 +198,7 @@ inline void SCOM_sendDHT11(SCOM_Channel_t channel);
 /**
  * Adds a LCD message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param line Which line to send. Use SCOM_PARAM_ALL to send the while content.
  */
 inline void SCOM_sendLCD(SCOM_Channel_t channel, uint8_t line);
@@ -191,7 +206,7 @@ inline void SCOM_sendLCD(SCOM_Channel_t channel, uint8_t line);
 /**
  * Adds a LCD's backlight status message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param on True if backlight is on, false otherwise.
  */
 inline void SCOM_sendLCDBacklight(SCOM_Channel_t channel, bool on);
@@ -201,7 +216,7 @@ inline void SCOM_sendLCDBacklight(SCOM_Channel_t channel, bool on);
 /**
  * Adds a PIR message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  */
 inline void SCOM_sendPIR(SCOM_Channel_t channel);
 #endif
@@ -210,7 +225,7 @@ inline void SCOM_sendPIR(SCOM_Channel_t channel);
 /**
  * Adds a MCP23017 message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param address I2C address of the MCP23017 chip.
  */
 inline void SCOM_sendMCP23017(SCOM_Channel_t channel, uint8_t address);
@@ -220,7 +235,7 @@ inline void SCOM_sendMCP23017(SCOM_Channel_t channel, uint8_t address);
 /** 
  * Adds a RGB message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param index Index of the configuration to send. Use SCOM_PARAM_ALL to send
  *              all configurations.
  */
@@ -232,7 +247,7 @@ inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index);
 /**
  * Adds a WS281x Light configuration to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param index Configuration index to send. Use SCOM_PARAM_ALL to send all
  *              configurations.
  */
@@ -241,7 +256,7 @@ inline void SCOM_sendWS281xLight(SCOM_Channel_t channel, uint8_t index);
 /**
  * Adds a WS281x LED message to the send queue.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param led LED of which to transfer the configuration. Use SCOM_PARAM_ALL to
  *            send all LED configurations of the whole strip.
  */
@@ -271,7 +286,7 @@ void SCOM_setNextMessageHandler(SCOM_Channel_t channel, SCOM_NextMessageHandler_
 /**
  * Enqueues transmission type with possible parameter.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param what Definition what to transmit.
  * @param param Possible parameter.
  */
@@ -280,8 +295,8 @@ void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param);
 /**
  * Called when a BT message was sent. 
  *
- * This method is supposed to determine it there is somehing to be send to the
- * connected bluetooth device and send it.
+ * This method is supposed to determine it there is something to be send to the
+ * connected device and send it.
  * 
  * It implement sending messages enqueued with the SCOM_enqueue function. 
  * Known message types, e.g., settings, dht11, pir, mcp23017, rgb, ws281x,
@@ -289,6 +304,8 @@ void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param);
  * 
  * All non-recognized message types should be send by a SCOM_NextMessageHandler_t
  * handler optionally set by the  SCOM_setNextMessageHandler function.
+ * 
+ * @param channel Channel to use.
  */
 void SCOM_messageSentHandler(SCOM_Channel_t channel);
 
@@ -303,7 +320,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel);
  * Non-recognized message are ignored here and another BM78 Transparent Data
  * Handler should be implemented in an appropriate module to handle those.
  * 
- * @param channel Channel to send the message over.
+ * @param channel Channel to use.
  * @param length Transparent data length.
  * @param data Transparent data.
  */

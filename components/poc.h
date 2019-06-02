@@ -1,6 +1,8 @@
 /* 
  * File:   poc.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
+ * 
+ * Proof-of-Concept functions.
  */
 #ifndef POC_H
 #define	POC_H

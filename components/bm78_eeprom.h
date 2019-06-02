@@ -2,10 +2,7 @@
  * File:   bm78_eeprom.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  * 
- * BM78 EEPROM component.
- * 
- * A component must include configuration and can additionally include modules,
- * libs, but no components.
+ * BM78 EEPROM component responsible for flashing the BM78 module.
  */
 #ifndef BM78_EEPROM_H
 #define	BM78_EEPROM_H

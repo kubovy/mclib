@@ -1,8 +1,9 @@
 /* 
  * File:   mcp22xx.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
+ * 
+ * MCP2200/MCP2221 USB bridge module.
  */
-
 #ifndef MCP22XX_H
 #define	MCP22XX_H
 
@@ -25,8 +26,6 @@ typedef enum {
 } MCP22xx_EventState_t;
     
 void MCP22xx_initialize(UART_Connection_t uart, DataHandler_t dataHandler);
-
-void MCP22xx_execute(uint8_t length, ...);
 
 void MCP22xx_send(uint8_t length, uint8_t *data);
 

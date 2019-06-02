@@ -2,8 +2,7 @@
  * File:   setup_mode.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  * 
- * A component must include configuration and can additionally include modules,
- * libs, but no components.
+ * The setup mode using LCD, keypad and/or IOs.
  */
 #ifndef SETUP_MODE_H
 #define	SETUP_MODE_H

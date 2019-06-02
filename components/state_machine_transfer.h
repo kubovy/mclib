@@ -2,8 +2,7 @@
  * File:   state_machine_transfer.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  * 
- * A component must include configuration and can additionally include modules,
- * libs, but no components.
+ * State machine transfer component.
  */
 #ifndef STATE_MACHINE_TRANSFER_H
 #define	STATE_MACHINE_TRANSFER_H

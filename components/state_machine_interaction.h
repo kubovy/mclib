@@ -2,8 +2,7 @@
  * File:   state_machine_interaction.h
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  * 
- * A component must include configuration and can additionally include modules,
- * libs, but no components.
+ * State machine interactions.
  */
 #ifndef STATE_MACHINE_INTERACTION_H
 #define	STATE_MACHINE_INTERACTION_H
