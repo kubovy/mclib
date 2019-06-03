@@ -18,8 +18,14 @@ extern "C" {
 
 #include "i2c.h"
 
+#ifndef MCP23017_START_ADDRESS
+#warning "MCP23017: Start address set to 0x20"
 #define MCP23017_START_ADDRESS 0x20
+#endif
+#ifndef MCP23017_END_ADDRESS
+#warning "MCP23017: End address set to 0x27"
 #define MCP23017_END_ADDRESS 0x27
+#endif
 
 typedef enum {
     MCP23017_PORTA = 0x00,

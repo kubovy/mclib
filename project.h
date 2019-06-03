@@ -71,6 +71,7 @@ extern "C" {
 
 // Components
 #ifdef BM78_ENABLED
+#include "components/bm78_eeprom.h"
 #include "components/bm78_pairing.h"
 //#include "components/bm78_communication.h"
 #endif

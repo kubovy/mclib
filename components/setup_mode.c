@@ -25,7 +25,8 @@ union {
         bool showKeypad    :1;
         bool showBtErrors  :1;
     };
-} sw = {false, RGB_PATTERN_OFF, false, WS281x_LIGHT_OFF, true, false, false};
+//             RGB_PATTERN_OFF        WS281x_LIGHT_OFF
+} sw = {false, 0x00,           false, 0x00,            true, false, false};
 
 struct {
     uint8_t id;
@@ -1508,7 +1509,8 @@ void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
                 case BM78_ISSC_OCF_READ:
                     if (SUM_setupPage == SUM_MENU_BT_CONFIG_VIEWER) {
                         SUM_mem.reg = response.ISSC_ReadEvent.address;
-                        POC_displayData(SUM_mem.reg, response.ISSC_ReadEvent.data_length, data);
+                        POC_displayData(response.ISSC_ReadEvent.address,
+                                response.ISSC_ReadEvent.data_length, data);
                     }
                     break;
                 default:

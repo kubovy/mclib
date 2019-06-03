@@ -28,26 +28,26 @@ struct {
  * be aborted.
  */
 void SMT_transmitNextBlock(void) {
-    if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !BM78_awatingConfirmation()) {
-        if (smTX.length > 0 && SCOM_isChecksumCorrect()) {
+    if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !SCOM_awatingConfirmation(SCOM_CHANNEL_BT)) {
+        if (smTX.length > 0 && SCOM_isChecksumCorrect(SCOM_CHANNEL_BT)) {
             // 32 = CRC(1) + reserve(1)  + MSGTYPE(1) + LEN(2) + ADR(2) + DATA(25)
             smTX.address = smTX.address + (SMT_BLOCK_SIZE - 7);
         }
 
         if (smTX.length > 0 && smTX.address < smTX.length) {
-            BM78_addDataByte(0, MESSAGE_KIND_SM_PUSH);
-            BM78_addDataByte2(1, smTX.length);
-            BM78_addDataByte2(3, smTX.address);
+            SCOM_addDataByte(SCOM_CHANNEL_BT, 0, MESSAGE_KIND_SM_PUSH);
+            SCOM_addDataByte2(SCOM_CHANNEL_BT, 1, smTX.length);
+            SCOM_addDataByte2(SCOM_CHANNEL_BT, 3, smTX.address);
 
             for (uint8_t i = 0; i < SMT_BLOCK_SIZE - 7; i++) { // 32 = 25 + 5 + 2
                 if ((smTX.address + i) < smTX.length) {
-                    BM78_addDataByte(i + 5,
+                    SCOM_addDataByte(SCOM_CHANNEL_BT, i + 5,
                             I2C_readRegister16(SM_MEM_ADDRESS, smTX.address + i));
                 }
             }
             
             // MSGTYPE(1) + LEN(2) + ADR(2)
-            BM78_commitData(5 + min(smTX.address + SMT_BLOCK_SIZE - 7, smTX.length), BM78_MAX_SEND_RETRIES);
+            SCOM_commitData(SCOM_CHANNEL_BT, 5 + min(smTX.address + SMT_BLOCK_SIZE - 7, smTX.length), BM78_MAX_SEND_RETRIES);
 #ifdef LCD_ADDRESS
             printProgress("    Downloading     ", smTX.address + SMT_BLOCK_SIZE - 7, smTX.length);
 #endif
@@ -172,7 +172,7 @@ bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t pa
             case MESSAGE_KIND_SM_PUSH:
                 smTX.address = 0;
                 smTX.length = SM_dataLength();
-                SCOM_resetChecksum();
+                SCOM_resetChecksum(SCOM_CHANNEL_BT);
                 SMT_transmitNextBlock();
                 return smTX.length == 0; // Consume if nothing to send.
                 break;

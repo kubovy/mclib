@@ -18,9 +18,10 @@ Procedure_t SMI_BluetoothTrigger;
 void SMI_enterState(uint8_t stateId) {
     if (!SM_enter(stateId)) {
 #ifdef LCD_ADDRESS
-        LCD_clear();
-        LCD_setString(" No State Machine!  ", 1, true);
-        LCD_setString(" Please upload one. ", 2, true);
+        LCD_clearCache();
+        LCD_setString(" No State Machine!  ", 1, false);
+        LCD_setString(" Please upload one. ", 2, false);
+        LCD_displayCache();
 #endif
     }
 }
@@ -111,7 +112,7 @@ void SMI_evaluatedHandler(void) {
     if (SMI_lcd.available) {
         SMI_lcd.available = false;
 #ifdef LCD_ADDRESS
-        LCD_clear();
+        LCD_clearCache();
         LCD_setBacklight(true);
         LCD_setString(SMI_lcd.content, 0, true);
 #endif
@@ -126,7 +127,7 @@ void SMI_errorHandler(uint8_t error) {
     switch (error) {
         case SM_ERROR_LOOP:
 #ifdef LCD_ADDRESS
-            LCD_clear();
+            LCD_clearCache();
             LCD_setString("       ERROR        ", 0, true);
             LCD_setString("   Loop Detected!   ", 1, true);
             LCD_setString("  Execution Halted  ", 3, true);
