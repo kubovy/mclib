@@ -16,7 +16,6 @@ struct {
 
 UART_Connection_t MCP22xx_uart;
 MCP22xx_EventState_t MCP22xx_state = MCP22xx_STATE_IDLE;
-
 DataHandler_t MCP22xx_dataHandler;
 
 
@@ -51,7 +50,7 @@ void MCP22xx_processByte(uint8_t byte) {
                 MCP22xx_state = MCP22xx_EVENT_STATE_LENGTH_HIGH;
                 MCP22xx_rx.length = 0;
                 MCP22xx_rx.checksum = 0x00;
-            }
+            } 
             break;
         case MCP22xx_EVENT_STATE_LENGTH_HIGH:
             if (byte > 0) MCP22xx_state = MCP22xx_STATE_IDLE;

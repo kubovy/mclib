@@ -16,7 +16,7 @@ extern "C" {
 #if defined MCP2200_ENABLED || defined MCP2221_ENABLED
 
 #include "uart.h"
-    
+
 // Single event states
 typedef enum {
     MCP22xx_STATE_IDLE = 0x00,
@@ -24,7 +24,7 @@ typedef enum {
     MCP22xx_EVENT_STATE_LENGTH_LOW = 0x02,
     MCP22xx_EVENT_STATE_ADDITIONAL = 0x03,
 } MCP22xx_EventState_t;
-    
+
 void MCP22xx_initialize(UART_Connection_t uart, DataHandler_t dataHandler);
 
 void MCP22xx_send(uint8_t length, uint8_t *data);

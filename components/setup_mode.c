@@ -109,7 +109,7 @@ void SUM_displayHWAddress(uint8_t index, uint8_t line, uint8_t start) {
 
 #ifdef MCP23017_ENABLED
 void SUM_mcpChanged(uint8_t address) {
-    if (SUM_mode && SUM_setupPage == SUM_MENU_TEST_MCP23017_IN) {
+    if (SUM_mode && SUM_setupPage == SUM_MENU_MCP_23017_IN) {
         SUM_mcpTest.addr = address;
         POC_testMCP23017Input(SUM_mcpTest.addr);
     }
@@ -126,17 +126,19 @@ void SUM_showMenu(uint8_t page) {
 //            LCD_setString("          C) Confirm", 3, true);
 //            break;
         case SUM_MENU_MAIN: // Main Menu
-#ifdef BM78_ENABLED
-            LCD_setString("1) Bluetooth", 0, false);
-#else
-            LCD_setString("-) Bluetooth", 0, false);
+#if defined BM78_ENABLED && (defined MCP2200_ENABLED || defined MCP2221_ENABLED || defined MCP23017_ENABLED)
+            LCD_setString("1) Bluetooth  MCP (2", 0, false);
+#elif defined BM78_ENABLED
+            LCD_setString("1) Bluetooth  MCP (-", 0, false);
+#elif defined MCP2200_ENABLED || defined MCP2221_ENABLED || defined MCP23017_ENABLED
+            LCD_setString("-) Bluetooth  MCP (2", 0, false);
 #endif
 #if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
-            LCD_setString("2) Memory", 1, false);
+            LCD_setString("3) Memory   Tests (4", 1, false);
 #else
-            LCD_setString("-) Memory", 1, false);
+            LCD_setString("-) Memory   Tests (4", 1, false);
 #endif
-            LCD_setString("3) Tests", 2, false);
+            LCD_setString("                    ", 2, false);
             LCD_setString("             Exit (D", 3, false);
             break;
 #ifdef BM78_ENABLED
@@ -253,9 +255,75 @@ void SUM_showMenu(uint8_t page) {
         case SUM_MENU_BT_SHOW_MAC_ADDRESS:
             LCD_setString("  Bluetooth's MAC   ", 0, false);
             LCD_setString("        ...         ", 1, false);
-            LCD_setString("   (please wait)    ", 1, false);
+            LCD_setString("   (please wait)    ", 2, false);
             LCD_setString("B) Back   Refresh (1", 3, false);
             break;
+#endif
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED || defined MCP23017_ENABLED
+        case SUM_MENU_MCP_MAIN:
+            LCD_setString("-) MCP2200/2221(A)  ", 0, false);
+            LCD_setString("2) MCP23017         ", 1, false);
+            LCD_setString("                    ", 2, false);
+            LCD_setString("B) Back             ", 3, false);
+            break;
+#ifdef MCP23017_ENABLED
+        case SUM_MENU_MCP_23017_MAIN:
+            LCD_setString("1) Input   Output (2", 0, false);
+            LCD_setString("                    ", 1, false);
+            LCD_setString("                    ", 2, false);
+            LCD_setString("B) Back             ", 3, false);
+            break;
+        case SUM_MENU_MCP_23017_IN:
+            POC_testMCP23017Input(SUM_mcpTest.addr);
+            LCD_setString("B) Back      Next (C", 3, false);
+            break;
+        case SUM_MENU_MCP_23017_OUT:
+            if (SUM_mcpTest.addr == 0) {
+#if MCP23017_START_ADDRESS == 0x20 && MCP23017_END_ADDRESS >= 0x24
+                LCD_setString("0) 0x20      0x24 (4", 0, false);
+#elif MCP23017_START_ADDRESS == 0x20 && MCP23017_END_ADDRESS >= 0x20
+                LCD_setString("0) 0x20      0x24 (-", 0, false);
+#elif MCP23017_START_ADDRESS <= 0x24 && MCP23017_END_ADDRESS >= 0x24
+                LCD_setString("-) 0x20      0x24 (4", 0, false);
+#else
+                LCD_setString("-) 0x20      0x24 (-", 0, false);
+#endif
+#if MCP23017_START_ADDRESS <= 0x21 && MCP23017_END_ADDRESS >= 0x25
+                LCD_setString("1) 0x21      0x25 (5", 1, false);
+#elif MCP23017_START_ADDRESS <= 0x21 && MCP23017_END_ADDRESS >= 0x21
+                LCD_setString("1) 0x21      0x25 (-", 1, false);
+#elif MCP23017_START_ADDRESS <= 0x25 && MCP23017_END_ADDRESS >= 0x25
+                LCD_setString("-) 0x21      0x25 (5", 1, false);
+#else
+                LCD_setString("-) 0x21      0x25 (-", 1, false);
+#endif
+#if MCP23017_START_ADDRESS <= 0x22 && MCP23017_END_ADDRESS >= 0x26
+                LCD_setString("2) 0x22      0x26 (6", 2, false);
+#elif MCP23017_START_ADDRESS <= 0x22 && MCP23017_END_ADDRESS >= 0x22
+                LCD_setString("2) 0x22      0x26 (-", 2, false);
+#elif MCP23017_START_ADDRESS <= 0x26 && MCP23017_END_ADDRESS >= 0x26
+                LCD_setString("-) 0x22      0x26 (6", 2, false);
+#else
+                LCD_setString("-) 0x22      0x26 (-", 2, false);
+#endif
+#if MCP23017_START_ADDRESS <= 0x23 && MCP23017_END_ADDRESS >= 0x27
+                LCD_setString("3) 0x23      0x27 (7", 3, false);
+#elif MCP23017_START_ADDRESS <= 0x23 && MCP23017_END_ADDRESS >= 0x23
+                LCD_setString("3) 0x23      0x27 (-", 3, false);
+#elif MCP23017_START_ADDRESS <= 0x27 && MCP23017_END_ADDRESS >= 0x27
+                LCD_setString("-) 0x23      0x27 (7", 3, false);
+#else
+                LCD_setString("-) 0x23      0x27 (-", 3, false);
+#endif
+            } else if (SUM_mcpTest.port == 0xFF) {
+                LCD_setString("A) Port A           ", 0, false);
+                LCD_setString("B) Port B           ", 1, false);
+            } else {
+                POC_testMCP23017Output(SUM_mcpTest.addr, SUM_mcpTest.port);
+                LCD_setString("B) Back    Repeat (C", 3, false);
+            }
+            break;
+#endif
 #endif
 #if defined MEM_ADDRESS || MEM_INTERNAL_SIZE
         case SUM_MENU_MEM_MAIN: // Memory Menu
@@ -302,19 +370,7 @@ void SUM_showMenu(uint8_t page) {
             LCD_replaceChar(sw.lcdBacklight ? 'X' : ' ', 18, 1, false);
             LCD_setString("B) Back      Next (C", 3, false);
             break;
-        case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
-#ifdef MCP23017_ENABLED
-            LCD_setString("1) MCP23017 IN Test ", 0, false);
-            LCD_setString("2) MCP23017 OUT Test", 1, false);
-#else
-            LCD_setString("-) MCP23017 IN Test ", 0, false);
-            LCD_setString("-) MCP23017 OUT Test", 1, false);
-#endif
-            LCD_setString("3) Show Keypad   [ ]", 2, false);
-            LCD_replaceChar(sw.showKeypad ? 'X' : ' ', 18, 2, false);
-            LCD_setString("B) Back      Next (C", 3, false);
-            break;
-        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 3)
+        case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 3)
 #ifdef RGB_ENABLED
             LCD_setString("1) RGB Tests        ", 0, false);
             LCD_setString("2) RGB Demo      [ ]", 1, false);
@@ -325,7 +381,7 @@ void SUM_showMenu(uint8_t page) {
 #endif
             LCD_setString("B) Back      Next (C", 3, false);
             break;
-        case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
+        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 4)
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
             LCD_setString("1) WS281x Tests     ", 0, false);
             LCD_setString("2) WS281x Demo   [ ]", 1, false);
@@ -406,26 +462,6 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back   Refresh (C", 3, false);
             break;
 #endif
-#ifdef MCP23017_ENABLED
-        case SUM_MENU_TEST_MCP23017_IN:
-            POC_testMCP23017Input(SUM_mcpTest.addr);
-            LCD_setString("B) Back      Next (C", 3, false);
-            break;
-        case SUM_MENU_TEST_MCP23017_OUT:
-            if (SUM_mcpTest.addr == 0) {
-                LCD_setString("0) 0x20      0x24 (4", 0, false);
-                LCD_setString("1) 0x21      0x25 (5", 1, false);
-                LCD_setString("2) 0x22      0x26 (6", 2, false);
-                LCD_setString("3) 0x23      0x27 (7", 3, false);
-            } else if (SUM_mcpTest.port == 0xFF) {
-                LCD_setString("A) Port A           ", 0, false);
-                LCD_setString("B) Port B           ", 1, false);
-            } else {
-                POC_testMCP23017Output(SUM_mcpTest.addr, SUM_mcpTest.port);
-                LCD_setString("B) Back    Repeat (C", 3, false);
-            }
-            break;
-#endif
         case SUM_MENU_UNKNOWN:
             // Nothing to do see SUM_processKey
             break;
@@ -469,12 +505,17 @@ void SUM_executeMenu(uint8_t key) {
                     BM78_execute(BM78_CMD_READ_STATUS, 0);
                     break;
 #endif
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED || defined MCP23017_ENABLED
+                case '2':
+                    SUM_showMenu(SUM_MENU_MCP_MAIN);
+                    break;
+#endif
 #if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
-                case '2': // Goto Memory Menu
+                case '3': // Goto Memory Menu
                     SUM_showMenu(SUM_MENU_MEM_MAIN);
                     break;
 #endif
-                case '3': // Goto Tests Menu (Page 1)
+                case '4': // Goto Tests Menu (Page 1)
                     SUM_showMenu(SUM_MENU_TEST_PAGE_1);
                     break;
                 case 'D': // Exit
@@ -852,6 +893,119 @@ void SUM_executeMenu(uint8_t key) {
             }
             break;
 #endif
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED || defined MCP23017_ENABLED
+        case SUM_MENU_MCP_MAIN:
+            switch(key) {
+#ifdef MCP23017_ENABLED
+                case '2': // MCP23017
+                    SUM_showMenu(SUM_MENU_MCP_23017_MAIN);
+                    break;
+#endif
+                case 'B':
+                    SUM_showMenu(SUM_MENU_MAIN);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+#ifdef MCP23017_ENABLED
+        case SUM_MENU_MCP_23017_MAIN:
+            switch(key) {
+                case '1': // MCP23017 Input Test
+                    SUM_mcpTest.addr = MCP23017_START_ADDRESS;
+                    SUM_showMenu(SUM_MENU_MCP_23017_IN);
+                    break;
+                case '2': // MCP23017 Output Test
+                    SUM_mcpTest.addr = 0x00;
+                    SUM_mcpTest.port = 0xFF;
+                    SUM_showMenu(SUM_MENU_MCP_23017_OUT);
+                    break;
+                case '3': // Show Keypad
+                    sw.showKeypad = !sw.showKeypad;
+                    SUM_showMenu(SUM_MENU_MCP_23017_MAIN);
+                    break;
+                case 'B':
+                    SUM_showMenu(SUM_MENU_MCP_MAIN);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_MCP_23017_IN:
+            switch(key) {
+                case 'A': // Abort
+                    SUM_showMenu(SUM_MENU_MCP_23017_MAIN);
+                    break;
+                case 'B': // Back
+                    if (SUM_mcpTest.addr == MCP23017_START_ADDRESS) {
+                        SUM_showMenu(SUM_MENU_MCP_23017_MAIN);
+                    } else {
+                        SUM_mcpTest.addr--;
+                        SUM_showMenu(SUM_MENU_MCP_23017_IN);
+                    }
+                    break;
+                case 'C': // Next
+                    SUM_mcpTest.addr = SUM_mcpTest.addr == MCP23017_END_ADDRESS 
+                            ? MCP23017_START_ADDRESS : SUM_mcpTest.addr + 1;
+                    SUM_showMenu(SUM_MENU_MCP_23017_IN);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_MCP_23017_OUT:
+            switch (key) {
+#if MCP2317_START_ADDRESS <= 0x20 && MCP23017_END_ADDRESS >= 0x20
+                case '0':
+#endif
+#if MCP2317_START_ADDRESS <= 0x21 && MCP23017_END_ADDRESS >= 0x21
+                case '1':
+#endif
+#if MCP2317_START_ADDRESS <= 0x22 && MCP23017_END_ADDRESS >= 0x22
+                case '2':
+#endif
+#if MCP2317_START_ADDRESS <= 0x23 && MCP23017_END_ADDRESS >= 0x23
+                case '3':
+#endif
+#if MCP2317_START_ADDRESS <= 0x24 && MCP23017_END_ADDRESS >= 0x24
+                case '4':
+#endif
+#if MCP2317_START_ADDRESS <= 0x25 && MCP23017_END_ADDRESS >= 0x25
+                case '5':
+#endif
+#if MCP2317_START_ADDRESS <= 0x26 && MCP23017_END_ADDRESS >= 0x26
+                case '6':
+#endif
+#if MCP2317_START_ADDRESS <= 0x27 && MCP23017_END_ADDRESS >= 0x27
+                case '7':
+#endif
+                    if (SUM_mcpTest.addr == 0) SUM_mcpTest.addr = MCP23017_START_ADDRESS + (key - '0');
+                    SUM_showMenu(SUM_MENU_MCP_23017_OUT);
+                    break;
+                case 'A':
+                case 'B':
+                    if (SUM_mcpTest.addr >= MCP23017_START_ADDRESS && SUM_mcpTest.port == 0xFF) {
+                        SUM_mcpTest.port = MCP23017_PORTA + (key - 'A');
+                        SUM_showMenu(SUM_MENU_MCP_23017_OUT);
+                    } else {
+                        SUM_showMenu(SUM_MENU_MCP_23017_MAIN);
+                    }
+                    break;
+                case 'C':
+                    if (SUM_mcpTest.addr >= MCP23017_START_ADDRESS && SUM_mcpTest.port != 0xFF) {
+                        SUM_showMenu(SUM_MENU_MCP_23017_OUT);
+                    }
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+#endif
+#endif
 #if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
         case SUM_MENU_MEM_MAIN: // Memory Menu
             switch(key) {
@@ -1009,22 +1163,17 @@ void SUM_executeMenu(uint8_t key) {
             }
             break;
         case SUM_MENU_TEST_PAGE_3: // Tests Menu (Page 2)
-            switch (key) {
-#ifdef MCP23017_ENABLED
-                case '1': // MCP23017 Input Test
-                    SUM_mcpTest.addr = MCP23017_START_ADDRESS;
-                    SUM_showMenu(SUM_MENU_TEST_MCP23017_IN);
+            switch(key) {
+#ifdef RGB_ENABLED
+                case '1': // RGB Tests
+                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
                     break;
-                case '2': // MCP23017 Output Test
-                    SUM_mcpTest.addr = 0x00;
-                    SUM_mcpTest.port = 0xFF;
-                    SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
-                    break;
-#endif
-                case '3': // Show Keypad
-                    sw.showKeypad = !sw.showKeypad;
+                case '2': // RGB Demo
+                    sw.rgbDemo = !sw.rgbDemo;
+                    POC_testRGB(sw.rgbDemo ? 0xFF : RGB_PATTERN_OFF);
                     SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     break;
+#endif
                 case 'B': // Back
                     SUM_showMenu(SUM_MENU_TEST_PAGE_2);
                     break;
@@ -1036,30 +1185,7 @@ void SUM_executeMenu(uint8_t key) {
                     break;
             }
             break;
-        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 3)
-            switch(key) {
-#ifdef RGB_ENABLED
-                case '1': // RGB Tests
-                    SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
-                    break;
-                case '2': // RGB Demo
-                    sw.rgbDemo = !sw.rgbDemo;
-                    POC_testRGB(sw.rgbDemo ? 0xFF : RGB_PATTERN_OFF);
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
-                    break;
-#endif
-                case 'B': // Back
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_3);
-                    break;
-                case 'C': // Next
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
-                    break;
-                default:
-                    SUM_defaultFunction(key);
-                    break;
-            }
-            break;
-        case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
+        case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 4)
             switch(key) {
 #ifdef WS281x_BUFFER
                 case '1': // WS281x Test
@@ -1067,7 +1193,7 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
 #else
                     POC_testWS281x();
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
 #endif
                     break;
                 case '2': // WS281x Demo
@@ -1079,11 +1205,11 @@ void SUM_executeMenu(uint8_t key) {
                     if (sw.ws281xDemo) POC_demoWS281x();
                     else WS281x_off();
 #endif
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
                     break;
 #endif
                 case 'B': // Back
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     break;
                 default:
                     SUM_defaultFunction(key);
@@ -1106,7 +1232,7 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_1);
                     break;
                 case 'B':
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_3);
                     break;
                 case 'C':
                     SUM_showMenu(SUM_MENU_TEST_RGB_PAGE_2);
@@ -1151,7 +1277,7 @@ void SUM_executeMenu(uint8_t key) {
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
                     break;
                 case 'B':
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
                     break;
                 case 'C':
                     SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_2);
@@ -1238,63 +1364,6 @@ void SUM_executeMenu(uint8_t key) {
                     break;
                 case 'C': // Refresh
                     SUM_showMenu(SUM_MENU_TEST_DHT11);
-                    break;
-                default:
-                    SUM_defaultFunction(key);
-                    break;
-            }
-            break;
-#endif
-#ifdef MCP23017_ENABLED
-        case SUM_MENU_TEST_MCP23017_IN:
-            switch (key) {
-                case 'A': // Abort
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_3);
-                    break;
-                case 'B': // Back
-                    if (SUM_mcpTest.addr == 0) {
-                        SUM_showMenu(SUM_MENU_TEST_PAGE_3);
-                    } else {
-                        SUM_mcpTest.addr--;
-                        SUM_showMenu(SUM_MENU_TEST_MCP23017_IN);
-                    }
-                    break;
-                case 'C': // Next
-                    SUM_mcpTest.addr = SUM_mcpTest.addr == (MCP23017_END_ADDRESS - MCP23017_START_ADDRESS) 
-                            ? 0 : SUM_mcpTest.addr + 1;
-                    SUM_showMenu(SUM_MENU_TEST_MCP23017_IN);
-                    break;
-                default:
-                    SUM_defaultFunction(key);
-                    break;
-            }
-            break;
-        case SUM_MENU_TEST_MCP23017_OUT:
-            switch (key) {
-                case '0':
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                    if (SUM_mcpTest.addr == 0) SUM_mcpTest.addr = MCP23017_START_ADDRESS + (key - '0');
-                    SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
-                    break;
-                case 'A':
-                case 'B':
-                    if (SUM_mcpTest.addr >= MCP23017_START_ADDRESS && SUM_mcpTest.port == 0xFF) {
-                        SUM_mcpTest.port = MCP23017_PORTA + (key - 'A');
-                        SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
-                    } else {
-                        SUM_showMenu(SUM_MENU_TEST_PAGE_3);
-                    }
-                    break;
-                case 'C':
-                    if (SUM_mcpTest.addr >= MCP23017_START_ADDRESS && SUM_mcpTest.port != 0xFF) {
-                        SUM_showMenu(SUM_MENU_TEST_MCP23017_OUT);
-                    }
                     break;
                 default:
                     SUM_defaultFunction(key);

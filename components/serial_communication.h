@@ -175,16 +175,6 @@ bool SCOM_commitData(SCOM_Channel_t channel, uint8_t length, uint8_t maxRetries)
  */
 void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, uint8_t maxRetries);
 
-#ifdef BM78_ENABLED
-/**
- * Adds a settings message to the send queue. 
- * 
- * @param channel Channel to use.
- * @param channel Channel to send the message over.
- */
-inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel);
-#endif
-
 #ifdef DHT11_PORT
 /**
  * Adds a DHT11 message to the send queue.
@@ -264,6 +254,25 @@ inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led);
 #endif
 #endif
 
+#ifdef BM78_ENABLED
+/**
+ * Adds a bluetooth settings message to the send queue. 
+ * 
+ * @param channel Channel to use.
+ * @param channel Channel to send the message over.
+ */
+inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel);
+
+/**
+ * Add a bluetooth EEPROM download message to the send queue.
+ * 
+ * @param channel Channel to use.
+ * @param start Start address.
+ * @param length Data length.
+ */
+inline void SCOM_sendBluetoothEEPROM(SCOM_Channel_t channel, uint16_t start, uint16_t length);
+#endif
+
 /**
  * Next message handler setter. This handler should implement sending a 
  * particular message.
@@ -326,6 +335,15 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel);
  */
 void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
 
+/**
+ * BM78's test mode response handler for dealing with BM78's EEPROM.
+ * 
+ * This needs to be add to the BM78's test response handlers.
+ * 
+ * @param response The response.
+ * @param data Additional data.
+ */
+void SCOM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data);
 #endif
 
 #ifdef	__cplusplus

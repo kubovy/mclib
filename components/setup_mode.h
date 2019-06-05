@@ -24,6 +24,9 @@ extern "C" {
 #ifdef LCD_ADDRESS
 #include "../modules/lcd.h"
 #endif
+#if defined MCP2221_ENABLED || defined MCP23017_ENABLED
+#include "../modules/mcp22xx.h"
+#endif
 #ifdef MCP23017_ENABLED
 #include "../modules/mcp23017.h"
 #endif
@@ -63,6 +66,15 @@ typedef enum {
     SUM_MENU_BT_SHOW_MAC_ADDRESS = 0x1F,
 #endif
 
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED || defined MCP23017_ENABLED
+    SUM_MENU_MCP_MAIN = 0x20,
+#ifdef MCP23017_ENABLED
+    SUM_MENU_MCP_23017_MAIN = 0x25,
+    SUM_MENU_MCP_23017_IN = 0x26,
+    SUM_MENU_MCP_23017_OUT = 0x27,
+#endif
+#endif
+
 #if defined MEM_ADDRESS || defined MEM_INTERNAL_SIZE
     SUM_MENU_MEM_MAIN = 0x30,
     SUM_MENU_MEM_VIEWER_INTRO = 0x31,
@@ -73,7 +85,6 @@ typedef enum {
     SUM_MENU_TEST_PAGE_2 = 0x41,
     SUM_MENU_TEST_PAGE_3 = 0x42,
     SUM_MENU_TEST_PAGE_4 = 0x43,
-    SUM_MENU_TEST_PAGE_5 = 0x44,
 
 #ifdef RGB_ENABLED
     SUM_MENU_TEST_RGB_PAGE_1 = 0x50,
@@ -89,11 +100,6 @@ typedef enum {
 
 #ifdef DHT11_PORT
     SUM_MENU_TEST_DHT11 = 0x70,
-#endif
-
-#ifdef MCP23017_ENABLED
-    SUM_MENU_TEST_MCP23017_IN = 0x81,
-    SUM_MENU_TEST_MCP23017_OUT = 0x82,
 #endif
 
     SUM_MENU_UNKNOWN = 0xFF

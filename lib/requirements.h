@@ -21,16 +21,20 @@ extern "C" {
 
 #include "../../config.h"
 
-#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
-#define USB_ENABLED
-#endif
-    
 #if defined BM78_ENABLED || defined USB_ENABLED
 #define SCOM_ENABLED
 #endif
 
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
+#define USB_ENABLED
+#endif
+    
 #if (defined MCP23017_ENABLED || defined LCD_ENABLED) && !defined I2C_ENABLED
 #define I2C_ENABLED
+#endif
+
+#if defined TESTER_ADDRESS && !defined TESTER_PORT
+#define TESTER_PORT MCP23017_PORTA
 #endif
 
 #ifndef RGB_DISABLE
@@ -76,7 +80,6 @@ typedef enum {
     MESSAGE_KIND_CRC = 0x00,
     MESSAGE_KIND_IDD = 0x01,
     MESSAGE_KIND_PLAIN = 0x02,
-    MESSAGE_KIND_BT_SETTINGS = 0x03,
     MESSAGE_KIND_IO = 0x10,
 #ifdef DHT11_PORT
     MESSAGE_KIND_DHT11 = 0x11,
@@ -98,6 +101,10 @@ typedef enum {
     MESSAGE_KIND_WS281x = 0x16,
 #endif
 #endif
+#ifdef BM78_ENABLED
+    MESSAGE_KIND_BT_SETTINGS = 0x20,
+    MESSAGE_KIND_BT_EEPROM = 0x21,
+#endif
 #ifdef SM_MEM_ADDRESS
     MESSAGE_KIND_SM_CONFIGURATION = 0x80,
     MESSAGE_KIND_SM_PULL = 0x81,
@@ -107,7 +114,7 @@ typedef enum {
     MESSAGE_KIND_SM_ACTION = 0x85,
 #endif
     MESSAGE_KIND_DEBUG = 0xFE,
-    MESSAGE_KIND_UNKNOWN = 0xFF    
+    MESSAGE_KIND_NONE = 0xFF    
 } MessageKind_t;
 
 #ifdef	__cplusplus

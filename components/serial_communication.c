@@ -22,11 +22,20 @@ SCOM_TX_t SCOM_tx[SCOM_CHANNEL_COUNT]; // = {0, 0x00, 0xFF, 0, 0xFF};
  * connection ends for whatever reason. 
  */
 typedef struct {
-    uint8_t index;                        // Sent index.
-    uint8_t tail;                         // Tail index.
+    uint8_t index;                  // Sent index.
+    uint8_t tail;                   // Tail index.
     uint8_t queue[SCOM_QUEUE_SIZE]; // Transmission message type queue.
-    uint8_t param[SCOM_QUEUE_SIZE];       // Possible parameters to the queue items.
+    uint8_t param[SCOM_QUEUE_SIZE]; // Possible parameters to the queue items.
 } SCOM_Queue_t;
+
+#ifdef BM78_ENABLED
+struct {
+    uint8_t stage;
+    SCOM_Channel_t channel;
+    uint16_t start;
+    uint16_t end;
+} SCOM_BM78eeprom = { 0x00, 0x0000, 0x0000 };
+#endif
 
 SCOM_Queue_t SCOM_queue[SCOM_CHANNEL_COUNT]; // = {0, 0};
 
@@ -77,7 +86,7 @@ inline bool SCOM_canSend(SCOM_Channel_t channel) {
 }
 
 void SCOM_retryTrigger(void) {
-    for (uint8_t channel = 0; channel < SCOM_CHANNEL_COUNT; channel++) {
+    for (SCOM_Channel_t channel = 0; channel < SCOM_CHANNEL_COUNT; channel++) {
         if (!SCOM_canEnqueue(channel)) {
             SCOM_cancelTransmission(channel);
         }
@@ -175,14 +184,6 @@ void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, ui
     }
 }
 
-#ifdef BM78_ENABLED
-inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel) {
-    if (SCOM_canEnqueue(channel)) {
-        SCOM_enqueue(channel, MESSAGE_KIND_BT_SETTINGS, 0);
-    }
-}
-#endif
-
 #ifdef DHT11_PORT
 inline void SCOM_sendDHT11(SCOM_Channel_t channel) {
     if (SCOM_canEnqueue(channel)) {
@@ -244,11 +245,31 @@ inline void SCOM_sendWS281xLight(SCOM_Channel_t channel, uint8_t index) {
 #else
 inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led) {
     if (SCOM_canEnqueue(channel) 
-            && (led &  < SCOM_PARAM_MASK) < WS281x_LED_COUNT) {
+            && (led & SCOM_PARAM_MASK) < WS281x_LED_COUNT) {
         SCOM_enqueue(channel, MESSAGE_KIND_WS281x, led);
     }
 }
 #endif
+#endif
+
+#ifdef BM78_ENABLED
+inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_BT_SETTINGS, 0);
+    }
+}
+
+inline void SCOM_sendBluetoothEEPROM(SCOM_Channel_t channel, uint16_t start, uint16_t length) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_BM78eeprom.stage = 0x01; // Open EEPROM
+        SCOM_BM78eeprom.channel = channel;
+        SCOM_BM78eeprom.start = start;
+        SCOM_BM78eeprom.end = start + length;
+        if (SCOM_BM78eeprom.start < SCOM_BM78eeprom.end) {
+            SCOM_enqueue(channel, MESSAGE_KIND_BT_EEPROM, 0);
+        }
+    }
+}
 #endif
 
 inline void SCOM_sendDebug(SCOM_Channel_t channel, uint8_t debug) {
@@ -283,17 +304,8 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
     if (SCOM_canSend(channel)) {
         uint8_t messageKind = SCOM_queue[channel].index != SCOM_queue[channel].tail
                 ? SCOM_queue[channel].queue[SCOM_queue[channel].index]
-                : MESSAGE_KIND_UNKNOWN;
+                : MESSAGE_KIND_NONE;
         switch (messageKind) {
-#ifdef BM78_ENABLED
-            case MESSAGE_KIND_BT_SETTINGS:
-                SCOM_addDataByte(channel, 0, MESSAGE_KIND_BT_SETTINGS);
-                SCOM_addDataByte(channel, 1, BM78.pairingMode);
-                SCOM_addDataBytes(channel, 2, 6, (uint8_t *) BM78.pin);
-                SCOM_addDataBytes(channel, 8, 16, (uint8_t *) BM78.deviceName);
-                if (SCOM_commitData(channel, 24, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
-                break;
-#endif
 #ifdef DHT11_PORT
             case MESSAGE_KIND_DHT11: 
                 result = DHT11_measure();
@@ -441,6 +453,37 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 break;
 #endif
 #endif
+#ifdef BM78_ENABLED
+            case MESSAGE_KIND_BT_SETTINGS:
+                SCOM_addDataByte(channel, 0, MESSAGE_KIND_BT_SETTINGS);
+                SCOM_addDataByte(channel, 1, BM78.pairingMode);
+                SCOM_addDataBytes(channel, 2, 6, (uint8_t *) BM78.pin);
+                SCOM_addDataBytes(channel, 8, 16, (uint8_t *) BM78.deviceName);
+                if (SCOM_commitData(channel, 24, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                break;
+            case MESSAGE_KIND_BT_EEPROM:
+                switch (SCOM_BM78eeprom.stage) {
+                    case 0x01: // Open EEPROM
+                        BM78_resetTo(BM78_MODE_TEST);
+                        BM78_openEEPROM();
+                        break;
+                    case 0x02: // Read EEPROM
+                        BM78_readEEPROM(SCOM_BM78eeprom.start, 
+                                SCOM_BM78eeprom.start + SCOM_MAX_PACKET_SIZE - 6 < SCOM_BM78eeprom.start
+                                || SCOM_BM78eeprom.start + SCOM_MAX_PACKET_SIZE - 6 >= SCOM_BM78eeprom.end
+                                ? SCOM_BM78eeprom.end - SCOM_BM78eeprom.start + 1
+                                : SCOM_MAX_PACKET_SIZE - 6);
+                        break;
+                    case 0x03: // Notify finish
+                        SCOM_addDataByte(SCOM_BM78eeprom.channel, 0, MESSAGE_KIND_BT_EEPROM);
+                        SCOM_addDataByte(SCOM_BM78eeprom.channel, 1, 0xFF);
+                        if (SCOM_commitData(channel, 2, SCOM_NO_RETRY_LIMIT)) {
+                            SCOM_queue[SCOM_BM78eeprom.channel].index++;
+                        }
+                        break;
+                }
+                break;
+#endif
             case MESSAGE_KIND_DEBUG:
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index];
                 SCOM_addDataByte(channel, 0, MESSAGE_KIND_DEBUG);
@@ -449,8 +492,11 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_queue[channel].index++;
                 }
                 break;
-            case MESSAGE_KIND_UNKNOWN:
-                // do nothing
+            case MESSAGE_KIND_NONE:
+                // Nothing to transmit
+                //SCOM_addDataByte(channel, 0, MESSAGE_KIND_IDD);
+                //SCOM_addDataByte(channel, 1, 0xAC);
+                //SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES);
                 break;
             default:
                 if (SCOM_nextMessageHandler[channel]) { // An external handler exist
@@ -507,22 +553,6 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
         case MESSAGE_KIND_IDD:
             // Do nothing, just ping.
             break;
-#ifdef BM78_ENABLED
-        case MESSAGE_KIND_BT_SETTINGS:
-            if (length == 2) SCOM_sendBluetoothSettings(channel);
-            else if (length == 25) {
-                uint8_t i;
-                BM78.pairingMode = *(data + 2);
-                for (i = 0; i < 6; i++) {
-                    BM78.pin[i] = *(data + i + 3);
-                }
-                for (i = 0; i < 16; i++) {
-                    BM78.deviceName[i] = *(data + i + 9);
-                }
-                BM78_setup(false);
-            } 
-            break;
-#endif
 #ifdef DHT11_PORT
         case MESSAGE_KIND_DHT11:
             if (length == 2) SCOM_sendDHT11(channel);
@@ -538,7 +568,8 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
             if (length == 2) SCOM_sendLCD(channel, SCOM_PARAM_ALL);
             else if (length == 3) switch (*(data + 2)) {
                 case SCOM_PARAM_LCD_CLEAR:
-                    LCD_clear();
+                    LCD_clearCache();
+                    LCD_displayCache();
                     break;
                 case SCOM_PARAM_LCD_RESET:
                     LCD_reset();
@@ -656,17 +687,49 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
             break;
 #endif
 #endif
+#ifdef BM78_ENABLED
+        case MESSAGE_KIND_BT_SETTINGS:
+            if (length == 2) SCOM_sendBluetoothSettings(channel);
+            else if (length == 25) {
+                uint8_t i;
+                BM78.pairingMode = *(data + 2);
+                for (i = 0; i < 6; i++) {
+                    BM78.pin[i] = *(data + i + 3);
+                }
+                for (i = 0; i < 16; i++) {
+                    BM78.deviceName[i] = *(data + i + 9);
+                }
+                BM78_setup(false);
+            } 
+            break;
+        case MESSAGE_KIND_BT_EEPROM:
+            if (length == 2) SCOM_sendBluetoothEEPROM(channel, 0x0000, 0x1FFF);
+            else if (length == 6) SCOM_sendBluetoothEEPROM(channel,
+                    *(data + 2) << 8 | *(data + 3),
+                    *(data + 4) << 8 | *(data + 5));
+            else if (length > 6) {
+                //  | length                       | - | start                      | == length - 6
+                if (((*(data + 4) << 8 | *(data + 5))) - ((*(data + 2) << 8) | *(data + 3)) == length - 6) {
+                    // TODO write EEPROM
+                }
+            }
+            break;
+#endif
 #ifdef LCD_ADDRESS
         case MESSAGE_KIND_PLAIN:
         case MESSAGE_KIND_DEBUG:
             LCD_clearCache();
             switch (channel) {
+#ifdef USB_ENABLED
                 case SCOM_CHANNEL_USB:
                     LCD_setString("    USB Message:    ", 0, false);
                     break;
+#endif
+#ifdef BM78_ENABLED
                 case SCOM_CHANNEL_BT:
                     LCD_setString("     BT Message:    ", 0, false);
                     break;
+#endif
             }
             LCD_setString("                    ", 2, false);
             for(uint8_t i = 2; i < length; i++) {
@@ -681,4 +744,45 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     }
 }
 
+void SCOM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
+    if (SCOM_BM78eeprom.stage > 0x00) switch (response.ISSC_Event.ogf) {
+        case BM78_ISSC_OGF_COMMAND:
+            switch (response.ISSC_Event.ocf) {
+                case BM78_ISSC_OCF_OPEN:
+                    SCOM_BM78eeprom.stage = 0x02; // Reading EEPROM
+                    BM78_readEEPROM(SCOM_BM78eeprom.start, 
+                            SCOM_BM78eeprom.start + SCOM_MAX_PACKET_SIZE - 6 < SCOM_BM78eeprom.start
+                            || SCOM_BM78eeprom.start + SCOM_MAX_PACKET_SIZE - 6 >= SCOM_BM78eeprom.end
+                            ? SCOM_BM78eeprom.end - SCOM_BM78eeprom.start + 1
+                            : SCOM_MAX_PACKET_SIZE - 6);
+                    break;
+                default:
+                    break;
+            }
+            break;
+        case BM78_ISSC_OGF_OPERATION:
+            switch (response.ISSC_Event.ocf) {
+                case BM78_ISSC_OCF_READ: // EEPROM read -> Send content
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 0, MESSAGE_KIND_BT_EEPROM);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 1, response.ISSC_ReadEvent.address >> 8);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 2, response.ISSC_ReadEvent.address & 0xFF);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 3, response.ISSC_ReadEvent.data_length >> 8);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 4, response.ISSC_ReadEvent.data_length & 0xFF);
+                    for (uint8_t i = 0; i < response.ISSC_ReadEvent.data_length; i++) {
+                        SCOM_addDataByte(SCOM_BM78eeprom.channel, i + 5, *(data + i));
+                    }
+                    if (SCOM_commitData(SCOM_BM78eeprom.channel, response.ISSC_ReadEvent.data_length + 5, SCOM_NO_RETRY_LIMIT)) {
+                        SCOM_BM78eeprom.start += SCOM_MAX_PACKET_SIZE - 6;
+                        if (SCOM_BM78eeprom.start >= SCOM_BM78eeprom.end) {
+                            SCOM_BM78eeprom.start = 0x00; // Idle
+                            SCOM_BM78eeprom.stage = 0x03; // Notify done
+                            BM78_resetTo(BM78_MODE_APP);
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+    }
+}
 #endif
