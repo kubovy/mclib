@@ -86,7 +86,7 @@ inline bool SCOM_canSend(SCOM_Channel_t channel) {
 }
 
 void SCOM_retryTrigger(void) {
-    for (SCOM_Channel_t channel = 0; channel < SCOM_CHANNEL_COUNT; channel++) {
+    for (uint8_t channel = 0; channel < SCOM_CHANNEL_COUNT; channel++) {
         if (!SCOM_canEnqueue(channel)) {
             SCOM_cancelTransmission(channel);
         }
@@ -616,7 +616,7 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
             if (length == 2) SCOM_sendRGB(channel, SCOM_PARAM_ALL);
             else if (length == 3) SCOM_sendRGB(channel, *(data + 2));
             else if (length == 11) { // set RGB
-                if (*(data + 2) == RGB_PATTERN_OFF) WS281xLight_off();
+                if (*(data + 2) == RGB_PATTERN_OFF) RGB_off();
                 else if (*(data + 2) & SCOM_PARAM_ALL) RGB_set(
                         *(data + 2) & SCOM_PARAM_MASK,         // Pattern
                         *(data + 3), *(data + 4), *(data + 5), // Color
@@ -744,10 +744,10 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     }
 }
 
-void SCOM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
-    if (SCOM_BM78eeprom.stage > 0x00) switch (response.ISSC_Event.ogf) {
+void SCOM_bm78TestModeResponseHandler(BM78_Response_t *response) {
+    if (SCOM_BM78eeprom.stage > 0x00) switch (response->ISSC_Event.ogf) {
         case BM78_ISSC_OGF_COMMAND:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_OPEN:
                     SCOM_BM78eeprom.stage = 0x02; // Reading EEPROM
                     BM78_readEEPROM(SCOM_BM78eeprom.start, 
@@ -761,17 +761,17 @@ void SCOM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
             }
             break;
         case BM78_ISSC_OGF_OPERATION:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_READ: // EEPROM read -> Send content
                     SCOM_addDataByte(SCOM_BM78eeprom.channel, 0, MESSAGE_KIND_BT_EEPROM);
-                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 1, response.ISSC_ReadEvent.address >> 8);
-                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 2, response.ISSC_ReadEvent.address & 0xFF);
-                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 3, response.ISSC_ReadEvent.data_length >> 8);
-                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 4, response.ISSC_ReadEvent.data_length & 0xFF);
-                    for (uint8_t i = 0; i < response.ISSC_ReadEvent.data_length; i++) {
-                        SCOM_addDataByte(SCOM_BM78eeprom.channel, i + 5, *(data + i));
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 1, response->ISSC_ReadEvent.address >> 8);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 2, response->ISSC_ReadEvent.address & 0xFF);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 3, response->ISSC_ReadEvent.dataLength >> 8);
+                    SCOM_addDataByte(SCOM_BM78eeprom.channel, 4, response->ISSC_ReadEvent.dataLength & 0xFF);
+                    for (uint8_t i = 0; i < response->ISSC_ReadEvent.dataLength; i++) {
+                        SCOM_addDataByte(SCOM_BM78eeprom.channel, i + 5, response->ISSC_ReadEvent.data[i]);
                     }
-                    if (SCOM_commitData(SCOM_BM78eeprom.channel, response.ISSC_ReadEvent.data_length + 5, SCOM_NO_RETRY_LIMIT)) {
+                    if (SCOM_commitData(SCOM_BM78eeprom.channel, response->ISSC_ReadEvent.dataLength + 5, SCOM_NO_RETRY_LIMIT)) {
                         SCOM_BM78eeprom.start += SCOM_MAX_PACKET_SIZE - 6;
                         if (SCOM_BM78eeprom.start >= SCOM_BM78eeprom.end) {
                             SCOM_BM78eeprom.start = 0x00; // Idle

@@ -11,6 +11,12 @@ uint16_t WS281xLight_counter = 0;
 
 WS281xLight_t WS281xLight;
 
+void (*WS281xLight_Switcher)(bool);
+
+void WS281xLight_setSwitcher(void (* Switcher)(bool)) {
+    WS281xLight_Switcher = Switcher;
+}
+
 inline void WS281xLight_led(uint8_t led, uint8_t color, uint8_t value) {
     if (WS281xLight_data[led * 3 + color] != value) {
         WS281xLight_data[led * 3 + color] = value;
@@ -466,6 +472,7 @@ void WS281xLight_update(void) {
 }
 
 void WS281xLight_off(void) {
+    if (WS281xLight_Switcher) WS281xLight_Switcher(false);
     WS281xLight_data[0] = 0x01; // To enforce change.
     WS281xLight_set(WS281x_LIGHT_OFF,
                     0x00, 0x00, 0x00, // Color 1
@@ -535,6 +542,7 @@ inline void WS281xLight_add(WS281xLight_Pattern_t pattern,
                     uint8_t red7, uint8_t green7, uint8_t blue7,
                     uint16_t delay, uint8_t width, uint8_t fading,
                     uint8_t min, uint8_t max, uint8_t timeout) {
+    if (WS281xLight_Switcher) WS281xLight_Switcher(true);
     WS281xLight_items[WS281xLight_list.size++] = WS281xLight_assemble(
             pattern, 
             red1, green1, blue1,
@@ -558,6 +566,7 @@ inline void WS281xLight_set(WS281xLight_Pattern_t pattern,
                     uint8_t red7, uint8_t green7, uint8_t blue7,
                     uint16_t delay, uint8_t width, uint8_t fading,
                     uint8_t min, uint8_t max, uint8_t timeout) {
+    if (WS281xLight_Switcher) WS281xLight_Switcher(true);
     WS281xLight = WS281xLight_assemble(
             pattern, 
             red1, green1, blue1,

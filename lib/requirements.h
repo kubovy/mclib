@@ -95,10 +95,11 @@ typedef enum {
     MESSAGE_KIND_RGB = 0x15,
 #endif
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+    MESSAGE_KIND_WS281x = 0x16,
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
     MESSAGE_KIND_WS281x_LIGHT = 0x17,
-#else
-    MESSAGE_KIND_WS281x = 0x16,
 #endif
 #endif
 #ifdef BM78_ENABLED

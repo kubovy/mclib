@@ -62,8 +62,8 @@ void SMT_transmitNextBlock(void) {
     }
 }
 
-void SMT_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data) {
-    switch (response.op_code) {
+void SMT_bm78AppModeResponseHandler(BM78_Response_t *response) {
+    switch (response->opCode) {
         case BM78_EVENT_LE_CONNECTION_COMPLETE:
         case BM78_EVENT_DISCONNECTION_COMPLETE:
         case BM78_EVENT_SPP_CONNECTION_COMPLETE:

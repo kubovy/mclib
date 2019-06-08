@@ -20,8 +20,7 @@ extern "C" {
 #ifdef BM78_ENABLED
 
 bool BM78EEPROM_initializing = false;
-    
-    
+
 /**
  * Initializes BM78's EEPROM
  */
@@ -52,17 +51,15 @@ void BM78EEPROM_setInitializationFailedHandler(Procedure_t failedHandler);
  * BM78 test mode response handler.
  * 
  * @param response BM78 response.
- * @param data Additional data.
  */
-void BM78EEPROM_testModeResponseHandler(BM78_Response_t response, uint8_t* data);
+void BM78EEPROM_testModeResponseHandler(BM78_Response_t *response);
 
 /**
  * BM78 error handler.
  * 
  * @param response BM78 response.
- * @param data Response data.
  */
-void BM78EEPROM_testModeErrorHandler(BM78_Response_t response, uint8_t* data);
+void BM78EEPROM_testModeErrorHandler(BM78_Response_t *response);
 
 /**
  * BM78 test mode periodical check.

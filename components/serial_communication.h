@@ -31,10 +31,11 @@ extern "C" {
 #include "../modules/mcp22xx.h"
 #endif
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+#include "../modules/ws281x.h"
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 #include "../modules/ws281x_light.h"
-#else
-#include "../modules/ws281x.h"
 #endif
 #endif
     
@@ -233,6 +234,17 @@ inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index);
 #endif
 
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+/**
+ * Adds a WS281x LED message to the send queue.
+ * 
+ * @param channel Channel to use.
+ * @param led LED of which to transfer the configuration. Use SCOM_PARAM_ALL to
+ *            send all LED configurations of the whole strip.
+ */
+inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led);
+#endif
+
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 /**
  * Adds a WS281x Light configuration to the send queue.
@@ -242,15 +254,6 @@ inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index);
  *              configurations.
  */
 inline void SCOM_sendWS281xLight(SCOM_Channel_t channel, uint8_t index);
-#else
-/**
- * Adds a WS281x LED message to the send queue.
- * 
- * @param channel Channel to use.
- * @param led LED of which to transfer the configuration. Use SCOM_PARAM_ALL to
- *            send all LED configurations of the whole strip.
- */
-inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led);
 #endif
 #endif
 
@@ -341,9 +344,8 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
  * This needs to be add to the BM78's test response handlers.
  * 
  * @param response The response.
- * @param data Additional data.
  */
-void SCOM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data);
+void SCOM_bm78TestModeResponseHandler(BM78_Response_t *response);
 #endif
 
 #ifdef	__cplusplus

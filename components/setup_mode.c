@@ -17,13 +17,14 @@ SUM_MenuPage_t SUM_setupPage = SUM_MENU_MAIN;
 
 union {
     struct {
-        bool rgbDemo       :1;
-        uint8_t rgb        :3;
-        bool ws281xDemo    :1;
-        uint8_t ws281xLight:4;
-        bool lcdBacklight  :1;
-        bool showKeypad    :1;
-        bool showBtErrors  :1;
+        bool rgbDemo              :1;
+        uint8_t rgb               :3;
+        bool ws281xIndicatorsDemo :1;
+        bool ws281xLightDemo      :1;
+        uint8_t ws281xLight       :4;
+        bool lcdBacklight         :1;
+        bool showKeypad           :1;
+        bool showBtErrors         :1;
     };
 //             RGB_PATTERN_OFF        WS281x_LIGHT_OFF
 } sw = {false, 0x00,           false, 0x00,            true, false, false};
@@ -63,6 +64,9 @@ void SUM_setBtStatus(uint8_t status) {
         case BM78_STATUS_POWER_ON:
             strcpy(SUM_bm78CurrentState.name, "POWER ON ", 9);
             break;
+        //case BM78_STATUS_SCANNING_MODE:
+        //    strcpy(SUM_bm78CurrentState.name, "SCANNING ", 9);
+        //    break;
         case BM78_STATUS_PAGE_MODE:
             strcpy(SUM_bm78CurrentState.name, "PAGE MODE", 9);
             break;
@@ -72,6 +76,9 @@ void SUM_setBtStatus(uint8_t status) {
         case BM78_STATUS_LINK_BACK_MODE:
             strcpy(SUM_bm78CurrentState.name, "LINK BACK", 9);
             break;
+        //case BM78_STATUS_BROADCAST_MODE:
+        //    strcpy(SUM_bm78CurrentState.name, "BROADCAST", 9);
+        //    break;
         case BM78_STATUS_SPP_CONNECTED_MODE:
             strcpy(SUM_bm78CurrentState.name, "SPP CONN ", 9);
             break;
@@ -84,9 +91,13 @@ void SUM_setBtStatus(uint8_t status) {
         case BM78_STATUS_SHUTDOWN_MODE:
             strcpy(SUM_bm78CurrentState.name, "SHUT DOWN", 9);
             break;
+        case BM78_STATUS_CONFIGURE_MODE:
+            strcpy(SUM_bm78CurrentState.name, "CONFIGURE", 9);
         case BM78_STATUS_PAIRING_IN_PROGRESS_MODE:
             strcpy(SUM_bm78CurrentState.name, "PAIRING  ", 9);
-            break;
+        //case BM78_STATUS_BLE_CONNECTED_MODE:
+        //    strcpy(SUM_bm78CurrentState.name, "BLE CONN ", 9);
+        //    break;
         default:
             strcpy(SUM_bm78CurrentState.name, "0x##     ", 9);
             SUM_bm78CurrentState.name[2] = dec2hex(status / 16 % 16);
@@ -382,17 +393,26 @@ void SUM_showMenu(uint8_t page) {
             LCD_setString("B) Back      Next (C", 3, false);
             break;
         case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 4)
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-            LCD_setString("1) WS281x Tests     ", 0, false);
-            LCD_setString("2) WS281x Demo   [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xDemo ? 'X' : ' ', 18, 1, false);
-#elif defined WS281x_BUFFER
-            LCD_setString("1) WS281x Test      ", 0, false);
-            LCD_setString("2) WS281x Demo   [ ]", 1, false);
-            LCD_replaceChar(sw.ws281xDemo ? 'X' : ' ', 18, 1, false);
+            LCD_setString(" WS281x Indicators  ", 0, false);
+#ifdef WS281x_INDICATORS
+            LCD_setString("1) Test             ", 1, false);
+            LCD_setString("2) Demo          [ ]", 2, false);
+            LCD_replaceChar(sw.ws281xIndicatorsDemo? 'X' : ' ', 18, 2, false);
 #else
-            LCD_setString("-) WS281x Test      ", 0, false);
-            LCD_setString("-) WS281x Demo      ", 1, false);
+            LCD_setString("-) Test             ", 1, false);
+            LCD_setString("-) Demo             ", 2, false);
+#endif
+            LCD_setString("B) Back      Next (C", 3, false);
+            break;
+        case SUM_MENU_TEST_PAGE_5: // Tests Menu (Page 4)
+            LCD_setString("    WS281x Light    ", 0, false);
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+            LCD_setString("1) Tests            ", 1, false);
+            LCD_setString("2) Demo          [ ]", 2, false);
+            LCD_replaceChar(sw.ws281xLightDemo? 'X' : ' ', 18, 2, false);
+#else
+            LCD_setString("-) Tests            ", 1, false);
+            LCD_setString("-) Demo             ", 2, false);
 #endif
             LCD_setString("B) Back             ", 3, false);
             break;
@@ -1188,28 +1208,51 @@ void SUM_executeMenu(uint8_t key) {
         case SUM_MENU_TEST_PAGE_4: // Tests Menu (Page 4)
             switch(key) {
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
                 case '1': // WS281x Test
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
-#else
                     POC_testWS281x();
                     SUM_showMenu(SUM_MENU_TEST_PAGE_4);
-#endif
                     break;
-                case '2': // WS281x Demo
-                    sw.ws281xDemo = !sw.ws281xDemo;
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-                    if (sw.ws281xDemo) POC_testWS281xLight(0xFF);
-                    else WS281xLight_off();
-#else
-                    if (sw.ws281xDemo) POC_demoWS281x();
-                    else WS281x_off();
 #endif
+#ifdef WS281x_INDICATORS
+                case '2': // WS281x Demo
+                    sw.ws281xIndicatorsDemo = !sw.ws281xIndicatorsDemo;
+                    if (sw.ws281xIndicatorsDemo) POC_demoWS281x();
+                    else WS281x_off();
                     SUM_showMenu(SUM_MENU_TEST_PAGE_4);
                     break;
+#endif
 #endif
                 case 'B': // Back
                     SUM_showMenu(SUM_MENU_TEST_PAGE_3);
+                    break;
+                case 'C': // Next
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    break;
+                default:
+                    SUM_defaultFunction(key);
+                    break;
+            }
+            break;
+        case SUM_MENU_TEST_PAGE_5:
+            switch(key) {
+#ifdef WS281x_BUFFER
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+                case '1': // WS281x Test
+                    SUM_showMenu(SUM_MENU_TEST_WS281x_PAGE_1);
+                    break;
+#endif
+#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+                case '2': // WS281x Demo
+                    sw.ws281xLightDemo = !sw.ws281xLightDemo;
+                    if (sw.ws281xLightDemo) POC_testWS281xLight(0xFF);
+                    else WS281xLight_off();
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    break;
+#endif
+#endif
+                case 'B': // Back
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
                     break;
                 default:
                     SUM_defaultFunction(key);
@@ -1410,22 +1453,22 @@ bool SUM_processKey(uint8_t key) {
 
 #ifdef BM78_ENABLED
 
-void SUM_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
-    if (SUM_mode) switch (response.op_code) {
+void SUM_bm78EventHandler(BM78_Response_t *response) {
+    if (SUM_mode) switch (response->opCode) {
         case BM78_EVENT_COMMAND_COMPLETE:
-            switch(response.CommandComplete_0x80.command) {
+            switch(response->CommandComplete_0x80.command) {
                 case BM78_CMD_READ_LOCAL_INFORMATION:
                     if (SUM_setupPage == SUM_MENU_BT_SHOW_MAC_ADDRESS) {
                         LCD_setString(" V:                 ", 1, false);
                         for (uint8_t i = 0; i < 5; i++) { // BT Version
-                            LCD_replaceChar(dec2hex(data[i] / 16 % 16), 3 + i * 2, 1, false);
-                            LCD_replaceChar(dec2hex(data[i] % 16), 4 + i * 2, 1, false);
+                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.version[i] / 16 % 16), 3 + i * 2, 1, false);
+                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.version[i] % 16), 4 + i * 2, 1, false);
                         }
                         LCD_displayLine(1);
                         LCD_setString("BT:##:##:##:##:##:##", 2, false);
                         for (uint8_t i = 0; i < 6; i++) { // BT Address
-                            LCD_replaceChar(dec2hex(data[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
-                            LCD_replaceChar(dec2hex(data[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
+                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
+                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
                         }
                         LCD_displayLine(2);
                     }
@@ -1453,8 +1496,8 @@ void SUM_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
                     break;
                 case BM78_CMD_READ_REMOTE_DEVICE_NAME:
                     if (SUM_setupPage == SUM_MENU_BT_SHOW_REMOTE_DEVICE) {
-                        for (uint8_t i = 0; i < response.CommandComplete_0x80.length - 1; i++) {
-                            if (i < LCD_COLS) LCD_replaceChar(data[i], i, 0, false);
+                        for (uint8_t i = 0; i < response->CommandComplete_0x80.length - 1; i++) {
+                            if (i < LCD_COLS) LCD_replaceChar(response->RemoteDeviceName_0x80.name[i], i, 0, false);
                         }
                         LCD_displayLine(0);
                     }
@@ -1473,9 +1516,9 @@ void SUM_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
                     break;
             }
             break;
-        case BM78_EVENT_BM77_STATUS_REPORT:
-            if (SUM_bm78CurrentState.id != response.StatusReport_0x81.status) {
-                SUM_bm78CurrentState.id = response.StatusReport_0x81.status;
+        case BM78_EVENT_STATUS_REPORT:
+            if (SUM_bm78CurrentState.id != response->StatusReport_0x81.status) {
+                SUM_bm78CurrentState.id = response->StatusReport_0x81.status;
                 SUM_setBtStatus(SUM_bm78CurrentState.id);
                 if (SUM_setupPage == SUM_MENU_BT_PAGE_1
                         || SUM_setupPage == SUM_MENU_BT_STATE) {
@@ -1557,11 +1600,11 @@ uint8_t SUM_processBtn(uint8_t maxModes) {
 
 #ifdef BM78_ENABLED
 
-void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
+void SUM_bm78TestModeResponseHandler(BM78_Response_t *response) {
 #ifdef LCD_ADDRESS
-    if (SUM_mode) switch (response.ISSC_Event.ogf) {
+    if (SUM_mode) switch (response->ISSC_Event.ogf) {
         case BM78_ISSC_OGF_COMMAND:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_OPEN:
                     if (SUM_setupPage == SUM_MENU_BT_READ_CONFIG) {
                         SUM_setupPage = SUM_MENU_BT_CONFIG_VIEWER;
@@ -1574,12 +1617,13 @@ void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
             }
             break;
         case BM78_ISSC_OGF_OPERATION:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_READ:
                     if (SUM_setupPage == SUM_MENU_BT_CONFIG_VIEWER) {
-                        SUM_mem.reg = response.ISSC_ReadEvent.address;
-                        POC_displayData(response.ISSC_ReadEvent.address,
-                                response.ISSC_ReadEvent.data_length, data);
+                        SUM_mem.reg = response->ISSC_ReadEvent.address;
+                        POC_displayData(response->ISSC_ReadEvent.address,
+                                response->ISSC_ReadEvent.dataLength,
+                                response->ISSC_ReadEvent.data);
                     }
                     break;
                 default:
@@ -1589,9 +1633,9 @@ void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data) {
 #endif
 }
 
-void SUM_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
+void SUM_bm78ErrorHandler(BM78_Response_t *response) {
 #ifdef LCD_ADDRESS
-    if (sw.showBtErrors) POC_bm78ErrorHandler(response, data);
+    if (sw.showBtErrors) POC_bm78ErrorHandler(response);
 #endif
 }
 

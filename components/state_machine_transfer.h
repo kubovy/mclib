@@ -38,9 +38,8 @@ extern "C" {
  * State machine's BM78 application-mode response handler implementation.
  * 
  * @param response BM78 response.
- * @param data Additional response data.
  */
-void SMT_bm78AppModeResponseHandler(BM78_Response_t response, uint8_t *data);
+void SMT_bm78AppModeResponseHandler(BM78_Response_t *response);
 
 /**
  * State machine's transparent data handler implementation.

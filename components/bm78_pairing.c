@@ -80,8 +80,8 @@ void BMP_processKey(uint8_t key) {
     }
 }
 
-inline void BMP_bm78PairingEventHandler(BM78_Response_t response, uint8_t *data) {
-    switch (response.op_code) {
+inline void BMP_bm78PairingEventHandler(BM78_Response_t *response) {
+    switch (response->opCode) {
         case BM78_EVENT_PASSKEY_ENTRY_REQ:
 #ifdef LCD_ADDRESS
             LCD_clear();
@@ -96,7 +96,7 @@ inline void BMP_bm78PairingEventHandler(BM78_Response_t response, uint8_t *data)
         case BM78_EVENT_PAIRING_COMPLETE:
 #ifdef LCD_ADDRESS
             LCD_clear();
-            switch(response.PairingComplete_0x61.result) {
+            switch(response->PairingComplete_0x61.result) {
                 case BM78_PAIRING_RESULT_COMPLETE:
                     LCD_setString(" New Device Paired  ", 1, true);
                     break;
@@ -119,7 +119,7 @@ inline void BMP_bm78PairingEventHandler(BM78_Response_t response, uint8_t *data)
             LCD_setString("    Code:           ", 1, false);
             for (uint8_t i = 0; i < 6; i++) {
                 LCD_replaceChar(
-                        response.PasskeyDisplayYesNoReq_0x62.passkey[i],
+                        response->PasskeyDisplayYesNoReq_0x62.passkey[i],
                         10 + i, 1, false);
             }
             LCD_displayLine(1);
@@ -196,13 +196,13 @@ void BMP_removeAllPairedDevices(void) {
     //BM78_execute(BM78_CMD_READ_STATUS, 0);
 }
 
-inline void BMP_bm78ProcessEventHandler(BM78_Response_t response, uint8_t *data) {
+inline void BMP_bm78ProcessEventHandler(BM78_Response_t *response) {
     switch (BMP_progress.type) {
         case BMP_CMD_TYPE_ENTER_PAIRABLE_MODE:
-            switch (response.op_code) {
-                case BM78_EVENT_BM77_STATUS_REPORT:
+            switch (response->opCode) {
+                case BM78_EVENT_STATUS_REPORT:
                     if (BMP_progress.step == 0) {
-                        if (response.StatusReport_0x81.status == BM78_STATUS_IDLE_MODE) {
+                        if (response->StatusReport_0x81.status == BM78_STATUS_IDLE_MODE) {
                             printStatus("                    ");
                             BMP_progress.type = 0;
                             BM78.enforceState = BM78_STANDBY_MODE_ENTER;
@@ -218,10 +218,10 @@ inline void BMP_bm78ProcessEventHandler(BM78_Response_t response, uint8_t *data)
             }
             break;
         case BMP_CMD_TYPE_REMOVE_ALL_PAIRED_DEVICES:
-            switch (response.op_code) {
+            switch (response->opCode) {
                 case BM78_EVENT_COMMAND_COMPLETE:
-                    if (response.CommandComplete_0x80.status == BM78_COMMAND_SUCCEEDED) {
-                        switch (response.CommandComplete_0x80.command) {
+                    if (response->CommandComplete_0x80.status == BM78_COMMAND_SUCCEEDED) {
+                        switch (response->CommandComplete_0x80.command) {
                             case BM78_CMD_INVISIBLE_SETTING:
                                 if (BMP_progress.step == 1) {
                                     printStatus("        ...         ");
@@ -248,7 +248,7 @@ inline void BMP_bm78ProcessEventHandler(BM78_Response_t response, uint8_t *data)
                                 break;
                         }
                     } else {
-                        switch (response.CommandComplete_0x80.command) {
+                        switch (response->CommandComplete_0x80.command) {
                             case BM78_CMD_INVISIBLE_SETTING:
                                 if (BMP_progress.step == 1) {
                                     printStatus("        ..x         ");
@@ -270,9 +270,9 @@ inline void BMP_bm78ProcessEventHandler(BM78_Response_t response, uint8_t *data)
                         }
                     }
                     break;
-                case BM78_EVENT_BM77_STATUS_REPORT:
+                case BM78_EVENT_STATUS_REPORT:
                     if (BMP_progress.step == 0) {
-                        if (response.StatusReport_0x81.status == BM78_STATUS_IDLE_MODE) {
+                        if (response->StatusReport_0x81.status == BM78_STATUS_IDLE_MODE) {
                             BMP_progress.step = 2;
                             printStatus("        ...         ");
                             BMP_progress.timeout = BMP_CMD_TIMEOUT / BM78_TRIGGER_PERIOD;
@@ -294,11 +294,11 @@ inline void BMP_bm78ProcessEventHandler(BM78_Response_t response, uint8_t *data)
     }
 }
 
-void BMP_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
+void BMP_bm78EventHandler(BM78_Response_t *response) {
 #ifdef BM78_ADVANCED_PAIRING
-    BMP_bm78PairingEventHandler(response, data);
+    BMP_bm78PairingEventHandler(response);
 #endif
-    BMP_bm78ProcessEventHandler(response, data);
+    BMP_bm78ProcessEventHandler(response);
 }
 
 #endif

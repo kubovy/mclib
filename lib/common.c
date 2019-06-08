@@ -31,9 +31,9 @@ inline uint16_t max16(uint16_t a, uint16_t b) {
     return a >= b ? a : b;
 }
 
-uint8_t strlen(char *str) {
+uint8_t strlen(char *str, uint8_t max) {
     uint8_t i = 0;
-    while (str[i++] != '\0');
+    while (str[i] != '\0' && i < max) i++;
     return i;
 }
 

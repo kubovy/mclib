@@ -81,43 +81,73 @@ extern "C" {
 #define BM78_EEPROM_SIZE 0x1FF0
 
 typedef enum {
-    //                                                AUTO PATTERN                   MANUAL PATTERN
+    // F  = Configuration Mode (Auto Pattern only)
+    // I  = Idle Mode
+    // CM = Connected Mode w/ Manual Pattern)
+    // CP = Connected Mode w/ Pairing
+    //                                                      AUTO, MANUAL PATTERN
     // Common
-    BM78_CMD_READ_LOCAL_INFORMATION = 0x01,       // F (Configuration Mode)
-    BM78_CMD_RESET = 0x02,
-    BM78_CMD_READ_STATUS = 0x03,
-    BM78_CMD_INTO_POWER_DOWN_MODE = 0x05,
-    BM78_CMD_READ_DEVICE_NAME = 0x07,             // F (Configuration Mode)
-    BM78_CMD_WRITE_DEVICE_NAME = 0x08,            // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO = 0x09, // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_READ_PAIRING_MODE_SETTING = 0x0A,    // F (Configuration Mode)
-    BM78_CMD_WRITE_PAIRING_MODE_SETTING = 0x0B,   // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO = 0x0C,  // F (Configuration Mode)
-    BM78_CMD_DELETE_PAIRED_DEVICE = 0x0D,         // F (Configuration Mode)         I (Idle Mode)
+    BM78_CMD_READ_LOCAL_INFORMATION = 0x01,              // F
+    BM78_CMD_RESET = 0x02,                               // N/A
+    BM78_CMD_READ_STATUS = 0x03,                         // N/A
+    //BM78_CMD_READ_ADC_VALUE = 0x04,                      // N/A
+    BM78_CMD_INTO_POWER_DOWN_MODE = 0x05,                // N/A
+    //BM78_CMD_DEBUG = 0x06,                               // N/A
+    BM78_CMD_READ_DEVICE_NAME = 0x07,                    // F
+    BM78_CMD_WRITE_DEVICE_NAME = 0x08,                   // F        I
+    BM78_CMD_ERASE_ALL_PAIRED_DEVICE_INFO = 0x09,        // F        I
+    BM78_CMD_READ_PAIRING_MODE_SETTING = 0x0A,           // F
+    BM78_CMD_WRITE_PAIRING_MODE_SETTING = 0x0B,          // F        I
+    BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO = 0x0C,         // F
+    BM78_CMD_DELETE_PAIRED_DEVICE = 0x0D,                // F        I
+    //BM78_CMD_DIO_CONTROL = 0x0E,                         // N/A
+    //BM78_CMD_PWM_CONTROL = 0x0F,                         // N/A
     // GAP
-    BM78_CMD_READ_RSSI_VALUE = 0x10,              //                                CM (Connected Mode w/ Manual Pattern)
-    BM78_CMD_WRITE_ADV_DATA = 0x11,               // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_WRITE_SCAN_RES_DATA = 0x12,          // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_SET_ADV_PARAMETER = 0x13,            // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_DISCONNECT = 0x1B,                   //                                CM (Connected Mode w/ Manual Pattern)
-    BM78_CMD_INVISIBLE_SETTING = 0x1C,            //                                I (Idle Mode)
-    BM78_CMD_SPP_CREATE_LINK = 0x1D,              //                                I (Idle Mode)
-    BM78_CMD_SPP_CREATE_LINK_CANCEL = 0x1E,       //                                I (Idle Mode)
-    BM78_CMD_READ_REMOTE_DEVICE_NAME = 0x1F,      //                                CM (Connected Mode w/ Manual Pattern)
-    BM78_CMD_BDR_CREATE_CONNECTION = 0x20,
-    // SPP/GATT Transparent
-    BM78_CMD_SEND_TRANSPARENT_DATA = 0x3A,        //                                CM (Connected Mode w/ Manual Pattern)
-    BM78_CMD_SEND_SPP_DATA = 0x3B,                //                                CM (Connected Mode w/ Manual Pattern)
+    BM78_CMD_READ_RSSI_VALUE = 0x10,                     //          CM
+    BM78_CMD_WRITE_ADV_DATA = 0x11,                      // F        I
+    BM78_CMD_WRITE_SCAN_RES_DATA = 0x12,                 // F        I
+    BM78_CMD_SET_ADV_PARAMETER = 0x13,                   // F        I
+    //BM78_CMD_SET_SCAN_PARAMETER = 0x15,                  // N/A      I
+    BM78_CMD_SET_SCAN_ENABLE = 0x16,                     // N/A      I
+    //BM78_CMD_LE_CREATE_CONNECTION = 0x17,                // N/A      I
+    //BM78_CMD_LE_CREATE_CONNECTION_CANCEL = 0x18,         // N/A
+    //BM78_CMD_CONNECTION_PARAMETER_UPDATE_REQ = 0x19,     // N/A      CM
+    BM78_CMD_DISCONNECT = 0x1B,                          // N/A      CM
+    BM78_CMD_INVISIBLE_SETTING = 0x1C,                   // N/A      I
+    BM78_CMD_SPP_CREATE_LINK = 0x1D,                     // N/A      I
+    BM78_CMD_SPP_CREATE_LINK_CANCEL = 0x1E,              // N/A      I
+    BM78_CMD_READ_REMOTE_DEVICE_NAME = 0x1F,             // N/A      CM
+    //BM78_CMD_BDR_CREATE_CONNECTION = 0x20,               //
+    // GATT CLIENT
+    //BM78_CMD_DISCOVER_ALL_PRIMARY_SERVICES = 0x30,       // N/A      CM
+    //BM78_CMD_DISCOVER_SPECIFIC_PRIMARY_SERVICE_CHARACTERISTICS = 0x31,// N/A  CM
+    //BM78_CMD_READ_CHARACTERISTIC_VALUE = 0x32,           // N/A      CM
+    //BM78_CMD_READ_USING_CHARACTERISTIC_UUID = 0x33,      // N/A      CM
+    //BM78_CMD_WRITE_CHARACTERISTIC_VALUE = 0x34,          // N/A      CM
+    //BM78_CMD_ENABLE_TRANSPARENT = 0x35,                  // N/A      CM
+    // GATT SERVER
+    //BM78_CMD_SEND_CHARACTERISTIC_VALUE = 0x38,           // N/A      CM
+    //BM78_CMD_UPDATE_CHARACTERISTIC_VALUE = 0x39,         // N/A
+    //BM78_CMD_READ_LOCAL_CHARACTERISTIC_VALUE = 0x3A,     // N/A
+    //BM78_CMD_READ_LOCAL_ALL_PRIMARY_SERVICE = 0x3B,      // N/A
+    //BM78_CMD_READ_LOCAL_SPECIFIC_PRIMARY_SERVICE = 0x3C, // N/A
+    //BM78_CMD_SEND_WRITE_RESPONSE = 0x3D,                 // N/A      CM
+    // GATT TRANSPARENT
+    //BM78_CMD_SEND_GATT_TRANSPARENT_DATA = 0x3F,          // N/A      CM
+    // SPP
+    BM78_CMD_SEND_TRANSPARENT_DATA = 0x3A,               // N/A      CM
+    BM78_CMD_SEND_SPP_DATA = 0x3B,                       // N/A      CM
 #ifdef BM78_ADVANCED_PAIRING
     // Pairing
-    BM78_CMD_PASSKEY_ENTRY_RES = 0x40,            // CP (Connected Mode w/ Pairing) CP (Connected Mode w/ Pairing)
-    BM78_CMD_USER_CONFIRM_RES = 0x41,             // CP (Connected Mode w/ Pairing) CP (Connected Mode w/ Pairing)
+    BM78_CMD_PASSKEY_ENTRY_RES = 0x40,                   // CP       CP
+    BM78_CMD_USER_CONFIRM_RES = 0x41,                    // CP       CP
+    BM78_CMD_PAIRING_REQUEST = 0x42,                     // N/A      CM
 #endif
     // Common 2
-    BM78_CMD_READ_PIN_CODE = 0x50,                // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_WRITE_PIN_CODE = 0x51,               // F (Configuration Mode)         I (Idle Mode)
-    BM78_CMD_LEAVE_CONFIGURE_MODE = 0x52          // F (Configuration Mode)
-} BM78_CommanddOpCode_t;
+    BM78_CMD_READ_PIN_CODE = 0x50,                       // F        I
+    BM78_CMD_WRITE_PIN_CODE = 0x51,                      // F        I
+    BM78_CMD_LEAVE_CONFIGURE_MODE = 0x52                 // F        N/A
+} BM78_CommandOpCode_t;
 
 typedef enum {
     // Pairing Events
@@ -128,17 +158,31 @@ typedef enum {
 #ifdef BM78_ADVANCED_PAIRING
     BM78_EVENT_PASSKEY_DISPLAY_YES_NO_REQ = 0x62,
 #endif
+
     // GAP Events
+    //BM78_EVENT_ADVERTISING_REPORT = 0x70,
     BM78_EVENT_LE_CONNECTION_COMPLETE = 0x71,
     BM78_EVENT_DISCONNECTION_COMPLETE = 0x72,
+    //BM78_EVENT_CONNECTION_PAREMETER_UPDATE_NOTIFY = 0x73,
     BM78_EVENT_SPP_CONNECTION_COMPLETE = 0x74,
+
     // Common Events
     BM78_EVENT_COMMAND_COMPLETE = 0x80,
-    BM78_EVENT_BM77_STATUS_REPORT = 0x81,
+    BM78_EVENT_STATUS_REPORT = 0x81,
 #ifndef BM78_MANUAL_MODE
     BM78_EVENT_CONFIGURE_MODE_STATUS = 0x8F,
 #endif
-    // SPP/GATT Transparent Event
+
+    // GATT Client
+    //BM78_EVENT_DISCOVER_ALL_PRIMARY_SERVICES_RES = 0x90,
+    //BM78_EVENT_DISCOVER_SPECIFIC_PRIMARY_SERVICE_CHARACTERISTIC_RES = 0x91,
+    //BM78_EVENT_DISCOVER_ALL_CHARACTERISTIC_DESCRIPTORS_RES = 0x92,
+    //BM78_EVENT_CHARACTERISTIC_VALUE_RECEIVED = 0x93,
+
+    // GATT Server
+    //BM78_EVENT_CLIENT_WRITE_CHARACTERISTIC_VALUE = 0x98,
+
+    // SPP/GATT Transparent
     BM78_EVENT_RECEIVED_TRANSPARENT_DATA = 0x9A,
     BM78_EVENT_RECEIVED_SPP_DATA = 0x9B
 } BM78_EventOpCode_t;
@@ -168,7 +212,13 @@ typedef enum {
     BM78_PAIRING_PIN = 0x00,
     BM78_PAIRING_JUST_WORK = 0x01,
     BM78_PAIRING_PASSKEY = 0x02,
-    BM78_PAIRING_USER_CONFIRM = 0x03
+    BM78_PAIRING_USER_CONFIRM = 0x03,
+
+    //BM78_PAIRING_DISPLAY_ONLY = 0x00,
+    //BM78_PAIRING_DISPLAY_YES_NO = 0x01,
+    //BM78_PAIRING_KEYBOARD_ONLY = 0x02,
+    //BM78_PAIRING_NO_INPUT_NO_OUTPUT = 0x03,
+    //BM78_PAIRING_KEYBOARD_DISPLAY = 0x04
 } BM78_PairingMode_t;
 
 #ifdef BM78_ADVANCED_PAIRING
@@ -196,6 +246,10 @@ typedef enum {
 #ifndef BM78_MANUAL_MODE
 // Configuration mode state
 typedef enum {
+    BM78_CONFIG_MODE_NONE = 0x00,
+    BM78_CONFIG_MODE_DISABLE_FOREVER = 0x01
+} BM78_ConfigOption_t;
+typedef enum {
     BM78_CONFIG_MODE_DISABLED = 0x00,
     BM78_CONFIG_MODE_ENABLED = 0x01
 } BM78_ConfigModeState_t;
@@ -211,15 +265,18 @@ typedef enum {
 // Status
 typedef enum {
     BM78_STATUS_POWER_ON = 0x00,
+    //BM78_STATUS_SCANNING_MODE = 0x01,
     BM78_STATUS_PAGE_MODE = 0x02,
     BM78_STATUS_STANDBY_MODE = 0x03,
     BM78_STATUS_LINK_BACK_MODE = 0x04,
+    //BM78_STATUS_BROADCAST_MODE = 0x05,
     BM78_STATUS_SPP_CONNECTED_MODE = 0x07,
-    BM78_STATUS_LE_CONNECTED_MODE = 0x08,
+    BM78_STATUS_LE_CONNECTED_MODE = 0x08, // Transparent service enabled
     BM78_STATUS_IDLE_MODE = 0x09,
     BM78_STATUS_SHUTDOWN_MODE = 0x0A,
-    // Reverse engineered stated (may be wrong)
-    BM78_STATUS_PAIRING_IN_PROGRESS_MODE = 0x0C
+    BM78_STATUS_CONFIGURE_MODE = 0x0B,
+    BM78_STATUS_PAIRING_IN_PROGRESS_MODE = 0x0C // Reverse engineered stated
+    //BM78_STATUS_BLE_CONNECTED_MODE = 0x0C
 } BM78_Status_t;
 
 // Stand-By mode action
@@ -282,8 +339,39 @@ typedef enum {
     BM78_ERR_INSUFFICIENT_ENCRYPTION = 0x8F,
     BM78_ERR_UNSUPPORTED_GROUT_TYPE = 0x90,
     BM78_ERR_INSUFFICIENT_RESOURCES = 0x91,
+    BM78_ERR_APPLICATION_DEFINED_ERROR = 0xF0,
     BM78_ERR_UART_CHECK_SUM_ERROR = 0xFF
 } BM78_StatusCode_t;
+
+//typedef enum {
+//    BM78_GATT_ERR_CODE_NO_ERROR = 0x00,
+//    BM78_GATT_ERR_CODE_INVALID_HANDLE = 0x01,
+//    BM78_GATT_ERR_CODE_READ_NOT_PERMITTED = 0x02,
+//    BM78_GATT_ERR_CODE_WRITE_NOT_PERMITTED = 0x03,
+//    BM78_GATT_ERR_CODE_INVALID_PDU = 0x04,
+//    BM78_GATT_ERR_CODE_INSUFFICIENT_AUTHENTICATION = 0x05,
+//    BM78_GATT_ERR_CODE_REQUEST_NOT_SUPPORTED = 0x06,
+//    BM78_GATT_ERR_CODE_INVALID_OFFSET = 0x07,
+//    BM78_GATT_ERR_CODE_INSUFFICIENT_AUTHORIZATION = 0x08,
+//    BM78_GATT_ERR_CODE_PREPARE_QUEUE_FULL = 0x09,
+//    BM78_GATT_ERR_CODE_ATTRIBUTE_NOT_FOUND = 0x0A,
+//    BM78_GATT_ERR_CODE_ATTRIBUTE_NOT_LONG = 0x0B,
+//    BM78_GATT_ERR_CODE_INSUFFICIENT_ENCRYPTION_KEY_SIZE = 0x0C,
+//    BM78_GATT_ERR_CODE_INVALID_ATTRIBUTE_VALUE_LENGTH = 0x0D,
+//    BM78_GATT_ERR_CODE_UNLIKELY_ERROR = 0x0E,
+//    BM78_GATT_ERR_CODE_INSUFFICIENT_ENCRYPTION = 0x0F,
+//    BM78_GATT_ERR_CODE_UNSUPPORTED_GROUP_TYPE = 0x10,
+//    BM78_GATT_ERR_CODE_INSUFFICIENT_RESOURCES = 0x11
+//    //BM78_GATT_ERR_CODE_RESERVED_0x = 0x12 ? 0x7F, // Reserved
+//    //BM78_GATT_ERR_CODE_APP_ = 0x80 ? 0x9F, // Application defined errors
+//    //BM78_GATT_ERR_CODE_RESERVED_0x = 0xA0 ? 0xDF, // Reserved
+//    //BM78_GATT_ERR_CODE_COMMON_ = 0xE0 ? 0xFF, // Common Profile and Service Error Codes 
+//} BM78_GattErrorCode_t;
+
+typedef enum {
+    BM78_CONFIG_MODE_STATUS_DISABLED = 0x00,
+    BM78_CONFIG_MODE_STATUS_ENABLED = 0x01
+} BM78_ConfigModeStatus_t;
 
 typedef enum {
     BM78_ISSC_STATUS_SUCCESS = 0x00,
@@ -317,115 +405,59 @@ typedef enum {
     BM78_MODE_TEST = 0xFF
 } BM78_Mode_t;
 
-// Transmission States
 typedef enum {
-    BM78_TRANSMISSION_IDLE = 0x00,
-    BM78_TRANSMISSION_TRANSMITING = 0x01,
-    BM78_TRANSMISSION_CONFIMATION = 0x02
-} BM78_TransmissionState_t;
-    
-typedef union {
-    struct {
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-    };
-#ifdef BM78_ADVANCED_PAIRING
-    struct { // Passkey Entry Req (0x60)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-    } PasskeyEntryReq_0x60;
-#endif
-    struct { // Pairing Complete (0x61)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        BM78_PairingResult_t result;
-    } PairingComplete_0x61;
-#ifdef BM78_ADVANCED_PAIRING
-    struct { // Passkey Display YesNo Req (0x62)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        uint8_t passkey[6];
-    } PasskeyDisplayYesNoReq_0x62;
-#endif
-    struct { // LE Connection Complete (0x71)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        uint8_t status;
-        uint8_t connection_handle;
-        uint8_t role;
-        uint8_t peer_address_type;
-        uint8_t peer_address[6];
-        uint16_t connection_interval;
-        uint16_t connection_latency;
-        uint16_t supervision_timeout;
-    } LEConnectionComplete_0x71;
-    struct { // Disconnection Complete (0x72)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        uint8_t connection_handle;
-        uint8_t reason;
-    } DisconnectionComplete_0x72;
-    struct { // SPP Connection Complete (0x74)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        BM78_StatusCode_t status;
-        uint8_t connection_handle;
-        uint8_t peer_address[6];
-    } SPPConnectionComplete_0x74;
-    struct { // Command Complete (0x80)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        BM78_CommanddOpCode_t command;
-        BM78_StatusCode_t status;
-        // return parameters (x bytes)
-    } CommandComplete_0x80;
-    struct { // BM77 Status Report (0x81)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        BM78_Status_t status;
-    } StatusReport_0x81;
-#ifndef BM78_MANUAL_MODE
-    struct { // Configure Mode Status (0x8F)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        uint8_t status;
-    } ConfigureModeStatus_0x8F;
-#endif
-    struct { // Received Transparent Data (0x9A)
-        uint16_t length;
-        BM78_EventOpCode_t op_code;
-        uint8_t checksum;
-        uint8_t reserved;
-        // data (n bytes)
-    } ReceivedTransparentData_0x9A;
-    // ISSC Events
-    struct {
-        uint8_t length;
-        uint8_t packet_type;
-        BM78_ISSC_OCF_t ocf;
-        BM78_ISSC_OGF_t ogf;
-        BM78_ISSC_StatusCode_t status;
-    } ISSC_Event;
-    struct {
-        uint8_t length;
-        uint8_t packet_type;
-        BM78_ISSC_OCF_t ocf;
-        BM78_ISSC_OGF_t ogf;
-        BM78_ISSC_StatusCode_t status;
-        uint16_t address;
-        uint8_t data_length;
-    } ISSC_ReadEvent;
-} BM78_Response_t;
+    /**
+     * Connectable undirected advertising. It is used to make BM77 into standby 
+     * mode.
+     */
+    BM78_ADV_IND = 0x00,
+    /**
+     * Connectable directed advertising. It is used to make BM77 into link back 
+     * mode.
+     */
+    BM78_ADV_DIRECT_IND = 0x01,
+    /**
+     * Scannable undirected advertising. It is used to make BLEDK into broadcast
+     * mode. And it will reply advertising packet only for the observer passive
+     * scanning or active scanning to receive advertising events.
+     */
+    BM78_ADV_SCAN_IND = 0x02,
+    /** 
+     * Non connectable undirected advertising. It is used to make BM77 into
+     * broadcast mode.
+     */
+    BM78_ADV_NONCONN_IND = 0x03,
+    /**
+     * Proprietary Beacon Setting
+     */
+    BM78_SCAN_RSP = 0x04
+} BM78_AdvertisingEventType_t;
+
+typedef enum {
+    BM78_ADDRESS_TYPE_PUBLIC = 0x00,
+    BM78_ADDRESS_TYPE_RANDOM = 0x01,
+    BM78_ADDRESS_TYPE_PAIRED = 0x02
+} BM78_AddressType_t;
+
+typedef enum {
+    BM78_ROLE_MASTER = 0x00,
+    BM78_ROLE_SLAVE = 0x01
+} BM78_Role_t;
+
+//typedef enum {
+//    BM78_CHARACTERISTIC_DESCRIPTOR_16BIT= 0x01,
+//    BM78_CHARACTERISTIC_DESCRIPTOR_128BIT= 0x02
+//} BM78_CharacteristicDescriptorFormat_t;
+
+//typedef enum {
+//    BM78_SCAN_TYPE_PASSIVE = 0x00,
+//    BM78_SCAN_TYPE_ACTIVE = 0x01
+//} BM78_ScanType_t;
+
+//typedef enum {
+//    BM78_CHARACTERISTIC_WRITE_TYPE_WITH_RESPONSE = 0x00,
+//    BM78_CHARACTERISTIC_WRITE_TYPE_WITHOUT_RESPONSE = 0x01
+//} BM78_CharacteristicWriteType_t;
 
 typedef struct {
     uint8_t index;      // Index 
@@ -433,22 +465,533 @@ typedef struct {
     uint8_t address[6]; // Device's address
 } BM78_PairedDevice_t;
 
+//typedef struct {
+//    uint16_t startGroupHandle;
+//    uint16_t endGroupHandle;
+//    uint8_t serviceUUID[16];
+//} BM78_AttributeData_t;
+
+//typedef struct {
+//    bool characteristicPropertyBroadcast :1;
+//    bool characteristicPropertyRead :1;
+//    bool characteristicPropertyWriteWithoutResponse :1;
+//    bool characteristicPropertyWrite :1;
+//    bool characteristicPropertyNotify :1;
+//    bool characteristicPropertyIndicate :1;
+//    bool characteristicPropertyAuthenticatedSignedWrites :1;
+//    bool characteristicPropertyExtendedProperties :1;
+//    uint16_t characteristicValue;
+//    uint8_t characteristicUUID[16];
+//} BM78_Characteristic_t;
+
+//typedef struct {
+//    uint16_t attributeHandle;
+//    BM78_Characteristic_t characteristic;
+//} BM78_Attribute_t;
+
+//typedef struct {
+//    uint16_t handle;
+//    uint8_t uuid[16];
+//} BM78_CharacteristicDescriptor_t;
+
+#define BM78_DATA_MAX_SIZE SCOM_MAX_PACKET_SIZE + 8 > 32 ? SCOM_MAX_PACKET_SIZE + 8 : 32
+
+typedef union {
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t data[BM78_DATA_MAX_SIZE];
+    };
+    // Common Commands
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_EEPROM_t storeOption;
+        uint8_t deviceName[16];
+    } WriteDeviceName_0x08;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_EEPROM_t storeOption;
+        BM78_PairingMode_t mode;
+    } WritePairingModeSetting_0x0B;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t deviceIndex; // Range: 0-7
+    } DeletePairedDevice_0x0D;
+    // GAP Commands
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint16_t connectionHandle;
+    } ReadRSSI_0x10;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_EEPROM_t storeOption;
+        uint8_t advertisingData[31];
+    } WriteAdvData_0x11;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_EEPROM_t storeOption;
+        uint8_t scanResponseData[31];
+    } WriteScanResData_0x12;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint16_t advertisingInterval; // Range: 0x0020 to 0x4000, Default: N = 0x0800 (1.28 second), Time = N * 0.625 msec, Time Range: 20 ms to 10.24 sec
+        BM78_AdvertisingEventType_t advertisingType;
+        BM78_AddressType_t directAddressType;
+        uint8_t directAddress[6];
+    } SetAdvertisingParameter_0x13;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint16_t scanInterval; // Range: 0x0004 to 0x4000, Default: 0x0010 (10 ms), Time = N * 0.625 msec, Time Range: 2.5 msec to 10.24 seconds
+    //    uint16_t scanWindow;   // Range: 0x0004 to 0x4000, Default: 0x0010 (10 ms), Time = N * 0.625 msec, Time Range: 2.5 msec to 10240 msec
+    //    BM78_ScanType_t scanType;
+    //} SetScanParameter_0x15;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    bool scanEnable;
+    //    bool filterDuplicate;
+    //} SetScanEnable_0x16;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t filterPolicy;
+    //    BM78_AddressType_t peerAddressType;
+    //    uint8_t peerAddress[6];
+    //} LECreateConnection_0x17;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    uint16_t connectionInterval; // Conn_Interval_Max., Range: 0x0006 to 0x0C80, Time = N * 1.25 msec, Time Range: 7.5 msec to 4 seconds.
+    //    uint16_t connectionLatency;  // Range: 0x0000 to 0x01F4
+    //    uint16_t supervisionTimeout; // Range: 0x000A to 0x0C80, Time = N * 10 msec, Time Range: 100 msec to 32 seconds 
+    //} ConnectionParameterUpdateReq_0x19;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_StandByMode_t mode;
+    } InvisibleSettings_0x1C;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t deviceIndex;
+    } SPPCreateLink_0x1D;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t connectionHandle;
+    } ReadRemoteDeviceName_0x1F;
+    // GATT Client Commands
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //} DiscoverAllPrimaryServices_0x30;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    uint8_t serviceUUID[16];
+    //} DiscoverSpecificPrimaryServiceCharacteristics_0x31;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    uint16_t characteristicValueHandle;
+    //} ReadCharacteristicValue_0x32;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    uint8_t characteristicUUID[16];
+    //} ReadByCharacteristicUUID_0x33;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    BM78_CharacteristicWriteType_t writeType;
+    //    uint16_t characteristicValueHandle;
+    //    uint8_t characteristicValue[20];
+    //} WriteCharacteristicValue_0x34;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    bool serverTransparentCtrl;
+    //    uint8_t clientTransparentMode;
+    //} EnableTransparent_0x35;
+    // GATT Server Commands
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    uint16_t characteristicValueHandle;
+    //    uint8_t characteristicValue[20];
+    //} SendCharacteristicValue_0x38;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint16_t characteristicValueHandle;
+    //    uint8_t characteristicValue[20];
+    //} UpdateCharacteristicValue_0x39;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint16_t characteristicValueHandle;
+    //} ReadLocalCharacteristicValue_0x3A;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t reserved;
+    //    uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+    //} SendTransparentData_0x3A;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t serviceUUID[16];
+    //} ReadLocalSpecificPrimaryService_0x3C;
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    BM78_CommandOpCode_t requestOpCode;
+    //    uint16_t attributeHandle;
+    //    BM78_GattErrorCode_t errorCode;
+    //} SendWriteResponse_0x3D;
+    // GATT Transparent Commands
+    //struct {
+    //    uint8_t length;
+    //    BM78_CommandOpCode_t opCode;
+    //    uint8_t connectionHandle;
+    //    uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+    //} GATTSendTransparentData_0x3F;
+    // SPP Transparent Commands
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t reserved;
+        uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+    } SPPSendTransparentData_0x3A;
+    // Pairing Commands
+#ifdef BM78_ADVANCED_PAIRING
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t connectionHandle;
+        BM78_PairingPasskey_t notificationType;
+        uint8_t enteredPasskey;
+    } PasskeyEntryRes_0x40;
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t connectionHandle;
+        BM78_PairingUserConfirm_t notificationType;
+    } UserConfirmRes_0x41;
+#endif
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        uint8_t connectionHandle;
+    } PairingRequest_0x42;
+    // Common 2 Commands
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_EEPROM_t storeOption;
+        uint8_t pin[6];
+    } WritePinCode_0x51;
+#ifndef BM78_MANUAL_MODE
+    struct {
+        uint8_t length;
+        BM78_CommandOpCode_t opCode;
+        BM78_ConfigOption_t option;
+    } LeaveConfigureMode_0x52;
+#endif
+} BM78_Request_t;
+
+typedef union {
+    struct {
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t data[SCOM_MAX_PACKET_SIZE + 9];
+    };
+#ifdef BM78_ADVANCED_PAIRING
+    struct { // Passkey Entry Req (0x60)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t connectionHandle;
+    } PasskeyEntryReq_0x60;
+#endif
+    struct { // Pairing Complete (0x61)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t connectionHandle;
+        BM78_PairingResult_t result;
+    } PairingComplete_0x61;
+#ifdef BM78_ADVANCED_PAIRING
+    struct { // Passkey Display YesNo Req (0x62)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t passkey[6];
+    } PasskeyDisplayYesNoReq_0x62;
+#endif
+    struct {
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_AdvertisingEventType_t eventType;
+        BM78_AddressType_t addressType;
+        uint8_t address[6];
+        uint8_t dataLength;
+        uint8_t data[0x20];
+        int rssi;
+    } AdvertisingReport_0x70;
+    struct { // LE Connection Complete (0x71)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t status;
+        uint8_t connectionHandle;
+        BM78_Role_t role;
+        BM78_AddressType_t peerAddressType;
+        uint8_t peerAddress[6];
+        uint16_t connectionInterval; // Range: 0x0006 to 0x0C80, Time = N * 1.25 msec, Time Range: 7.5 msec to 4000 msec. 
+        uint16_t connectionLatency;  // Range: 0x0006 to 0x0C80, Time = N * 1.25 msec, Time Range: 7.5 msec to 4000 msec. 
+        uint16_t supervisionTimeout; // Range: 0x000A to 0x0C80, Time = N * 10 msec, Time Range: 100 msec to 32 second
+    } LEConnectionComplete_0x71;
+    struct { // Disconnection Complete (0x72)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t connectionHandle;
+        uint8_t reason;
+    } DisconnectionComplete_0x72;
+    //struct {
+    //    uint16_t length;
+    //    BM78_EventOpCode_t opCode;
+    //    uint8_t checksum;
+    //    uint8_t connectionHandle;
+    //    uint16_t connectionInterval; // Range: 0x0006 to 0x0C80, Time = N * 1.25 msec, Time Range: 7.5 msec to 4000 msec. 
+    //    uint16_t connectionLatency;  // Range: 0x0006 to 0x0C80, Time = N * 1.25 msec, Time Range: 7.5 msec to 4000 msec. 
+    //    uint16_t supervisionTimeout; // Range: 0x000A to 0x0C80, Time = N * 10 msec, Time Range: 100 msec to 32 second
+    //} ConnectionParameterUpdateNotify_0x73;
+    struct { // SPP Connection Complete (0x74)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_StatusCode_t status;
+        uint8_t connectionHandle;
+        uint8_t peerAddress[6];
+    } SPPConnectionComplete_0x74;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+        // return parameters (x bytes)
+    } CommandComplete_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t version[5];
+        uint8_t bluetoothAddress[6];
+        //uint8_t hwVersion;
+    } LocalInformation_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        char deviceName[16];
+    } DeviceName_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        BM78_PairingMode_t mode;
+    } PairingMode_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t count;
+        BM78_PairedDevice_t devices[8];
+    } PairedDevicesInformation_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t value;
+    } RSSI_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t name[16];
+    } RemoteDeviceName_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t value[20];
+    } Characteristic_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint16_t handle;
+        uint8_t value[20];
+    } CharacteristicByUUID_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t value[20];
+    } LocalCharacteristic_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+    } TransparentData_0x80;
+    struct { // Command Complete (0x80)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_CommandOpCode_t command;
+        BM78_StatusCode_t status;
+        char value[6];
+    } PIN_0x80;
+    struct { // BM77 Status Report (0x81)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_Status_t status;
+    } StatusReport_0x81;
+    struct { // Configure Mode Status (0x8F)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        BM78_ConfigModeStatus_t status;
+    } ConfigureModeStatus_0x8F;
+    //struct { // Discover All Primary Services Result (0x90)
+    //    uint16_t length;
+    //    BM78_EventOpCode_t opCode;
+    //    uint8_t checksum;
+    //    uint8_t connectionHandle;
+    //    uint8_t attributeLength;
+    //    BM78_AttributeData_t attributeData[30]; // The value 30 was guessed :(
+    //} DiscoverAllPrimaryServicesRes_0x90;
+    //struct { // Discover Specific Primary Service Characteristic Result (0x91)
+    //    uint16_t length;
+    //    BM78_EventOpCode_t opCode;
+    //    uint8_t checksum;
+    //    uint8_t connectionHandle;
+    //    uint8_t attributeLength;
+    //    BM78_Attribute_t attribute[30]; // The value 30 was guessed :(        
+    //} DiscoverSpecificPrimaryServiceCharacteristicRes_0x91;
+    //struct { // Discover All Characteristic Descriptors Result (0x92)
+    //    uint16_t length;
+    //    BM78_EventOpCode_t opCode;
+    //    uint8_t checksum;
+    //    uint8_t connectionHandle;
+    //    BM78_CharacteristicDescriptorFormat_t format;
+    //    BM78_CharacteristicDescriptor_t descriptor[30]; // The value 30 was guessed :(
+    //} DiscoverAllCharacteristicDescriptorsResult_0x92;
+    //struct { // Characteristic Value Received (0x93)
+    //    uint16_t length;
+    //    BM78_EventOpCode_t opCode;
+    //    uint8_t checksum;
+    //    uint8_t connectionHandle;
+    //    uint16_t valueHandler;
+    //    uint8_t value[20];
+    //} CharacteristicValueReceived_0x93;
+    //struct { // Client Write Characteristic Value (0x98)
+    //    uint16_t length;
+    //    BM78_EventOpCode_t opCode;
+    //    uint8_t checksum;
+    //    uint8_t connectionHandle;
+    //    uint16_t valueHandler;
+    //    uint8_t value[20];
+    //} ClientWriteCharacteristicValue_0x98;
+    struct { // Received Transparent Data (0x9A)
+        uint16_t length;
+        BM78_EventOpCode_t opCode;
+        uint8_t checksum;
+        uint8_t reserved;
+        uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+    } ReceivedTransparentData_0x9A;
+    // ISSC Events
+    struct {
+        uint8_t length;
+        uint8_t packetType;
+        BM78_ISSC_OCF_t ocf;
+        BM78_ISSC_OGF_t ogf;
+        BM78_ISSC_StatusCode_t status;
+    } ISSC_Event;
+    struct {
+        uint8_t length;
+        uint8_t packetType;
+        BM78_ISSC_OCF_t ocf;
+        BM78_ISSC_OGF_t ogf;
+        BM78_ISSC_StatusCode_t status;
+        uint16_t address;
+        uint8_t dataLength;
+        uint8_t data[SCOM_MAX_PACKET_SIZE + 7];
+    } ISSC_ReadEvent;
+} BM78_Response_t;
+
 struct {
     BM78_Mode_t mode;                      // Dongle mode.
     BM78_Status_t status;                  // Application mode status.
     uint8_t enforceState;                  // Whether to enforce Stand-By mode
                                            // on disconnect or idle.
+    uint8_t connectionHandle;              // Connection handle
     BM78_PairingMode_t pairingMode;        // Pairing mode.
     uint8_t pairedDevicesCount;            // Paired devices count.
     BM78_PairedDevice_t pairedDevices[16]; // Paired devices MAC addresses.
     char deviceName[17];                   // Device name.
     char pin[7];                           // PIN.
-} BM78 = {BM78_MODE_INIT, BM78_STATUS_POWER_ON, BM78_STANDBY_MODE_ENTER, BM78_PAIRING_PIN, 0};
+} BM78 = {BM78_MODE_INIT, BM78_STATUS_POWER_ON, BM78_STANDBY_MODE_ENTER, 0x00, BM78_PAIRING_PIN, 0};
 
 uint8_t BM78_advData[22];
 
-typedef void (*BM78_SetupHandler_t)(char* deviceName, char* pin);
-typedef void (*BM78_EventHandler_t)(BM78_Response_t, uint8_t*);
+typedef void (*BM78_SetupHandler_t)(char *deviceName, char *pin);
+typedef void (*BM78_EventHandler_t)(BM78_Response_t *response);
 
 /**
  * BM78 Initialization.
@@ -536,67 +1079,13 @@ void BM78_writeEEPROM(uint16_t address, uint8_t length, uint8_t *data);
 void BM78_checkState(void);
 
 /**
- * Sets the function to be called when initialization is complete.
- * 
- * @param InitializationHandler The handler which takes 2 parameters: 
- *                              the device's name and pin.
- */
-void BM78_setInitializationHandler(void (* InitializationHandler)(char*, char*));
-
-/**
- * Sets event response handler function callback in application mode.
- * 
- * @param ResponseHandler The handler to be called on events.
- *                        Takes 2 parameters: The response (see BM78_Response) 
- *                        and additional data pointer.
- */
-void BM78_setAppModeResponseHandler(void (* ResponseHandler)(BM78_Response_t, uint8_t*));
-
-/**
- * Sets the function to be called when response is received in test mode.
- * 
- * @param CommandResponseHandler The handler.
- */
-void BM78_setTestModeResponseHandler(void (* CommandResponseHandler)(uint8_t, uint8_t*));
-
-/**
- * Sets event error handler function callback.
- * 
- * @param ErrorHandler The handler to be called on event errors. 
- *                     Takes 2 parameters: The response (see BM78_Response) and 
- *                     additional data pointer.
- */
-void BM78_setErrorHandler(void (* ErrorHandler)(BM78_Response_t, uint8_t*));
-
-/**
- * Sets transparent data handler function callback.
- * 
- * @param TransparentDataHandler The handler to be called on incoming
- *                               transparent data. Takes 3 parameters:
- *                               The starting point, the length and the pointer
- *                               to the received data.
- */
-void BM78_setTransparentDataHandler(void (* TransparentDataHandler)(uint8_t, uint8_t*));
-
-/**
- * Sets message successfully sent handler function callback.
- * 
- * @param MessageSentHandler The handler to be called on successful message
- *                           transmission.
- */
-void BM78_setMessageSentHandler(void (* MessageSentHandler)(void));
-
-/** Get Advertising data. */
-void BM78_GetAdvData(void);
-
-/**
  * Writes value to EEPROM.
  *
  * @param command Command to execute.
  * @param store Whether to store or not (BM78_EEPROM_IGNORE/BM78_EEPROM_STORE)
  * @param value Pointer to the value
  */
-void BM78_write(uint8_t command, uint8_t store, uint8_t length, uint8_t *value);
+void BM78_write(BM78_CommandOpCode_t command, BM78_EEPROM_t store, uint8_t length, uint8_t *value);
 
 /**
  * Executes command on the module.
@@ -605,7 +1094,14 @@ void BM78_write(uint8_t command, uint8_t store, uint8_t length, uint8_t *value);
  * @param length Length of additional parameters
  * @param ... Additional parameters
  */
-void BM78_execute(uint8_t command, uint8_t length, ...);
+void BM78_execute(BM78_CommandOpCode_t command, uint8_t length, ...);
+
+/**
+ * Sends a request object.
+ * 
+ * @param request The request.
+ */
+void BM78_send(BM78_Request_t *request);
 
 /**
  * Sends data to the module.

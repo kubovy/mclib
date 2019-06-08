@@ -4,7 +4,7 @@
  */
 #include "ws281x.h"
 
-#ifdef WS281x_BUFFER
+#if defined WS281x_BUFFER && defined WS281x_INDICATORS
 
 uint8_t WS281x_ledTempR[WS281x_LED_COUNT];
 uint8_t WS281x_ledTempG[WS281x_LED_COUNT];
@@ -93,9 +93,9 @@ void WS281x_set(uint8_t led, WS281x_Pattern_t pattern, uint8_t r, uint8_t g,
 
 void WS281x_off(void) {
     WS281x_all(0x00, 0x00, 0x00);
-#ifndef WS281x_TIMER_PERIOD
+//#ifndef WS281x_TIMER_PERIOD
     WS281x_show();
-#endif
+//#endif
 
     if (WS281x_Switcher) WS281x_Switcher(false);
 #ifdef WS281x_SW_LAT

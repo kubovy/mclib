@@ -65,9 +65,8 @@ void BMP_removeAllPairedDevices(void);
  * Response handler catching BM78 pairing events.
  * 
  * @param response BM78 event response.
- * @param data Additional event data.
  */
-void BMP_bm78EventHandler(BM78_Response_t response, uint8_t *data);
+void BMP_bm78EventHandler(BM78_Response_t *response);
 
 #endif
 

@@ -45,18 +45,18 @@ void POC_bm78InitializationHandler(char *deviceName, char *pin) {
 }
 
 #ifdef BM78_ENABLED
-void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
-    switch (response.op_code) {
+void POC_bm78EventHandler(BM78_Response_t *response) {
+    switch (response->opCode) {
         case BM78_EVENT_DISCONNECTION_COMPLETE:
             LCD_setString("  BT Disconnected   ", 1, true);
             break;
         case BM78_EVENT_SPP_CONNECTION_COMPLETE:
-            if (response.SPPConnectionComplete_0x74.status == BM78_COMMAND_SUCCEEDED) {
+            if (response->SPPConnectionComplete_0x74.status == BM78_COMMAND_SUCCEEDED) {
                 LCD_setString("    BT Connected    ", 1, true);
                 LCD_setString(" ##:##:##:##:##:##  ", 2, false);
                 for (uint8_t i = 0; i < 6; i++) {
-                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[i] / 16 % 16), i * 3 + 1, 2, false);
-                    LCD_replaceChar(dec2hex(response.SPPConnectionComplete_0x74.peer_address[i] % 16), i * 3 + 2, 2, false);
+                    LCD_replaceChar(dec2hex(response->SPPConnectionComplete_0x74.peerAddress[i] / 16 % 16), i * 3 + 1, 2, false);
+                    LCD_replaceChar(dec2hex(response->SPPConnectionComplete_0x74.peerAddress[i] % 16), i * 3 + 2, 2, false);
                 }
                 LCD_displayLine(2);
             } else {
@@ -64,34 +64,34 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
             }
             break;
         case BM78_EVENT_COMMAND_COMPLETE:
-            switch(response.CommandComplete_0x80.command) {
+            switch(response->CommandComplete_0x80.command) {
                 case BM78_CMD_READ_LOCAL_INFORMATION:
                     LCD_setString("ST:##,##,##         ", 0, false);
-                    LCD_replaceChar(dec2hex(response.op_code / 16 % 16), 3, 0, false);
-                    LCD_replaceChar(dec2hex(response.op_code % 16), 4, 0, false);
-                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command / 16 % 16), 6, 0, false);
-                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command % 16), 7, 0, false);
-                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status / 16 % 16), 9, 0, false);
-                    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status % 16), 10, 0, false);
+                    LCD_replaceChar(dec2hex(response->opCode / 16 % 16), 3, 0, false);
+                    LCD_replaceChar(dec2hex(response->opCode % 16), 4, 0, false);
+                    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.command / 16 % 16), 6, 0, false);
+                    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.command % 16), 7, 0, false);
+                    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.status / 16 % 16), 9, 0, false);
+                    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.status % 16), 10, 0, false);
                     LCD_displayLine(0);
 
                     LCD_setString("V                   ", 1, false);
                     for (uint8_t i = 0; i < 5; i++) { // BT Address
-                        LCD_replaceChar(dec2hex(data[i] / 16 % 16), 3 + i * 2, 1, false);
-                        LCD_replaceChar(dec2hex(data[i] % 16), 4 + i * 2, 1, false);
+                        LCD_replaceChar(dec2hex(response->LocalInformation_0x80.version[i] / 16 % 16), 3 + i * 2, 1, false);
+                        LCD_replaceChar(dec2hex(response->LocalInformation_0x80.version[i] % 16), 4 + i * 2, 1, false);
                     }
                     LCD_displayLine(1);
 
                     LCD_setString("BT:##:##:##:##:##:##", 2, false);
                     for (uint8_t i = 0; i < 6; i++) { // BT Address
-                        LCD_replaceChar(dec2hex(data[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
-                        LCD_replaceChar(dec2hex(data[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
+                        LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
+                        LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
                     }
                     LCD_displayLine(2);
                     break;
                 case BM78_CMD_READ_DEVICE_NAME:
                     LCD_setString("Device name:", 0, true);
-                    LCD_setString((char *)data, 1, true);
+                    LCD_setString(response->DeviceName_0x80.deviceName, 1, true);
                     break;
                 case BM78_CMD_READ_ALL_PAIRED_DEVICE_INFO:
                     LCD_clear();
@@ -111,14 +111,14 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
                     break;
                 case BM78_CMD_READ_PIN_CODE:
                     LCD_setString("PIN:", 0, true);
-                    LCD_setString((char *) data, 1, true);
+                    LCD_setString(response->PIN_0x80.value, 1, true);
                     break;
                 default:
                     break;
             }
             break;
-        case BM78_EVENT_BM77_STATUS_REPORT:
-            switch(response.StatusReport_0x81.status) {
+        case BM78_EVENT_STATUS_REPORT:
+            switch(response->StatusReport_0x81.status) {
                 case BM78_STATUS_POWER_ON:
                     LCD_setString("    BT Power On     ", 3, true);
                     break;
@@ -157,17 +157,17 @@ void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data) {
     }
 }
 
-void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data) {
+void POC_bm78ErrorHandler(BM78_Response_t *response) {
     uint8_t i;
     //                      11 11 11 12
     //                45 78 01 34 67 90
     LCD_setString("ER:  ,  ,           ", 3, false);
-    LCD_replaceChar(dec2hex(response.op_code / 16 % 16), 3, 3, false);
-    LCD_replaceChar(dec2hex(response.op_code % 16), 4, 3, false);
-    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command / 16 % 16), 6, 3, false);
-    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.command % 16), 7, 3, false);
-    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status / 16 % 16), 9, 3, false);
-    LCD_replaceChar(dec2hex(response.CommandComplete_0x80.status % 16), 10, 3, false);
+    LCD_replaceChar(dec2hex(response->opCode / 16 % 16), 3, 3, false);
+    LCD_replaceChar(dec2hex(response->opCode % 16), 4, 3, false);
+    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.command / 16 % 16), 6, 3, false);
+    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.command % 16), 7, 3, false);
+    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.status / 16 % 16), 9, 3, false);
+    LCD_replaceChar(dec2hex(response->CommandComplete_0x80.status % 16), 10, 3, false);
     LCD_displayLine(3);
 }
 #endif
@@ -418,6 +418,81 @@ void POC_testRGB(RGB_Pattern_t pattern) {
 }
 #endif
 
+#ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+void POC_demoWS281x(void) {
+    WS281x_off();
+    WS281x_set(2, WS281x_PATTERN_LIGHT,       0x80, 0x00, 0x80,   0, 0,   0);
+    WS281x_set(3, WS281x_PATTERN_BLINK,       0xFF, 0x00, 0x00, 250, 0, 255);
+    WS281x_set(4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  50, 0,  50);
+    WS281x_set(5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  50, 0,  50);
+    WS281x_set(6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  50, 0,  50);
+
+    WS281x_set(WS281x_LED_COUNT / 2 + 2, WS281x_PATTERN_LIGHT,       0x80, 0x00, 0x80,   0, 0,   0);
+    WS281x_set(WS281x_LED_COUNT / 2 + 3, WS281x_PATTERN_BLINK,       0xFF, 0x00, 0x00, 250, 0, 255);
+    WS281x_set(WS281x_LED_COUNT / 2 + 4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  50, 0,  50);
+    WS281x_set(WS281x_LED_COUNT / 2 + 5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  50, 0,  50);
+    WS281x_set(WS281x_LED_COUNT / 2 + 6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  50, 0,  50);
+
+    WS281x_set(WS281x_LED_COUNT - 1, WS281x_PATTERN_FADE_TOGGLE, 0x00, 0xFF, 0xFF,  50, 0,  50);
+    WS281x_set(WS281x_LED_COUNT - 2, WS281x_PATTERN_FADE_TOGGLE, 0x00, 0xFF, 0xFF,  50, 0,  50);
+}
+
+void POC_testWS281x(void) {
+#ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("        RED         ", 1, true);
+#endif
+    WS281x_all(0xFF, 0x00, 0x00);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("       YELLOW       ", 1, true);
+#endif
+    WS281x_all(0xFF, 0xFF, 0x00);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_setString("       GREEN        ", 1, true);
+#endif
+    WS281x_all(0x00, 0xFF, 0x00);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("        CYAN        ", 1, true);
+#endif
+    WS281x_all(0x00, 0xFF, 0xFF);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_setString("        BLUE        ", 1, true);
+#endif
+    WS281x_all(0x00, 0x00, 0xFF);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_clear();
+    LCD_setString("       MAGENTA      ", 1, true);
+#endif
+    WS281x_all(0xFF, 0x00, 0xFF);
+    WS281x_show();
+    __delay_ms(500);
+
+#ifdef LCD_ADDRESS
+    LCD_clear();
+#endif
+    WS281x_all(0x00, 0x00, 0x00);
+    
+    //POC_demoWS281x();
+}
+#endif
 
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 void POC_testWS281xLight(WS281xLight_Pattern_t pattern) {
@@ -759,79 +834,5 @@ void POC_testWS281xLight(WS281xLight_Pattern_t pattern) {
         break;
     }
 }
-
-#elif defined WS281x_BUFFER
-void POC_demoWS281x(void) {
-    WS281x_off();
-    WS281x_set(2, WS281x_PATTERN_LIGHT,       0x80, 0x00, 0x80,   0, 0,   0);
-    WS281x_set(3, WS281x_PATTERN_BLINK,       0xFF, 0x00, 0x00, 250, 0, 255);
-    WS281x_set(4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  10, 0,  50);
-    WS281x_set(5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  10, 0,  50);
-    WS281x_set(6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  10, 0,  50);
-
-    WS281x_set(WS281x_LED_COUNT / 2 + 2, WS281x_PATTERN_LIGHT,       0x80, 0x00, 0x80,   0, 0,   0);
-    WS281x_set(WS281x_LED_COUNT / 2 + 3, WS281x_PATTERN_BLINK,       0xFF, 0x00, 0x00, 250, 0, 255);
-    WS281x_set(WS281x_LED_COUNT / 2 + 4, WS281x_PATTERN_FADE_IN,     0x00, 0xFF, 0x00,  10, 0,  50);
-    WS281x_set(WS281x_LED_COUNT / 2 + 5, WS281x_PATTERN_FADE_OUT,    0x00, 0x00, 0xFF,  10, 0,  50);
-    WS281x_set(WS281x_LED_COUNT / 2 + 6, WS281x_PATTERN_FADE_TOGGLE, 0xFF, 0xFF, 0x00,  10, 0,  50);
-
-    WS281x_set(WS281x_LED_COUNT - 1, WS281x_PATTERN_FADE_TOGGLE, 0x00, 0xFF, 0xFF,  10, 0,  50);
-    WS281x_set(WS281x_LED_COUNT - 2, WS281x_PATTERN_FADE_TOGGLE, 0x00, 0xFF, 0xFF,  10, 0,  50);
-}
-
-void POC_testWS281x(void) {
-#ifdef LCD_ADDRESS
-    LCD_clear();
-    LCD_setString("        RED         ", 1, true);
-#endif
-    WS281x_all(0xFF, 0x00, 0x00);
-    WS281x_show();
-    __delay_ms(500);
-
-#ifdef LCD_ADDRESS
-    LCD_clear();
-    LCD_setString("       YELLOW       ", 1, true);
-#endif
-    WS281x_all(0xFF, 0xFF, 0x00);
-    WS281x_show();
-    __delay_ms(500);
-
-#ifdef LCD_ADDRESS
-    LCD_setString("       GREEN        ", 1, true);
-#endif
-    WS281x_all(0x00, 0xFF, 0x00);
-    WS281x_show();
-    __delay_ms(500);
-
-#ifdef LCD_ADDRESS
-    LCD_clear();
-    LCD_setString("        CYAN        ", 1, true);
-#endif
-    WS281x_all(0x00, 0xFF, 0xFF);
-    WS281x_show();
-    __delay_ms(500);
-
-#ifdef LCD_ADDRESS
-    LCD_setString("        BLUE        ", 1, true);
-#endif
-    WS281x_all(0x00, 0x00, 0xFF);
-    WS281x_show();
-    __delay_ms(500);
-
-#ifdef LCD_ADDRESS
-    LCD_clear();
-    LCD_setString("       MAGENTA      ", 1, true);
-#endif
-    WS281x_all(0xFF, 0x00, 0xFF);
-    WS281x_show();
-    __delay_ms(500);
-
-#ifdef LCD_ADDRESS
-    LCD_clear();
-#endif
-    WS281x_all(0x00, 0x00, 0x00);
-    
-    //POC_demoWS281x();
-}
-
+#endif 
 #endif

@@ -85,6 +85,7 @@ typedef enum {
     SUM_MENU_TEST_PAGE_2 = 0x41,
     SUM_MENU_TEST_PAGE_3 = 0x42,
     SUM_MENU_TEST_PAGE_4 = 0x43,
+    SUM_MENU_TEST_PAGE_5 = 0x44,
 
 #ifdef RGB_ENABLED
     SUM_MENU_TEST_RGB_PAGE_1 = 0x50,
@@ -130,9 +131,8 @@ bool SUM_processKey(uint8_t key);
  * BM78 application mode response handler
  * 
  * @param response BM78 response.
- * @param data Response data.
  */
-void SUM_bm78EventHandler(BM78_Response_t response, uint8_t *data);
+void SUM_bm78EventHandler(BM78_Response_t *response);
 
 #endif
 #endif
@@ -147,17 +147,15 @@ uint8_t SUM_processBtn(uint8_t maxModes);
  * BM78 test mode response handler.
  * 
  * @param response BM78 response.
- * @param data Additional data.
  */
-void SUM_bm78TestModeResponseHandler(BM78_Response_t response, uint8_t *data);
+void SUM_bm78TestModeResponseHandler(BM78_Response_t *response);
 
 /**
  * BM78 error handler.
  * 
  * @param response BM78 response.
- * @param data Response data.
  */
-void SUM_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
+void SUM_bm78ErrorHandler(BM78_Response_t *response);
 
 /**
  * BM78 EEPROM Initialized handler.

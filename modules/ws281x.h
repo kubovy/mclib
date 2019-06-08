@@ -17,7 +17,7 @@ extern "C" {
 #include <stdint.h>
 #include "../lib/requirements.h"
 
-#ifdef WS281x_BUFFER
+#if defined WS281x_BUFFER && defined WS281x_INDICATORS
 
 // Configuration
 #ifndef WS281x_LED_COUNT

@@ -36,7 +36,9 @@ extern "C" {
 #include "../modules/rgb.h"
 #endif
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
 #include "../modules/ws281x.h"
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 #include "../modules/ws281x_light.h"
 #endif
@@ -52,8 +54,8 @@ void POC_testDHT11(void);
 #ifdef LCD_ADDRESS
 #ifdef BM78_ENABLED
 void POC_bm78InitializationHandler(char *deviceName, char *pin);
-void POC_bm78EventHandler(BM78_Response_t response, uint8_t *data);
-void POC_bm78ErrorHandler(BM78_Response_t response, uint8_t *data);
+void POC_bm78EventHandler(BM78_Response_t *response);
+void POC_bm78ErrorHandler(BM78_Response_t *response);
 #endif
 #ifdef SCOM_ENABLED
 void POC_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
@@ -74,8 +76,10 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port);
 void POC_testRGB(RGB_Pattern_t pattern);
 #endif
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
 void POC_demoWS281x(void);
 void POC_testWS281x(void);
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 void POC_testWS281xLight(WS281xLight_Pattern_t pattern);
 #endif

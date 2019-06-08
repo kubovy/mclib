@@ -34,12 +34,40 @@ inline unsigned char dec2hex(uint8_t dec);
  */
 inline uint8_t hex2dec(unsigned char hex);
 
+/**
+ * Returns the minimum of two 8bit numbers.
+ * 
+ * @param a Number a
+ * @param b Number b
+ * @return The minimum of the two numbers.
+ */
 inline uint8_t min(uint8_t a, uint8_t b);
 
+/**
+ * Returns the minimum of two 16bit numbers.
+ * 
+ * @param a Number a
+ * @param b Number b
+ * @return The minimum of the two numbers.
+ */
 inline uint16_t min16(uint16_t a, uint16_t b);
 
+/**
+ * Returns the maximum of two 8bit numbers.
+ * 
+ * @param a Number a
+ * @param b Number b
+ * @return The minimum of the two numbers.
+ */
 inline uint8_t max(uint8_t a, uint8_t b);
 
+/**
+ * Returns the maximum of two 16bit numbers.
+ * 
+ * @param a Number a
+ * @param b Number b
+ * @return The minimum of the two numbers.
+ */
 inline uint16_t max16(uint16_t a, uint16_t b);
 
 /**
@@ -47,9 +75,10 @@ inline uint16_t max16(uint16_t a, uint16_t b);
  * character.
  * 
  * @param str String to calculate the length for.
+ * @param max Maximum acceptable length.
  * @return Length of the string w/o terminating '\0' (NUL) character.
  */
-uint8_t strlen(char *str);
+uint8_t strlen(char *str, uint8_t max);
 
 /**
  * Compare 2 strings.  A string must be terminated by a '\0' (NUL).
@@ -81,6 +110,11 @@ void strcpy(char *dest, char* src, uint8_t len);
  */
 void watchDogTrigger(uint8_t *counter, uint8_t period, void (* Trigger)(void));
 
+/**
+ * Prints status information.
+ * 
+ * @param line Information to print.
+ */
 inline void printStatus(char *line);
 
 #ifdef LCD_ADDRESS // Needs LCD

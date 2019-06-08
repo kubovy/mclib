@@ -74,6 +74,13 @@ struct {
 } WS281xLight_list = {0, 0, WS281x_LIGHT_INDEFINED};
 
 /**
+ * Sets switcher to turn the LED strip on or off.
+ * 
+ * @param Switcher Switcher function.
+ */
+void WS281xLight_setSwitcher(void (* Switcher)(bool));
+
+/**
  * WS281x Light configuration list.
  */
 WS281xLight_t WS281xLight_items[WS281x_LIGHT_LIST_SIZE];

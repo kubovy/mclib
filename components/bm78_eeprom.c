@@ -49,11 +49,11 @@ void BM78EEPROM_setInitializationFailedHandler(Procedure_t handler) {
     BM78EEPROM_initializatonFailedHandler = handler;
 }
 
-void BM78EEPROM_testModeResponseHandler(BM78_Response_t response, uint8_t* data) {
+void BM78EEPROM_testModeResponseHandler(BM78_Response_t *response) {
     FlashPacket_t config;
-    if (BM78EEPROM_initializing) switch (response.ISSC_Event.ogf) {
+    if (BM78EEPROM_initializing) switch (response->ISSC_Event.ogf) {
         case BM78_ISSC_OGF_COMMAND:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_OPEN:
 #ifdef LCD_ADDRESS
                     printProgress("  Initializing BT   ", 1, BM78_CONFIGURATION_SIZE + 3);
@@ -69,7 +69,7 @@ void BM78EEPROM_testModeResponseHandler(BM78_Response_t response, uint8_t* data)
             }
             break;
         case BM78_ISSC_OGF_OPERATION:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_WRITE:
                     config = BM78_configuration[BM78EEPROM.index];
                     //__delay_ms(500);
@@ -80,11 +80,11 @@ void BM78EEPROM_testModeResponseHandler(BM78_Response_t response, uint8_t* data)
                     break;
                 case BM78_ISSC_OCF_READ:
                     config = BM78_configuration[BM78EEPROM.index];
-                    bool equals = response.ISSC_ReadEvent.address == config.address
-                            && response.ISSC_ReadEvent.data_length == config.length;
+                    bool equals = response->ISSC_ReadEvent.address == config.address
+                            && response->ISSC_ReadEvent.dataLength == config.length;
 
-                    if (equals) for (uint8_t i = 0; i < response.ISSC_ReadEvent.data_length; i++) {
-                        equals = equals && *(data + i) == config.data[i];
+                    if (equals) for (uint8_t i = 0; i < response->ISSC_ReadEvent.dataLength; i++) {
+                        equals = equals && response->ISSC_ReadEvent.data[i] == config.data[i];
                     }
 
                     if (equals) {
@@ -133,11 +133,11 @@ void BM78EEPROM_testModeResponseHandler(BM78_Response_t response, uint8_t* data)
     }
 }
 
-void BM78EEPROM_testModeErrorHandler(BM78_Response_t response, uint8_t* data) {
+void BM78EEPROM_testModeErrorHandler(BM78_Response_t *response) {
     FlashPacket_t config;
-    switch (response.ISSC_Event.ogf) {
+    switch (response->ISSC_Event.ogf) {
         case BM78_ISSC_OGF_COMMAND:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_OPEN:
                     if (BM78EEPROM.stage == 0) {
                         BM78EEPROM.retries++;
@@ -149,7 +149,7 @@ void BM78EEPROM_testModeErrorHandler(BM78_Response_t response, uint8_t* data) {
                     break;
             }
         case BM78_ISSC_OGF_OPERATION:
-            switch (response.ISSC_Event.ocf) {
+            switch (response->ISSC_Event.ocf) {
                 case BM78_ISSC_OCF_WRITE:
                     if (BM78EEPROM.stage == 2) {
                         BM78EEPROM.retries++;
