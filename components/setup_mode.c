@@ -1252,7 +1252,7 @@ void SUM_executeMenu(uint8_t key) {
 #endif
 #endif
                 case 'B': // Back
-                    SUM_showMenu(SUM_MENU_TEST_PAGE_5);
+                    SUM_showMenu(SUM_MENU_TEST_PAGE_4);
                     break;
                 default:
                     SUM_defaultFunction(key);
