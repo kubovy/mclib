@@ -131,7 +131,7 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) 
             SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_IN2_ADDRESS);
             SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_OUT_ADDRESS);
             SCOM_enqueue(channel, MESSAGE_KIND_SM_SET_STATE, 0);
-#ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
             SCOM_enqueue(channel, MESSAGE_KIND_WS281x, SCOM_PARAM_ALL);
 #endif
 #ifdef LCD_ADDRESS
