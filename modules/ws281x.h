@@ -31,6 +31,10 @@ extern "C" {
 #endif
 #endif
 
+#ifndef WS281x_SPEED
+#define WS281x_SPEED 2 * WS281x_TIMER_PERIOD
+#endif
+    
 typedef enum {
 #ifndef WS281x_TIMER_PERIOD
     WS281x_PATTERN_LIGHT = 0x00       // Simple light
