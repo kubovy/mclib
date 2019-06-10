@@ -184,6 +184,12 @@ void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, ui
     }
 }
 
+inline void SCOM_sendIDD(SCOM_Channel_t channel, uint8_t param) {
+    if (SCOM_canEnqueue(channel)) {
+        SCOM_enqueue(channel, MESSAGE_KIND_IDD, param);
+    }
+}
+
 #ifdef DHT11_PORT
 inline void SCOM_sendDHT11(SCOM_Channel_t channel) {
     if (SCOM_canEnqueue(channel)) {
@@ -235,18 +241,19 @@ inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index) {
 #endif
 
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led) {
+    if (SCOM_canEnqueue(channel) 
+            && (led & SCOM_PARAM_MASK) < WS281x_LED_COUNT) {
+        SCOM_enqueue(channel, MESSAGE_KIND_WS281x, led);
+    }
+}
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
 inline void SCOM_sendWS281xLight(SCOM_Channel_t channel, uint8_t index) {
     if (SCOM_canEnqueue(channel)
             && (index & SCOM_PARAM_MASK) < WS281xLight_list.size) {
         SCOM_enqueue(channel, MESSAGE_KIND_WS281x_LIGHT, index);
-    }
-}
-#else
-inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led) {
-    if (SCOM_canEnqueue(channel) 
-            && (led & SCOM_PARAM_MASK) < WS281x_LED_COUNT) {
-        SCOM_enqueue(channel, MESSAGE_KIND_WS281x, led);
     }
 }
 #endif
@@ -306,6 +313,68 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 ? SCOM_queue[channel].queue[SCOM_queue[channel].index]
                 : MESSAGE_KIND_NONE;
         switch (messageKind) {
+            case MESSAGE_KIND_IDD:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index];
+                switch(param) {
+                    case 0x00: // IDD - Capabilities
+                        SCOM_addDataByte(channel, 0, MESSAGE_KIND_IDD);  // Kind
+                        SCOM_addDataByte(channel, 1, 0x00); // Reserved
+                        SCOM_addDataByte(channel, 2, param); // IDD Message Type
+                        param = 0x00;
+#ifdef BM78_ENABLED
+                        param |= 0b00000001;
+#endif
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
+                        param |= 0b00000010;
+#endif
+#ifdef DHT11_PORT
+                        param |= 0b00000100;
+#endif
+#ifdef LCD_ADDRESS
+                        param |= 0b00001000;
+#endif
+#ifdef MCP23017_ENABLED
+                        param |= 0b00010000;
+#endif
+#ifdef PIR_PORT
+                        param |= 0b00100000;
+#endif
+                        SCOM_addDataByte(channel, 3, param);
+
+                        param = 0x00;
+#ifdef RGB_ENABLED
+                        param |= 0b00000001;
+#endif
+#ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+                        param |= 0b00000010;
+#endif
+#ifdef WS281x_LIGHT_ROWS
+                        param |= 0b00000100;
+#endif
+#endif
+                        SCOM_addDataByte(channel, 4, param);
+
+                        if (SCOM_commitData(channel, 5, BM78_MAX_SEND_RETRIES)) 
+                            SCOM_queue[channel].index++;
+                        break;
+                    case 0x01: // IDD - Name
+                        SCOM_addDataByte(channel, 0, MESSAGE_KIND_IDD);  // Kind
+                        SCOM_addDataByte(channel, 1, 0x00); // Reserved
+                        SCOM_addDataByte(channel, 2, param); // IDD Message Type
+
+                        param = 0;
+#ifdef BM78_ENABLED
+                        while (param < 16 && BM78.deviceName[param] != 0x00) {
+                            SCOM_addDataByte(channel, param + 3, BM78.deviceName[param]);
+                            param++;
+                        }
+#endif
+                        if (SCOM_commitData(channel, param + 3, BM78_MAX_SEND_RETRIES)) 
+                            SCOM_queue[channel].index++;
+                        break;
+                }
+                break;
 #ifdef DHT11_PORT
             case MESSAGE_KIND_DHT11: 
                 result = DHT11_measure();
@@ -386,6 +455,29 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 break;
 #endif
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+            case MESSAGE_KIND_WS281x:
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // LED (max 128)
+                if ((param) < WS281x_LED_COUNT) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x);
+                    SCOM_addDataByte(channel, 1, WS281x_LED_COUNT);        // LED Count
+                    SCOM_addDataByte(channel, 2, param); // LED
+                    SCOM_addDataByte(channel, 3, WS281x_ledPattern[param]);// Pattern
+                    SCOM_addDataByte(channel, 4, WS281x_ledRed[param]);    // Red
+                    SCOM_addDataByte(channel, 5, WS281x_ledGreen[param]);  // Green
+                    SCOM_addDataByte(channel, 6, WS281x_ledBlue[param]);   // Blue
+                    SCOM_addDataByte2(channel, 7, WS281x_ledDelay[param] * WS281x_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 8, WS281x_ledMin[param]);    // Min
+                    SCOM_addDataByte(channel, 10, WS281x_ledMax[param]);   // Max
+                    if (SCOM_commitData(channel, 11, BM78_MAX_SEND_RETRIES)) {
+                        if ((param + 1) < WS281x_LED_COUNT
+                                && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
+                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
+                        } else SCOM_queue[channel].index++;
+                    }
+                } else SCOM_queue[channel].index++;
+                break;
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
             case MESSAGE_KIND_WS281x_LIGHT:
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // index (max 128)
@@ -423,28 +515,6 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_addDataByte(channel, 31, WS281xLight_items[param].timeout);
                     if (SCOM_commitData(channel, 32, BM78_MAX_SEND_RETRIES)) {
                         if ((param + 1) < WS281xLight_list.size && (param + 1) < WS281x_LIGHT_LIST_SIZE
-                                && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
-                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
-                        } else SCOM_queue[channel].index++;
-                    }
-                } else SCOM_queue[channel].index++;
-                break;
-#else
-            case MESSAGE_KIND_WS281x:
-                param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // LED (max 128)
-                if ((param) < WS281x_LED_COUNT) {
-                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x);
-                    SCOM_addDataByte(channel, 1, WS281x_LED_COUNT);        // LED Count
-                    SCOM_addDataByte(channel, 2, param); // LED
-                    SCOM_addDataByte(channel, 3, WS281x_ledPattern[param]);// Pattern
-                    SCOM_addDataByte(channel, 4, WS281x_ledRed[param]);    // Red
-                    SCOM_addDataByte(channel, 5, WS281x_ledGreen[param]);  // Green
-                    SCOM_addDataByte(channel, 6, WS281x_ledBlue[param]);   // Blue
-                    SCOM_addDataByte2(channel, 7, WS281x_ledDelay[param] * WS281x_TIMER_PERIOD);
-                    SCOM_addDataByte(channel, 8, WS281x_ledMin[param]);    // Min
-                    SCOM_addDataByte(channel, 10, WS281x_ledMax[param]);   // Max
-                    if (SCOM_commitData(channel, 11, BM78_MAX_SEND_RETRIES)) {
-                        if ((param + 1) < WS281x_LED_COUNT
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
                         } else SCOM_queue[channel].index++;
@@ -551,7 +621,8 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
             if (length == 3) SCOM_tx[channel].chksumReceived = *(data + 2);
             break;
         case MESSAGE_KIND_IDD:
-            // Do nothing, just ping.
+            // 3rd byte is a random number for checksum check
+            if (length == 4) SCOM_sendIDD(channel, *(data + 3));
             break;
 #ifdef DHT11_PORT
         case MESSAGE_KIND_DHT11:
@@ -633,6 +704,23 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
             break;
 #endif
 #ifdef WS281x_BUFFER
+#ifdef WS281x_INDICATORS
+        case MESSAGE_KIND_WS281x:
+            if (length == 2) SCOM_sendWS281xLED(channel, SCOM_PARAM_ALL);
+            else if (length == 3) SCOM_sendWS281xLED(channel, *(data + 2));
+            else if (length == 5) { // set all WS281x LEDs
+                WS281x_all(*(data + 2), *(data + 3), *(data + 4));
+            } else if (length == 11) { // set WS281x
+                // led, pattern, red, green, blue, delayH, delayL, min, max
+                WS281x_set(*(data + 2),                        // LED
+                        *(data + 3),                           // Pattern
+                        *(data + 4), *(data + 5), *(data + 6), // Color
+                        (*(data + 7) << 8) | *(data + 8),      // Delay
+                        *(data + 9),                           // Min
+                        *(data + 10));                         // Max
+            }
+            break;
+#endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
         case MESSAGE_KIND_WS281x_LIGHT:
             if (length == 2) SCOM_sendWS281xLight(channel, SCOM_PARAM_ALL);
@@ -667,22 +755,6 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
                         *(data + 27),                             // Fading
                         *(data + 28), *(data + 29),               // Min - Max
                         *(data + 30));                            // Timeout
-            }
-            break;
-#else
-        case MESSAGE_KIND_WS281x:
-            if (length == 2) SCOM_sendWS281xLED(channel, SCOM_PARAM_ALL);
-            else if (length == 3) SCOM_sendWS281xLED(channel, *(data + 2));
-            else if (length == 5) { // set all WS281x LEDs
-                WS281x_all(*(data + 2), *(data + 3), *(data + 4));
-            } else if (length == 11) { // set WS281x
-                // led, pattern, red, green, blue, delayH, delayL, min, max
-                WS281x_set(*(data + 2),                        // LED
-                        *(data + 3),                           // Pattern
-                        *(data + 4), *(data + 5), *(data + 6), // Color
-                        (*(data + 7) << 8) | *(data + 8),      // Delay
-                        *(data + 9),                           // Min
-                        *(data + 10));                         // Max
             }
             break;
 #endif

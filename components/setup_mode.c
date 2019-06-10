@@ -93,8 +93,10 @@ void SUM_setBtStatus(uint8_t status) {
             break;
         case BM78_STATUS_CONFIGURE_MODE:
             strcpy(SUM_bm78CurrentState.name, "CONFIGURE", 9);
+            break;
         case BM78_STATUS_PAIRING_IN_PROGRESS_MODE:
             strcpy(SUM_bm78CurrentState.name, "PAIRING  ", 9);
+            break;
         //case BM78_STATUS_BLE_CONNECTED_MODE:
         //    strcpy(SUM_bm78CurrentState.name, "BLE CONN ", 9);
         //    break;
@@ -1467,8 +1469,8 @@ void SUM_bm78EventHandler(BM78_Response_t *response) {
                         LCD_displayLine(1);
                         LCD_setString("BT:##:##:##:##:##:##", 2, false);
                         for (uint8_t i = 0; i < 6; i++) { // BT Address
-                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[5 + i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
-                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[5 + i] % 16), 4 + (5 - i) * 3, 2, false);
+                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[i] / 16 % 16), 3 + (5 - i) * 3, 2, false);
+                            LCD_replaceChar(dec2hex(response->LocalInformation_0x80.bluetoothAddress[i] % 16), 4 + (5 - i) * 3, 2, false);
                         }
                         LCD_displayLine(2);
                     }
