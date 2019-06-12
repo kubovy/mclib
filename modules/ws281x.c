@@ -19,12 +19,21 @@ void WS281x_setSwitcher(void (* Switcher)(bool)) {
 
 inline void WS281x_show(void) {
     for (uint8_t i = 0; i < WS281x_LED_COUNT; i++) {
+#ifdef WS281x_GRB
+        WS281x_BUFFER = WS281x_ledTempG[i];
+        __delay_us(15);
+        WS281x_BUFFER = WS281x_ledTempR[i];
+        __delay_us(15);
+        WS281x_BUFFER = WS281x_ledTempB[i];
+        __delay_us(15);
+#else
         WS281x_BUFFER = WS281x_ledTempR[i];
         __delay_us(15);
         WS281x_BUFFER = WS281x_ledTempG[i];
         __delay_us(15);
         WS281x_BUFFER = WS281x_ledTempB[i];
         __delay_us(15);
+#endif
     }
     __delay_us(50);
 }
