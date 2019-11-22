@@ -21,6 +21,7 @@ inline void WS281xLight_led(uint8_t led, uint8_t color, uint8_t value) {
 #ifdef WS281x_GRB
     color = (color & 0x02) ? color : (~color & 0x01);
 #endif
+    value = value * WS281x_MAX / 255;
     if (WS281xLight_data[led * 3 + color] != value) {
         WS281xLight_data[led * 3 + color] = value;
         WS281xLight_changed = true;

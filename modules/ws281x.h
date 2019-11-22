@@ -35,6 +35,11 @@ extern "C" {
 #define WS281x_SPEED 2 * WS281x_TIMER_PERIOD
 #endif
     
+#ifndef WS281x_MAX
+#warning "WS281x: WS281x_MAX defaults to 255"
+#define WS281x_MAX 255
+#endif
+
 typedef enum {
 #ifndef WS281x_TIMER_PERIOD
     WS281x_PATTERN_LIGHT = 0x00       // Simple light

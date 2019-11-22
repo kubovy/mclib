@@ -39,6 +39,11 @@ extern "C" {
 #define WS281x_LIGHT_LIST_SIZE 20
 #endif
 
+#ifndef WS281x_MAX
+#warning "WS281x: WS281x_MAX defaults to 255"
+#define WS281x_MAX 255
+#endif
+
 #define WS281x_LIGHT_INDEFINED 0xFF
 
 typedef enum {

@@ -69,6 +69,8 @@ inline bool SCOM_canEnqueue(SCOM_Channel_t channel) {
         case SCOM_CHANNEL_BT:
             return BM78.status == BM78_STATUS_SPP_CONNECTED_MODE;
 #endif
+        default:
+            return false;
     }
 }
 
@@ -82,6 +84,8 @@ inline bool SCOM_canSend(SCOM_Channel_t channel) {
         case SCOM_CHANNEL_BT:
             return BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !SCOM_awatingConfirmation(channel);
 #endif
+        default:
+            return false;
     }
 }
 

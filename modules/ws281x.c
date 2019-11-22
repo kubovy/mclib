@@ -40,7 +40,7 @@ inline void WS281x_show(void) {
 
 #ifdef WS281x_TIMER_PERIOD
 void WS281x_update(void) {
-    uint8_t percent;
+    uint8_t percent; // Percent in bytes (0-255) where 255 = 100%
     for (uint8_t led = 0; led < WS281x_LED_COUNT; led++) {
         switch(WS281x_ledPattern[led]) {
             case WS281x_PATTERN_LIGHT:
@@ -58,14 +58,14 @@ void WS281x_update(void) {
                 percent = WS281x_ledMax[led] - ((uint16_t) (WS281x_ledMax[led] - WS281x_ledMin[led]) * percent) / 99;
                 break;
             case WS281x_PATTERN_FADE_TOGGLE:
-                percent = (WS281x_counter * WS281x_SPEED / WS281x_ledDelay[led]) % 200;
+                percent = (WS281x_counter * WS281x_SPEED * 2 / WS281x_ledDelay[led]) % 200;
                 percent = percent > 100 ? 200 - percent : percent;
                 percent = (WS281x_ledMax[led] - WS281x_ledMin[led]) * percent / 100 + WS281x_ledMin[led];
                 break;
         }
-        WS281x_ledTempR[led] = ((uint16_t) WS281x_ledRed[led]) * percent / 255;
-        WS281x_ledTempG[led] = ((uint16_t) WS281x_ledGreen[led]) * percent / 255;
-        WS281x_ledTempB[led] = ((uint16_t) WS281x_ledBlue[led]) * percent / 255;
+        WS281x_ledTempR[led] = ((uint16_t) WS281x_ledRed[led]) * percent / 255 * WS281x_MAX / 255;
+        WS281x_ledTempG[led] = ((uint16_t) WS281x_ledGreen[led]) * percent / 255 * WS281x_MAX / 255;
+        WS281x_ledTempB[led] = ((uint16_t) WS281x_ledBlue[led]) * percent / 255 * WS281x_MAX / 255;
     }
     WS281x_counter++;
     WS281x_show();
