@@ -439,17 +439,18 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // index (max 128)
                 if (param < RGB_list.size && param  < RGB_LIST_SIZE) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_RGB);
-                    SCOM_addDataByte(channel, 1, RGB_list.size);            // Size
-                    SCOM_addDataByte(channel, 2, param & SCOM_PARAM_MASK);   // Index
-                    SCOM_addDataByte(channel, 3, RGB_items[param].pattern); // Pattern
-                    SCOM_addDataByte(channel, 4, RGB_items[param].red);     // Red
-                    SCOM_addDataByte(channel, 5, RGB_items[param].green);   // Green
-                    SCOM_addDataByte(channel, 6, RGB_items[param].blue);    // Blue
-                    SCOM_addDataByte2(channel, 7, RGB_items[param].delay * RGB_TIMER_PERIOD);
-                    SCOM_addDataByte(channel, 9, RGB_items[param].min);     // Min
-                    SCOM_addDataByte(channel, 10, RGB_items[param].max);     // Max
-                    SCOM_addDataByte(channel, 11, RGB_items[param].timeout); // Count
-                    if (SCOM_commitData(channel, 12, BM78_MAX_SEND_RETRIES)) {
+                    SCOM_addDataByte(channel, 1, 0);                        // Num - here just one strip possible
+                    SCOM_addDataByte(channel, 2, RGB_list.size);            // Size
+                    SCOM_addDataByte(channel, 3, param & SCOM_PARAM_MASK);  // Index
+                    SCOM_addDataByte(channel, 4, RGB_items[param].pattern); // Pattern
+                    SCOM_addDataByte(channel, 5, RGB_items[param].red);     // Red
+                    SCOM_addDataByte(channel, 6, RGB_items[param].green);   // Green
+                    SCOM_addDataByte(channel, 7, RGB_items[param].blue);    // Blue
+                    SCOM_addDataByte2(channel, 8, RGB_items[param].delay * RGB_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 10, RGB_items[param].min);     // Min
+                    SCOM_addDataByte(channel, 11, RGB_items[param].max);    // Max
+                    SCOM_addDataByte(channel, 12, RGB_items[param].timeout);// Count
+                    if (SCOM_commitData(channel, 13, BM78_MAX_SEND_RETRIES)) {
                         if ((param + 1) < RGB_list.size && (param + 1) < RGB_LIST_SIZE
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
@@ -464,16 +465,17 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // LED (max 128)
                 if ((param) < WS281x_LED_COUNT) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x);
-                    SCOM_addDataByte(channel, 1, WS281x_LED_COUNT);        // LED Count
-                    SCOM_addDataByte(channel, 2, param); // LED
-                    SCOM_addDataByte(channel, 3, WS281x_ledPattern[param]);// Pattern
-                    SCOM_addDataByte(channel, 4, WS281x_ledRed[param]);    // Red
-                    SCOM_addDataByte(channel, 5, WS281x_ledGreen[param]);  // Green
-                    SCOM_addDataByte(channel, 6, WS281x_ledBlue[param]);   // Blue
-                    SCOM_addDataByte2(channel, 7, WS281x_ledDelay[param] * WS281x_TIMER_PERIOD);
-                    SCOM_addDataByte(channel, 8, WS281x_ledMin[param]);    // Min
-                    SCOM_addDataByte(channel, 10, WS281x_ledMax[param]);   // Max
-                    if (SCOM_commitData(channel, 11, BM78_MAX_SEND_RETRIES)) {
+                    SCOM_addDataByte(channel, 1, 0);                       // Number - here just one light possible
+                    SCOM_addDataByte(channel, 2, WS281x_LED_COUNT);        // LED Count
+                    SCOM_addDataByte(channel, 3, param); // LED
+                    SCOM_addDataByte(channel, 4, WS281x_ledPattern[param]);// Pattern
+                    SCOM_addDataByte(channel, 5, WS281x_ledRed[param]);    // Red
+                    SCOM_addDataByte(channel, 6, WS281x_ledGreen[param]);  // Green
+                    SCOM_addDataByte(channel, 7, WS281x_ledBlue[param]);   // Blue
+                    SCOM_addDataByte2(channel, 8, WS281x_ledDelay[param] * WS281x_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 10, WS281x_ledMin[param]);    // Min
+                    SCOM_addDataByte(channel, 11, WS281x_ledMax[param]);   // Max
+                    if (SCOM_commitData(channel, 12, BM78_MAX_SEND_RETRIES)) {
                         if ((param + 1) < WS281x_LED_COUNT
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
@@ -487,37 +489,38 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // index (max 128)
                 if (param < WS281xLight_list.size && param < WS281x_LIGHT_LIST_SIZE) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x_LIGHT);
-                    SCOM_addDataByte(channel, 1, WS281xLight_list.size);  // Size
-                    SCOM_addDataByte(channel, 2, param & SCOM_PARAM_MASK); // Index
-                    SCOM_addDataByte(channel, 3, WS281xLight_items[param].pattern);
-                    SCOM_addDataByte(channel, 4, WS281xLight_items[param].color[0].r);
-                    SCOM_addDataByte(channel, 5, WS281xLight_items[param].color[0].g);
-                    SCOM_addDataByte(channel, 6, WS281xLight_items[param].color[0].b);
-                    SCOM_addDataByte(channel, 7, WS281xLight_items[param].color[1].r);
-                    SCOM_addDataByte(channel, 8, WS281xLight_items[param].color[1].g);
-                    SCOM_addDataByte(channel, 9, WS281xLight_items[param].color[1].b);
-                    SCOM_addDataByte(channel, 10, WS281xLight_items[param].color[2].r);
-                    SCOM_addDataByte(channel, 11, WS281xLight_items[param].color[2].g);
-                    SCOM_addDataByte(channel, 12, WS281xLight_items[param].color[2].b);
-                    SCOM_addDataByte(channel, 13, WS281xLight_items[param].color[3].r);
-                    SCOM_addDataByte(channel, 14, WS281xLight_items[param].color[3].g);
-                    SCOM_addDataByte(channel, 15, WS281xLight_items[param].color[3].b);
-                    SCOM_addDataByte(channel, 16, WS281xLight_items[param].color[4].r);
-                    SCOM_addDataByte(channel, 17, WS281xLight_items[param].color[4].g);
-                    SCOM_addDataByte(channel, 18, WS281xLight_items[param].color[4].b);
-                    SCOM_addDataByte(channel, 19, WS281xLight_items[param].color[5].r);
-                    SCOM_addDataByte(channel, 20, WS281xLight_items[param].color[5].g);
-                    SCOM_addDataByte(channel, 21, WS281xLight_items[param].color[5].b);
-                    SCOM_addDataByte(channel, 22, WS281xLight_items[param].color[6].r);
-                    SCOM_addDataByte(channel, 23, WS281xLight_items[param].color[6].g);
-                    SCOM_addDataByte(channel, 24, WS281xLight_items[param].color[6].b);
-                    SCOM_addDataByte2(channel, 25, WS281xLight_items[param].delay * WS281x_TIMER_PERIOD);
-                    SCOM_addDataByte(channel, 27, WS281xLight_items[param].width);
-                    SCOM_addDataByte(channel, 28, WS281xLight_items[param].fading);
-                    SCOM_addDataByte(channel, 29, WS281xLight_items[param].min);
-                    SCOM_addDataByte(channel, 30, WS281xLight_items[param].max);
-                    SCOM_addDataByte(channel, 31, WS281xLight_items[param].timeout);
-                    if (SCOM_commitData(channel, 32, BM78_MAX_SEND_RETRIES)) {
+                    SCOM_addDataByte(channel, 1, 0);                       // Num
+                    SCOM_addDataByte(channel, 2, WS281xLight_list.size);   // Size
+                    SCOM_addDataByte(channel, 3, param & SCOM_PARAM_MASK); // Index
+                    SCOM_addDataByte(channel, 4, WS281xLight_items[param].pattern);
+                    SCOM_addDataByte(channel, 5, WS281xLight_items[param].color[0].r);
+                    SCOM_addDataByte(channel, 6, WS281xLight_items[param].color[0].g);
+                    SCOM_addDataByte(channel, 7, WS281xLight_items[param].color[0].b);
+                    SCOM_addDataByte(channel, 8, WS281xLight_items[param].color[1].r);
+                    SCOM_addDataByte(channel, 9, WS281xLight_items[param].color[1].g);
+                    SCOM_addDataByte(channel, 10, WS281xLight_items[param].color[1].b);
+                    SCOM_addDataByte(channel, 11, WS281xLight_items[param].color[2].r);
+                    SCOM_addDataByte(channel, 12, WS281xLight_items[param].color[2].g);
+                    SCOM_addDataByte(channel, 13, WS281xLight_items[param].color[2].b);
+                    SCOM_addDataByte(channel, 14, WS281xLight_items[param].color[3].r);
+                    SCOM_addDataByte(channel, 15, WS281xLight_items[param].color[3].g);
+                    SCOM_addDataByte(channel, 16, WS281xLight_items[param].color[3].b);
+                    SCOM_addDataByte(channel, 17, WS281xLight_items[param].color[4].r);
+                    SCOM_addDataByte(channel, 18, WS281xLight_items[param].color[4].g);
+                    SCOM_addDataByte(channel, 19, WS281xLight_items[param].color[4].b);
+                    SCOM_addDataByte(channel, 20, WS281xLight_items[param].color[5].r);
+                    SCOM_addDataByte(channel, 21, WS281xLight_items[param].color[5].g);
+                    SCOM_addDataByte(channel, 22, WS281xLight_items[param].color[5].b);
+                    SCOM_addDataByte(channel, 23, WS281xLight_items[param].color[6].r);
+                    SCOM_addDataByte(channel, 24, WS281xLight_items[param].color[6].g);
+                    SCOM_addDataByte(channel, 25, WS281xLight_items[param].color[6].b);
+                    SCOM_addDataByte2(channel, 26, WS281xLight_items[param].delay * WS281x_TIMER_PERIOD);
+                    SCOM_addDataByte(channel, 28, WS281xLight_items[param].width);
+                    SCOM_addDataByte(channel, 29, WS281xLight_items[param].fading);
+                    SCOM_addDataByte(channel, 30, WS281xLight_items[param].min);
+                    SCOM_addDataByte(channel, 31, WS281xLight_items[param].max);
+                    SCOM_addDataByte(channel, 32, WS281xLight_items[param].timeout);
+                    if (SCOM_commitData(channel, 33, BM78_MAX_SEND_RETRIES)) {
                         if ((param + 1) < WS281xLight_list.size && (param + 1) < WS281x_LIGHT_LIST_SIZE
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
@@ -688,77 +691,77 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
 #endif
 #ifdef RGB_ENABLED
         case MESSAGE_KIND_RGB:
-            if (length == 2) SCOM_sendRGB(channel, SCOM_PARAM_ALL);
-            else if (length == 3) SCOM_sendRGB(channel, *(data + 2));
-            else if (length == 11) { // set RGB
+            if (length == 4) SCOM_sendRGB(channel, *(data + 3));
+            else if (length == 12) { // set RGB
                 if (*(data + 2) == RGB_PATTERN_OFF) RGB_off();
                 else if (*(data + 2) & SCOM_PARAM_ALL) RGB_set(
                         *(data + 2) & SCOM_PARAM_MASK,         // Pattern
-                        *(data + 3), *(data + 4), *(data + 5), // Color
-                        (*(data + 6) << 8) | *(data + 7),      // Delay
-                        *(data + 8), *(data + 9),              // Min - Max
-                        *(data + 10));                         // Timeout
+                        // data + 3 = Num - here only one strip possible
+                        *(data + 4), *(data + 5), *(data + 6), // Color
+                        (*(data + 7) << 8) | *(data + 8),      // Delay
+                        *(data + 9), *(data + 10),              // Min - Max
+                        *(data + 11));                         // Timeout
                 else RGB_add(
                         *(data + 2) & SCOM_PARAM_MASK,         // Pattern
-                        *(data + 3), *(data + 4), *(data + 5), // Color
-                        (*(data + 6) << 8) | *(data + 7),      // Delay
-                        *(data + 8), *(data + 9),              // Min - Max
-                        *(data + 10));                         // Timeout
+                        // data + 3 = Num - here only one strip possible
+                        *(data + 4), *(data + 5), *(data + 6), // Color
+                        (*(data + 7) << 8) | *(data + 8),      // Delay
+                        *(data + 9), *(data + 10),              // Min - Max
+                        *(data + 11));                         // Timeout
             }
             break;
 #endif
 #ifdef WS281x_BUFFER
 #ifdef WS281x_INDICATORS
         case MESSAGE_KIND_WS281x:
-            if (length == 2) SCOM_sendWS281xLED(channel, SCOM_PARAM_ALL);
-            else if (length == 3) SCOM_sendWS281xLED(channel, *(data + 2));
-            else if (length == 5) { // set all WS281x LEDs
-                WS281x_all(*(data + 2), *(data + 3), *(data + 4));
-            } else if (length == 11) { // set WS281x
+            if (length == 4) SCOM_sendWS281xLED(channel, *(data + 3));
+            else if (length == 6) { // set all WS281x LEDs
+                WS281x_all(*(data + 3), *(data + 4), *(data + 5));
+            } else if (length == 12) { // set WS281x
                 // led, pattern, red, green, blue, delayH, delayL, min, max
-                WS281x_set(*(data + 2),                        // LED
-                        *(data + 3),                           // Pattern
-                        *(data + 4), *(data + 5), *(data + 6), // Color
-                        (*(data + 7) << 8) | *(data + 8),      // Delay
-                        *(data + 9),                           // Min
-                        *(data + 10));                         // Max
+                // data + 2 = Num - here only one strip possible
+                WS281x_set(*(data + 3),                        // LED
+                        *(data + 4),                           // Pattern
+                        *(data + 5), *(data + 6), *(data + 7), // Color
+                        (*(data + 8) << 8) | *(data + 9),      // Delay
+                        *(data + 10),                          // Min
+                        *(data + 11));                         // Max
             }
             break;
 #endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
         case MESSAGE_KIND_WS281x_LIGHT:
-            if (length == 2) SCOM_sendWS281xLight(channel, SCOM_PARAM_ALL);
-            else if (length == 3) SCOM_sendWS281xLight(channel, *(data + 2));
-            else if (length == 31) {
-                if (*(data + 2) == WS281x_LIGHT_OFF) WS281xLight_off();
-                else if (*(data + 2) & SCOM_PARAM_ALL) WS281xLight_set(
-                        *(data + 2) & SCOM_PARAM_MASK,            // Pattern
-                        *(data + 3), *(data + 4), *(data + 5),    // Color 1
-                        *(data + 6), *(data + 7), *(data + 8),    // Color 2
-                        *(data + 9), *(data + 10), *(data + 11),  // Color 3
-                        *(data + 12), *(data + 13), *(data + 14), // Color 4
-                        *(data + 15), *(data + 16), *(data + 17), // Color 5
-                        *(data + 18), *(data + 19), *(data + 20), // Color 6
-                        *(data + 21), *(data + 22), *(data + 23), // Color 7
-                        (*(data + 24) << 8) | *(data + 25),       // Delay
-                        *(data + 26),                             // Width
-                        *(data + 27),                             // Fading
-                        *(data + 28), *(data + 29),               // Min - Max
-                        *(data + 30));                            // Timeout
+            if (length == 4) SCOM_sendWS281xLight(channel, *(data + 3));
+            else if (length == 32) {
+                // data + 2 = Num - here only one light possible
+                if (*(data + 3) & SCOM_PARAM_ALL) WS281xLight_set(
+                        *(data + 3) & SCOM_PARAM_MASK,            // Pattern
+                        *(data + 4), *(data + 5), *(data + 6),    // Color 1
+                        *(data + 7), *(data + 8), *(data + 9),    // Color 2
+                        *(data + 10), *(data + 11), *(data + 12),  // Color 3
+                        *(data + 13), *(data + 14), *(data + 15), // Color 4
+                        *(data + 16), *(data + 17), *(data + 18), // Color 5
+                        *(data + 19), *(data + 20), *(data + 21), // Color 6
+                        *(data + 22), *(data + 23), *(data + 24), // Color 7
+                        (*(data + 25) << 8) | *(data + 26),       // Delay
+                        *(data + 27),                             // Width
+                        *(data + 28),                             // Fading
+                        *(data + 29), *(data + 30),               // Min - Max
+                        *(data + 31));                            // Timeout
                 else WS281xLight_add(
-                        *(data + 2) & SCOM_PARAM_MASK,            // Pattern
-                        *(data + 3), *(data + 4), *(data + 5),    // Color 1
-                        *(data + 6), *(data + 7), *(data + 8),    // Color 2
-                        *(data + 9), *(data + 10), *(data + 11),  // Color 3
-                        *(data + 12), *(data + 13), *(data + 14), // Color 4
-                        *(data + 15), *(data + 16), *(data + 17), // Color 5
-                        *(data + 18), *(data + 19), *(data + 20), // Color 6
-                        *(data + 21), *(data + 22), *(data + 23), // Color 7
-                        (*(data + 24) << 8) | *(data + 25),       // Delay
-                        *(data + 26),                             // Width
-                        *(data + 27),                             // Fading
-                        *(data + 28), *(data + 29),               // Min - Max
-                        *(data + 30));                            // Timeout
+                        *(data + 3) & SCOM_PARAM_MASK,            // Pattern
+                        *(data + 4), *(data + 5), *(data + 6),    // Color 1
+                        *(data + 7), *(data + 8), *(data + 9),    // Color 2
+                        *(data + 10), *(data + 11), *(data + 12), // Color 3
+                        *(data + 13), *(data + 14), *(data + 15), // Color 4
+                        *(data + 16), *(data + 17), *(data + 18), // Color 5
+                        *(data + 19), *(data + 20), *(data + 21), // Color 6
+                        *(data + 22), *(data + 23), *(data + 24), // Color 7
+                        (*(data + 25) << 8) | *(data + 26),       // Delay
+                        *(data + 27),                             // Width
+                        *(data + 28),                             // Fading
+                        *(data + 29), *(data + 30),               // Min - Max
+                        *(data + 31));                            // Timeout
             }
             break;
 #endif

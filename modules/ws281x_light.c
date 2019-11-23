@@ -59,7 +59,7 @@ inline Color_t WS281xLight_wheel(uint8_t pos) {
 
 inline uint8_t WS281xLight_isRainbow() {
     uint8_t type = 0;
-    for (uint8_t i = 0; i < 7; i++) {
+    for (uint8_t i = 0; i < 4; i++) {
         if (WS281xLight.color[i].r != 0x01) return 0;
         if (WS281xLight.color[i].g != 0x02) return 0;
         
