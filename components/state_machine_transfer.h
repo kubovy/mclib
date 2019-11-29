@@ -52,7 +52,9 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
 /**
  * State machine's BM78 communication next message handler implementation.
  * 
+ * @param channel Channel.
  * @param what Type of message to send next.
+ * @param param Parameter.
  * @return Whether the message type was sent, or not (e.g. something else was 
  *         being sent at the time).
  */

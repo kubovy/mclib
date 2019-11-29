@@ -267,7 +267,7 @@ uint16_t SM_dataLength(void) {
     if (((regHigh << 8) | regLow) >= SM_MAX_SIZE - 1) return 0;
     uint16_t lastActionLengthAddr = ((regHigh << 8) | regLow) + 1;
 
-    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, lastActionLengthAddr >> 8);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, lastActionLengthAddr);
     if (lastActionLengthAddr >= SM_MAX_SIZE - regHigh - 1) return 0;
     return lastActionLengthAddr + regHigh + 1;
 }

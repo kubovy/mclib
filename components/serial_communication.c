@@ -39,7 +39,9 @@ struct {
 
 SCOM_Queue_t SCOM_queue[SCOM_CHANNEL_COUNT]; // = {0, 0};
 
-SCOM_NextMessageHandler_t SCOM_nextMessageHandler[SCOM_CHANNEL_COUNT];
+SCOM_DataHandler_t additionalDataHandler = NULL;
+
+SCOM_NextMessageHandler_t nextMessageHandler = NULL;
 
 void SCOM_cancelTransmission(SCOM_Channel_t channel) {
     SCOM_tx[channel].length = 0;
@@ -96,10 +98,8 @@ void SCOM_retryTrigger(void) {
         }
 
         if (SCOM_tx[channel].length > 0 && SCOM_isChecksumCorrect(channel)) {
-
             SCOM_cancelTransmission(channel);
             SCOM_messageSentHandler(channel);
-
         } else if (SCOM_tx[channel].length > 0
                 && !SCOM_isChecksumCorrect(channel)
                 && SCOM_tx[channel].timeout == 0) {
@@ -113,7 +113,7 @@ void SCOM_retryTrigger(void) {
                 SCOM_tx[channel].retries--;
             }
 
-            SCOM_tx[channel].timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
+            SCOM_tx[channel].timeout = (uint16_t) BM78_RESEND_TIMEOUT / (uint16_t) BM78_TRIGGER_PERIOD;
 
             // (Re)calculate Transparent Checksum
             SCOM_tx[channel].chksumExpected = 0x00;
@@ -135,17 +135,17 @@ void SCOM_retryTrigger(void) {
                     break;
 #endif  
             }
-
         } else if (SCOM_tx[channel].length == 0 && SCOM_tx[channel].timeout == 0) {
-
             // Periodically try message sent handler if someone has something to send
-            SCOM_tx[channel].timeout = BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD;
+            SCOM_tx[channel].timeout = (uint16_t) BM78_RESEND_TIMEOUT / (uint16_t) BM78_TRIGGER_PERIOD;
             SCOM_messageSentHandler(channel);
-
         } else if (SCOM_tx[channel].timeout > 0) {
-
             SCOM_tx[channel].timeout--;
+        }
 
+        // Just to make sure, weird behavior observed here
+        if (SCOM_tx[channel].timeout > BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD) {
+            SCOM_tx[channel].timeout = (uint16_t) BM78_RESEND_TIMEOUT / (uint16_t) BM78_TRIGGER_PERIOD;
         }
     }
 }
@@ -289,8 +289,12 @@ inline void SCOM_sendDebug(SCOM_Channel_t channel, uint8_t debug) {
     }
 }
 
-void SCOM_setNextMessageHandler(SCOM_Channel_t channel, SCOM_NextMessageHandler_t nextMessageHandler) {
-    SCOM_nextMessageHandler[channel] = nextMessageHandler;
+void SCOM_setAdditionalDataHandler(SCOM_DataHandler_t handler) {
+    additionalDataHandler = handler;
+}
+
+void SCOM_setNextMessageHandler(SCOM_NextMessageHandler_t handler) {
+    nextMessageHandler = handler;
 }
 
 void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param) {
@@ -576,9 +580,10 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 //SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES);
                 break;
             default:
-                if (SCOM_nextMessageHandler[channel]) { // An external handler exist
+                if (nextMessageHandler) { // An external handler exist
                     // if it consumed the message successfully
-                    if (SCOM_nextMessageHandler[channel](
+                    if (nextMessageHandler(
+                            channel,
                             SCOM_queue[channel].queue[SCOM_queue[channel].index],
                             SCOM_queue[channel].param[SCOM_queue[channel].index])) {
                         SCOM_queue[channel].index++;
@@ -820,6 +825,10 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
             }
             break;
 #endif
+        default:
+            if (additionalDataHandler) {
+                additionalDataHandler(channel, length, data);
+            }
     }
 }
 

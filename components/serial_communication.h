@@ -79,16 +79,26 @@ typedef enum {
 } SCOM_Channel_t;
 
 /**
+ * Data handler.
+ *
+ * @param channel Channel.
+ * @param length Length of data.
+ * @param data The data.
+ */
+typedef void (*SCOM_DataHandler_t)(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
+
+/**
  * Next message handler type should implement sending a message type define by
  * the "what" parameter.
- * 
+ *
+ * @param channel Channel.
  * @param what What to send (message type)
  * @param param Message type parameter.
  * @return Whether the queue item should be consumed or not. In some cases this
  *         can be used to send one message types over multiple packets due to
  *         packet size limitation.
  */
-typedef bool (*SCOM_NextMessageHandler_t)(uint8_t what, uint8_t param);
+typedef bool (*SCOM_NextMessageHandler_t)(SCOM_Channel_t channel, uint8_t what, uint8_t param);
 
 /**
  * Cancels any ongoing transmission.
@@ -277,23 +287,31 @@ inline void SCOM_sendBluetoothEEPROM(SCOM_Channel_t channel, uint16_t start, uin
 #endif
 
 /**
+ * Additional data handler setter.
+ *
+ * @param handler Data handler.
+ */
+void SCOM_setAdditionalDataHandler(SCOM_DataHandler_t handler);
+
+/**
  * Next message handler setter. This handler should implement sending a 
  * particular message.
  * 
  * Next message handler type should implement sending a message type define by
  * the "what" parameter. 
  * 
- * The prototype: bool SCOM_NextMessageHandler_t(uint8_t what, uint8_t param)
- * - param what : What to send (message type)
- * - param param: Message type parameter.
- * - return     : Whether the queue item should be consumed or not. In some 
- *                cases this can be used to send one message types over multiple
- *                packets due to packet size limitation.
+ * The prototype: bool SCOM_NextMessageHandler_t(SCOM_Channel_t channel, uint8_t what, uint8_t param)
+ * - param channel: Channel.
+ * - param what   : What to send (message type)
+ * - param param  : Message type parameter.
+ * - return       : Whether the queue item should be consumed or not. In some 
+ *                  cases this can be used to send one message types over
+ *                  multiple packets due to packet size limitation.
  * 
  * @param channel Channel the handler is for.
  * @param nextMessageHandler The handler.
  */
-void SCOM_setNextMessageHandler(SCOM_Channel_t channel, SCOM_NextMessageHandler_t nextMessageHandler);
+void SCOM_setNextMessageHandler(SCOM_NextMessageHandler_t nextMessageHandler);
 
 /**
  * Enqueues transmission type with possible parameter.

@@ -81,12 +81,9 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
         for (uint8_t i = 0; i < length; i++) {
             if (i < SM_VALUE_MAX_SIZE) {
                 uint8_t ch = *(value + i);
-                if (ch == '\\' && (i + 1) < length && *(value + i + 1) == 'n') {
-                    ch = '\n';
-                    i++;
-                }
-                // Visible chars:   LF  or       SPACE till  "~" otherwise SPACE
-                SMI_lcd.content[i] = (ch == '\n' || (ch >= 0x20 && ch <= 0x7E)) ? ch : ' ';
+                // Visible chars: LF or SPACE till "~" otherwise SPACE
+                SMI_lcd.content[i] = (ch == '\n' || (ch >= 0x20 && ch <= 0x7E))
+                        ? ch : ' ';
             }
         }
         SMI_lcd.content[length] = '\0';
