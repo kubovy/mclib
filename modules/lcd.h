@@ -14,12 +14,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #ifdef LCD_ADDRESS
-#include "i2c.h"
+
+#include <stdbool.h>
+#include <stdint.h>
 
 // Configuration with default values (change this according to your setup)
 //#define LCD_ADDRESS 0x27 // Needs to be defined in order to enable LCD

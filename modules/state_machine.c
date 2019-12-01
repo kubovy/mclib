@@ -3,6 +3,7 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "state_machine.h"
+#include "i2c.h"
 
 #ifdef SM_MEM_ADDRESS
 

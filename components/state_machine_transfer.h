@@ -11,17 +11,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
 #include "../lib/requirements.h"
 
 #if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 
+#include <stdbool.h>
 #include "../modules/bm78.h"
-#include "../modules/i2c.h"
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
-#include "../modules/state_machine.h"
 #include "serial_communication.h"
 
 // Configuration with default values

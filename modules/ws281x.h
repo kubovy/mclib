@@ -13,11 +13,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #if defined WS281x_BUFFER && defined WS281x_INDICATORS
+
+#include <stdbool.h>
+#include <stdint.h>
 
 // Configuration
 #ifndef WS281x_LED_COUNT

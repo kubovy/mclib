@@ -9,11 +9,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+
+#include <stdbool.h>
+#include <stdint.h>
 
 // Configuration
 #ifndef WS281x_LED_COUNT

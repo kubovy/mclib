@@ -11,12 +11,13 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdarg.h>
 #include "../lib/requirements.h"
 
 #ifdef I2C_ENABLED    
+
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
 
 #if defined I2C_MSSP
 #include "../../mcc_generated_files/i2c1.h"

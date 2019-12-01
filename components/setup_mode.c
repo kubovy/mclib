@@ -2,8 +2,29 @@
  * File:   setup_mode.c
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
+#include "../lib/common.h"
 #include "setup_mode.h"
 #include "bm78_eeprom.h"
+#ifdef I2C_ENABLED
+#include "../modules/i2c.h"
+#endif
+#ifdef LCD_ADDRESS
+#include "../modules/lcd.h"
+#endif
+#ifdef MCP23017_ENABLED
+#include "../modules/mcp23017.h"
+#endif
+#ifdef RGB_ENABLED
+#include "../modules/rgb.h"
+#endif
+#ifdef SM_MEM_ADDRESS
+#include "../modules/state_machine.h"
+#include "state_machine_interaction.h"
+#endif
+#ifdef WS281x_BUFFER
+#include "../modules/ws281x.h"
+#endif
+#include "poc.h"
 
 struct {
     uint8_t addr;
@@ -62,46 +83,46 @@ struct {
 void SUM_setBtStatus(uint8_t status) {
     switch(status) {
         case BM78_STATUS_POWER_ON:
-            strcpy(SUM_bm78CurrentState.name, "POWER ON ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "POWER ON ", 9);
             break;
         //case BM78_STATUS_SCANNING_MODE:
-        //    strcpy(SUM_bm78CurrentState.name, "SCANNING ", 9);
+        //    strlcpy(SUM_bm78CurrentState.name, "SCANNING ", 9);
         //    break;
         case BM78_STATUS_PAGE_MODE:
-            strcpy(SUM_bm78CurrentState.name, "PAGE MODE", 9);
+            strlcpy(SUM_bm78CurrentState.name, "PAGE MODE", 9);
             break;
         case BM78_STATUS_STANDBY_MODE:
-            strcpy(SUM_bm78CurrentState.name, "STAND BY ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "STAND BY ", 9);
             break;
         case BM78_STATUS_LINK_BACK_MODE:
-            strcpy(SUM_bm78CurrentState.name, "LINK BACK", 9);
+            strlcpy(SUM_bm78CurrentState.name, "LINK BACK", 9);
             break;
         //case BM78_STATUS_BROADCAST_MODE:
-        //    strcpy(SUM_bm78CurrentState.name, "BROADCAST", 9);
+        //    strlcpy(SUM_bm78CurrentState.name, "BROADCAST", 9);
         //    break;
         case BM78_STATUS_SPP_CONNECTED_MODE:
-            strcpy(SUM_bm78CurrentState.name, "SPP CONN ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "SPP CONN ", 9);
             break;
         case BM78_STATUS_LE_CONNECTED_MODE:
-            strcpy(SUM_bm78CurrentState.name, "LE CONN  ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "LE CONN  ", 9);
             break;
         case BM78_STATUS_IDLE_MODE:
-            strcpy(SUM_bm78CurrentState.name, "IDLE     ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "IDLE     ", 9);
             break;
         case BM78_STATUS_SHUTDOWN_MODE:
-            strcpy(SUM_bm78CurrentState.name, "SHUT DOWN", 9);
+            strlcpy(SUM_bm78CurrentState.name, "SHUT DOWN", 9);
             break;
         case BM78_STATUS_CONFIGURE_MODE:
-            strcpy(SUM_bm78CurrentState.name, "CONFIGURE", 9);
+            strlcpy(SUM_bm78CurrentState.name, "CONFIGURE", 9);
             break;
         case BM78_STATUS_PAIRING_IN_PROGRESS_MODE:
-            strcpy(SUM_bm78CurrentState.name, "PAIRING  ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "PAIRING  ", 9);
             break;
         //case BM78_STATUS_BLE_CONNECTED_MODE:
-        //    strcpy(SUM_bm78CurrentState.name, "BLE CONN ", 9);
+        //    strlcpy(SUM_bm78CurrentState.name, "BLE CONN ", 9);
         //    break;
         default:
-            strcpy(SUM_bm78CurrentState.name, "0x##     ", 9);
+            strlcpy(SUM_bm78CurrentState.name, "0x##     ", 9);
             SUM_bm78CurrentState.name[2] = dec2hex(status / 16 % 16);
             SUM_bm78CurrentState.name[3] = dec2hex(status % 16);
             break;

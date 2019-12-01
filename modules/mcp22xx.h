@@ -15,6 +15,8 @@ extern "C" {
     
 #if defined MCP2200_ENABLED || defined MCP2221_ENABLED
 
+#include <stdint.h>
+#include "../lib/types.h"
 #include "uart.h"
 
 // Single event states

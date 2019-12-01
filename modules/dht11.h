@@ -13,11 +13,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #ifdef DHT11_PORT
+
+#include <stdbool.h>
+#include <stdint.h>
 
 #define DHT11_ERR_VALUE ((uint8_t) 255)
 #define DHT11_OK ((uint8_t) 0)

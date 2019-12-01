@@ -9,37 +9,12 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include "../lib/requirements.h"
-#include "../lib/common.h"
-#ifdef BM78_ENABLED
-#include "../modules/bm78.h"
-#endif
-#ifdef DHT11_PORT
-#include "../modules/dht11.h"
-#endif
-#ifdef MCP23017_ENABLED
-#include "../modules/mcp23017.h"
-#endif
-#ifdef RGB_ENABLED
-#include "../modules/rgb.h"
-#endif
-#ifdef SM_MEM_ADDRESS
-#include "../modules/state_machine.h"
-#endif
-#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
-#include "../modules/mcp22xx.h"
-#endif
-#ifdef WS281x_BUFFER
-#ifdef WS281x_INDICATORS
-#include "../modules/ws281x.h"
-#endif
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-#include "../modules/ws281x_light.h"
-#endif
-#endif
     
 #if defined SCOM_ENABLED
+
+#include <stdint.h>
+#include "../modules/bm78.h"
 
 #ifndef SCOM_QUEUE_SIZE
 #warning "SCOM: Queue size defaults to 10"
@@ -364,6 +339,7 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
  * @param response The response.
  */
 void SCOM_bm78TestModeResponseHandler(BM78_Response_t *response);
+
 #endif
 
 #ifdef	__cplusplus

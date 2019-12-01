@@ -3,6 +3,7 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "mcp23017.h"
+#include "i2c.h"
 
 #ifdef MCP23017_ENABLED
 

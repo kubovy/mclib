@@ -3,6 +3,12 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "state_machine_transfer.h"
+#include "../lib/common.h"
+#include "../modules/i2c.h"
+#ifdef LCD_ADDRESS
+#include "../modules/lcd.h"
+#endif
+#include "../modules/state_machine.h"
 
 #if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 

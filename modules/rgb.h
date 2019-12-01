@@ -20,11 +20,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #ifdef RGB_ENABLED
+
+#include <stdbool.h>
+#include <stdint.h>
 
 #ifndef RGB_LIST_SIZE
 #define RGB_LIST_SIZE 20

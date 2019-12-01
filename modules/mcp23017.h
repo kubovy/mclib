@@ -11,12 +11,11 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #ifdef MCP23017_ENABLED
 
-#include "i2c.h"
+#include <stdint.h>
 
 #ifndef MCP23017_START_ADDRESS
 #warning "MCP23017: Start address set to 0x20"

@@ -3,6 +3,10 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "bm78_pairing.h"
+#include "../lib/common.h"
+#ifdef LCD_ADDRESS
+#include "../modules/lcd.h"
+#endif
 
 #ifdef BM78_ENABLED
 

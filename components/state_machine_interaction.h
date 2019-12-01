@@ -11,29 +11,12 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #ifdef SM_MEM_ADDRESS
 
+#include <stdint.h>
 #include "../lib/types.h"
-#include "../modules/bm78.h"
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
-#ifdef MCP23017_ENABLED
-#include "../modules/mcp23017.h"
-#if !defined SM_IN1_ADDRESS || !defined SM_IN2_ADDRESS
-#warning "SMI: No MCP23017 used for inputs"
-#endif
-#ifndef SM_OUT_ADDRESS
-#warning "SMI: No MCP23017 used for outputs"
-#endif
-#endif
-#include "../modules/state_machine.h"
-#ifdef WS281x_BUFFER
-#include "../modules/ws281x.h"
-#endif
 
 /** Start state machine interaction. */
 void SMI_start(void);

@@ -10,6 +10,9 @@
 extern "C" {
 #endif
 
+//--msgdisable=520,2053
+#pragma warning disable 520
+#pragma warning disable 2053
 
 #include "../../mcc_generated_files/mcc.h"
 

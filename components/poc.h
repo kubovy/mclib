@@ -11,53 +11,22 @@
 extern "C" {
 #endif
 
-//#include <stdint.h>
-#ifdef MEM_INTERNAL_SIZE
-#include "../../mcc_generated_files/memory.h"
-#endif
-#include "../lib/common.h"
+#include <stdbool.h>
+#include <stdint.h>
 #include "../lib/requirements.h"
-#ifdef BM78_ENABLED
-#include "../modules/bm78.h"
-#endif
-#ifdef DHT11_PORT
-#include "../modules/dht11.h"
-#endif
-#ifdef I2C_ENABLED
-#include "../modules/i2c.h"
-#endif
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
-#ifdef MCP23017_ENABLED
-#include "../modules/mcp23017.h"
-#endif
-#ifdef RGB_ENABLED
-#include "../modules/rgb.h"
-#endif
-#ifdef WS281x_BUFFER
-#ifdef WS281x_INDICATORS
-#include "../modules/ws281x.h"
-#endif
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-#include "../modules/ws281x_light.h"
-#endif
-#endif
-#ifdef SCOM_ENABLED
-#include "serial_communication.h"
-#endif
-
 
 #ifdef DHT11_PORT
 void POC_testDHT11(void);
 #endif
 #ifdef LCD_ADDRESS
 #ifdef BM78_ENABLED
+#include "../modules/bm78.h"
 void POC_bm78InitializationHandler(char *deviceName, char *pin);
 void POC_bm78EventHandler(BM78_Response_t *response);
 void POC_bm78ErrorHandler(BM78_Response_t *response);
 #endif
 #ifdef SCOM_ENABLED
+#include "serial_communication.h"
 void POC_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
 #endif
 void POC_displayData(uint16_t address, uint8_t length, uint8_t *data);
@@ -73,6 +42,7 @@ void POC_testMCP23017Output(uint8_t address, uint8_t port);
 #endif
 #endif
 #ifdef RGB_ENABLED
+#include "../modules/rgb.h"
 void POC_testRGB(RGB_Pattern_t pattern);
 #endif
 #ifdef WS281x_BUFFER
@@ -81,6 +51,7 @@ void POC_demoWS281x(void);
 void POC_testWS281x(void);
 #endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
+#include "../modules/ws281x_light.h"
 void POC_testWS281xLight(WS281xLight_Pattern_t pattern);
 #endif
 #endif

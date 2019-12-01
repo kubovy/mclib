@@ -13,10 +13,7 @@ extern "C" {
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../lib/requirements.h"
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
+#include "requirements.h"
     
 /**
  * Converts an integer to HEX ASCII character.
@@ -78,7 +75,7 @@ inline uint16_t max16(uint16_t a, uint16_t b);
  * @param max Maximum acceptable length.
  * @return Length of the string w/o terminating '\0' (NUL) character.
  */
-uint8_t strlen(char *str, uint8_t max);
+uint8_t strnlen(char *str, uint8_t max);
 
 /**
  * Compare 2 strings.  A string must be terminated by a '\0' (NUL).
@@ -86,7 +83,7 @@ uint8_t strlen(char *str, uint8_t max);
  * @param str2 String 2.
  * @return Returns true if both strings are equal till first terminating char.
  */
-bool strcmp(char *str1, char *str2, uint8_t len);
+bool strncmp(char *str1, char *str2, uint8_t len);
 
 /**
  * Copy all character from "src" to "dst" until first terminating character or
@@ -96,7 +93,7 @@ bool strcmp(char *str1, char *str2, uint8_t len);
  * @param len Maximum number of characters to copy. May be less if '\0' (NUL) 
  *            character appears earlier in the "src" string.
  */
-void strcpy(char *dest, char* src, uint8_t len);
+void strlcpy(char *dest, char* src, uint8_t len);
 
 /**
  * Watchdog implementation. Should blink a LED or something.

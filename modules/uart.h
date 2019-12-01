@@ -11,11 +11,12 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #if defined UART_ENABLED || defined EUSART_ENABLED
+
+#include <stdbool.h>
+#include <stdint.h>
 
 #ifdef UART1_ENABLED
 #include "../../mcc_generated_files/uart1.h"

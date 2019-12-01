@@ -94,14 +94,13 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
-#include "../lib/types.h"
 #include "../lib/requirements.h"
 
 #ifdef SM_MEM_ADDRESS
 
-#include "i2c.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include "../lib/types.h"
 
 // Configuration
 #ifndef SM_MEM_START

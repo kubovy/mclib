@@ -2,7 +2,11 @@
  * File:   bm78_eeprom.c
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
+#include "../lib/common.h"
 #include "bm78_eeprom.h"
+#ifdef LCD_ADDRESS
+#include "../modules/lcd.h"
+#endif
 
 #ifdef BM78_ENABLED
 

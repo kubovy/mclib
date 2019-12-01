@@ -24,16 +24,14 @@
 extern "C" {
 #endif
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include "../lib/types.h"
-#include "../lib/common.h"
 #include "../lib/requirements.h"
 
 #ifdef BM78_ENABLED
 
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include "uart.h"
 
 // PIN Configuration:

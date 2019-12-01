@@ -11,17 +11,13 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
-#include <stdint.h>
 #include "../lib/requirements.h"
 
 #ifdef BM78_ENABLED
 
-#include "../lib/common.h"
+#include <stdbool.h>
+#include <stdint.h>
 #include "../modules/bm78.h"
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
 
 #ifndef BMP_CMD_TIMEOUT
 #warning "BMP: Command timeout defaults to BM78_INIT_CMD_TIMEOUT"

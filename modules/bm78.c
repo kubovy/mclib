@@ -2,6 +2,7 @@
  * File:   bm78.c
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
+#include "../lib/common.h"
 #include "bm78.h"
 
 #ifdef BM78_ENABLED
@@ -66,7 +67,7 @@ void BM78_retryInitialization(void) {
             break;
         case 3:
             printStatus("      ..*           ");
-            BM78_write(BM78_CMD_WRITE_DEVICE_NAME, BM78_EEPROM_STORE, strlen(BM78.deviceName, 16), (uint8_t *) BM78.deviceName);
+            BM78_write(BM78_CMD_WRITE_DEVICE_NAME, BM78_EEPROM_STORE, strnlen(BM78.deviceName, 16), (uint8_t *) BM78.deviceName);
             break;
         case 4:
             printStatus("      ....          ");
@@ -86,7 +87,7 @@ void BM78_retryInitialization(void) {
             break;
         case 8:
             printStatus("      .....*        ");
-            BM78_write(BM78_CMD_WRITE_PIN_CODE, BM78_EEPROM_STORE, strlen(BM78.pin, 6), (uint8_t *) BM78.pin);
+            BM78_write(BM78_CMD_WRITE_PIN_CODE, BM78_EEPROM_STORE, strnlen(BM78.pin, 6), (uint8_t *) BM78.pin);
             break;
         case 9:
             printStatus("      .......       ");
@@ -344,13 +345,13 @@ void BM78_AsyncEventResponse() {
 #else
                                     BM78_init.stage = 5;
 #endif
-                                    strcpy(BM78.deviceName,
+                                    strlcpy(BM78.deviceName,
                                             (char *) BM78_rx.response.DeviceName_0x80.deviceName,
                                             BM78_rx.response.CommandComplete_0x80.length - 3);
                                     BM78.deviceName[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                     BM78_retryInitialization();
 #ifdef BM78_SETUP_ENABLED
-                                } else if (strcmp(BM78.deviceName,
+                                } else if (strncmp(BM78.deviceName,
                                         (char *) BM78_rx.response.DeviceName_0x80.deviceName,
                                         BM78_rx.response.CommandComplete_0x80.length - 3)) {
 #ifdef BM78_ADV_DATA_SIZE
@@ -404,11 +405,11 @@ void BM78_AsyncEventResponse() {
                                 if (BM78_init.keep) {
 #endif
                                     BM78_init.stage = 9;
-                                    strcpy(BM78.pin, (char *) BM78_rx.response.PIN_0x80.value, BM78_rx.response.CommandComplete_0x80.length - 3);
+                                    strlcpy(BM78.pin, (char *) BM78_rx.response.PIN_0x80.value, BM78_rx.response.CommandComplete_0x80.length - 3);
                                     BM78.pin[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                     BM78_retryInitialization();
 #ifdef BM78_SETUP_ENABLED
-                                } else if (strcmp(BM78.pin, (char *) BM78_rx.response.PIN_0x80.value, BM78_rx.response.CommandComplete_0x80.length - 3)) {
+                                } else if (strncmp(BM78.pin, (char *) BM78_rx.response.PIN_0x80.value, BM78_rx.response.CommandComplete_0x80.length - 3)) {
                                     BM78_init.stage = 9;
                                     BM78.pin[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                     BM78_retryInitialization();
@@ -512,7 +513,7 @@ void BM78_AsyncEventResponse() {
                     case BM78_EVENT_COMMAND_COMPLETE:
                         switch (BM78_rx.response.CommandComplete_0x80.command) {
                             case BM78_CMD_READ_DEVICE_NAME:
-                                strcpy(BM78.deviceName, (char *) BM78_rx.response.DeviceName_0x80.deviceName, BM78_rx.response.CommandComplete_0x80.length - 3);
+                                strlcpy(BM78.deviceName, (char *) BM78_rx.response.DeviceName_0x80.deviceName, BM78_rx.response.CommandComplete_0x80.length - 3);
                                 BM78.deviceName[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
                                 break;
                             //case BM78_CMD_WRITE_DEVICE_NAME:
@@ -530,7 +531,7 @@ void BM78_AsyncEventResponse() {
                                         BM78_rx.response.PairedDevicesInformation_0x80.devices);
                                 break;
                             case BM78_CMD_READ_PIN_CODE:
-                                strcpy(BM78.pin,
+                                strlcpy(BM78.pin,
                                         (char *) BM78_rx.response.PIN_0x80.value, 
                                         BM78_rx.response.CommandComplete_0x80.length - 3);
                                 BM78.pin[BM78_rx.response.CommandComplete_0x80.length - 3] = '\0';
@@ -657,25 +658,25 @@ void BM78_send(BM78_Request_t *request) {
         //    request->length = 0;
         //    break;
         case BM78_CMD_WRITE_DEVICE_NAME:
-            request->length = strlen((char *) request->WriteDeviceName_0x08.deviceName, 16);
+            request->length = strnlen((char *) request->WriteDeviceName_0x08.deviceName, 16);
             break;
         case BM78_CMD_WRITE_ADV_DATA:
-            request->length = strlen((char *) request->WriteAdvData_0x11.advertisingData, 31) + 1;
+            request->length = strnlen((char *) request->WriteAdvData_0x11.advertisingData, 31) + 1;
             break;
         case BM78_CMD_WRITE_SCAN_RES_DATA:
-            request->length = strlen((char *) request->WriteScanResData_0x12.scanResponseData, 31) + 1;
+            request->length = strnlen((char *) request->WriteScanResData_0x12.scanResponseData, 31) + 1;
             break;
         //case BM78_CMD_DISCOVER_SPECIFIC_PRIMARY_SERVICE_CHARACTERISTICS:
-        //    request->length = strlen((char *) request->DiscoverSpecificPrimaryServiceCharacteristics_0x31.serviceUUID, 16) + 1;
+        //    request->length = strnlen((char *) request->DiscoverSpecificPrimaryServiceCharacteristics_0x31.serviceUUID, 16) + 1;
         //    break;
         //case BM78_CMD_READ_USING_CHARACTERISTIC_UUID:
-        //    request->length = strlen((char *) request->ReadByCharacteristicUUID_0x33.characteristicUUID, 16) + 1;
+        //    request->length = strnlen((char *) request->ReadByCharacteristicUUID_0x33.characteristicUUID, 16) + 1;
         //    break;
         //case BM78_CMD_READ_LOCAL_SPECIFIC_PRIMARY_SERVICE:
-        //    request->length = strlen((char *) request->ReadLocalSpecificPrimaryService_0x3C.serviceUUID, 16);
+        //    request->length = strnlen((char *) request->ReadLocalSpecificPrimaryService_0x3C.serviceUUID, 16);
         //    break;
         case BM78_CMD_WRITE_PIN_CODE:
-            request->length = strlen((char *) request->WritePinCode_0x51.pin, 6) + 1;
+            request->length = strnlen((char *) request->WritePinCode_0x51.pin, 6) + 1;
             break;
         //case BM78_CMD_WRITE_CHARACTERISTIC_VALUE:
         //    request->length += 4;

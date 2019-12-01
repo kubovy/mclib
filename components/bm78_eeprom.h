@@ -12,12 +12,11 @@ extern "C" {
 #endif
 
 #include "../lib/requirements.h"
-#include "../modules/bm78.h"
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
 
 #ifdef BM78_ENABLED
+
+#include "../lib/types.h"
+#include "../modules/bm78.h"
 
 bool BM78EEPROM_initializing = false;
 

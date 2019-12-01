@@ -14,41 +14,18 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include "../lib/requirements.h"
-#include "../lib/common.h"
+
+#ifdef LCD_ADDRESS
+
 #ifdef BM78_ENABLED
 #include "../modules/bm78.h"
 #endif
-#ifdef I2C_ENABLED
-#include "../modules/i2c.h"
-#endif
-#ifdef LCD_ADDRESS
-#include "../modules/lcd.h"
-#endif
-#if defined MCP2221_ENABLED || defined MCP23017_ENABLED
-#include "../modules/mcp22xx.h"
-#endif
-#ifdef MCP23017_ENABLED
-#include "../modules/mcp23017.h"
-#endif
-#ifdef RGB_ENABLED
-#include "../modules/rgb.h"
-#endif
-#ifdef SM_MEM_ADDRESS
-#include "../modules/state_machine.h"
-#include "state_machine_interaction.h"
-#endif
-#ifdef WS281x_BUFFER
-#include "../modules/ws281x.h"
-#endif
-#include "poc.h"
 
-#ifdef LCD_ADDRESS
-
-#ifdef BM78_ENABLED
 typedef enum {
     //SUM_MENU_INTRO 0,
     SUM_MENU_MAIN = 0x01,
 
+#ifdef BM78_ENABLED
     SUM_MENU_BT_PAGE_1 = 0x10,
     SUM_MENU_BT_PAGE_2 = 0x11,
     SUM_MENU_BT_PAGE_3 = 0x12,

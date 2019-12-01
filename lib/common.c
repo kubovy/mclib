@@ -3,7 +3,9 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "common.h"
-#include "requirements.h"
+#ifdef LCD_ADDRESS
+#include "../modules/lcd.h"
+#endif
 
 uint8_t waitingLoaderCounter = 0;
 
@@ -31,13 +33,13 @@ inline uint16_t max16(uint16_t a, uint16_t b) {
     return a >= b ? a : b;
 }
 
-uint8_t strlen(char *str, uint8_t max) {
+uint8_t strnlen(char *str, uint8_t max) {
     uint8_t i = 0;
     while (str[i] != '\0' && i < max) i++;
     return i;
 }
-
-bool strcmp(char *str1, char *str2, uint8_t len) {
+    
+bool strncmp(char *str1, char *str2, uint8_t len) {
     uint8_t i = 0;
     while (i < len && str1[i] != '\0') {
         if (str1[i] != str2[i]) {
@@ -48,7 +50,7 @@ bool strcmp(char *str1, char *str2, uint8_t len) {
     return i == len || str1[i] == str2[i];
 }
 
-void strcpy(char *dest, char* src, uint8_t len) {
+void strlcpy(char *dest, char* src, uint8_t len) {
     uint8_t i = 0;
     while (i < len && *(src + i) != '\0') {
         *(dest + i) = *(src + i);
