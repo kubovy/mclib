@@ -46,6 +46,7 @@ void SMI_enterState(uint8_t stateId) {
 }
 
 void SMI_start(void) {
+    SM_reset();
     SM_init();
     SMI_enterState(0);
 }
@@ -91,7 +92,7 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
 #endif
 #ifdef WS281x_BUFFER
     if (device >= SM_DEVICE_WS281x_START && device <= SM_DEVICE_WS281x_END) {
-        if (length >= 7) {
+        if (length >= 8) {
             WS281x_set(device - SM_DEVICE_WS281x_START,
                     *value, // Pattern
                     *(value + 1), *(value + 2), *(value + 3), // RGB

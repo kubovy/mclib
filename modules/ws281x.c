@@ -44,7 +44,7 @@ void WS281x_update(void) {
     for (uint8_t led = 0; led < WS281x_LED_COUNT; led++) {
         switch(WS281x_ledPattern[led]) {
             case WS281x_PATTERN_LIGHT:
-                percent = 255;
+                percent = WS281x_ledMax[led];
                 break;
             case WS281x_PATTERN_BLINK:
                 percent = (WS281x_counter / WS281x_ledDelay[led]) % 2 ? WS281x_ledMax[led] : WS281x_ledMin[led];

@@ -16,6 +16,7 @@ extern "C" {
 #if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 
 #include <stdbool.h>
+#include "../lib/types.h"
 #include "../modules/bm78.h"
 #include "serial_communication.h"
 
@@ -54,6 +55,10 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
  *         being sent at the time).
  */
 bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t param);
+
+void SMT_setUploadStartCallback(Procedure_t callback);
+
+void SMT_setUploadFinishedCallback(Procedure_t callback);
 
 #endif
 

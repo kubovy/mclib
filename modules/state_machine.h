@@ -203,6 +203,11 @@ SM_executeAction_t SM_executeAction;
 void SM_init(void);
 
 /**
+ * Resets the state machine.
+ */
+void SM_reset(void);
+
+/**
  * State machine's periodical check should be called in a loop with timer
  * using the TIMER_PERIOD period. It checks the current state, evaluates the
  * state machine's conditions and executes corresponding actions.

@@ -9,6 +9,7 @@
 #include "../modules/lcd.h"
 #endif
 #include "../modules/state_machine.h"
+#include "state_machine_interaction.h"
 
 #if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 
@@ -21,6 +22,9 @@ typedef struct {
 } SMT_TX_t; // = { 0x0000, 0x0000 };
 
 SMT_TX_t smTX[SCOM_CHANNEL_COUNT];
+
+Procedure_t uploadStartCallback = NULL;
+Procedure_t uploadFinishedCallback = NULL;
 
 /**
  * Transfers next block of a state machine.
@@ -98,6 +102,8 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) 
                 uint16_t size = (*(data + 2) << 8) | (*(data + 3) & 0xFF);
                 uint16_t startReg = (*(data + 4) << 8) | (*(data + 5) & 0xFF);
 
+                if (startReg == 0 && uploadStartCallback) uploadStartCallback();
+
                 for(uint8_t i = 6; i < length; i++) {
                     // Make sure 1st 2 bytes are 0xFF -> disable state machine
                     if ((startReg + i - 6) == SM_MEM_START) {
@@ -132,8 +138,8 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) 
                         repeated = true;
                     }
                     
-//                    SM_reset();
-//                    SM_init();
+                    if (uploadFinishedCallback) uploadFinishedCallback();
+                    SMI_start();
                 }
             }
             break;
@@ -195,4 +201,13 @@ bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t pa
         return true;
     }
 }
+
+void SMT_setUploadStartCallback(Procedure_t callback) {
+    uploadStartCallback = callback;
+}
+
+void SMT_setUploadFinishedCallback(Procedure_t callback) {
+    uploadFinishedCallback = callback;
+}
+
 #endif
