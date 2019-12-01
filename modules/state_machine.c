@@ -89,6 +89,20 @@ void SM_init(void) {
     }
 }
 
+// FIXME: This is a forced fix of some unknown memory leak
+// When fixed, calls of this function should be replaced with SM_actions.start
+uint16_t getActionStart(void) {
+    SM_states.count = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START + 1);
+    uint16_t actionsStartAddr = SM_MEM_START + ((uint16_t) SM_states.count) * 2 + 2;
+    uint8_t regHigh = I2C_readRegister16(SM_MEM_ADDRESS, actionsStartAddr);
+    uint8_t regLow = I2C_readRegister16(SM_MEM_ADDRESS, actionsStartAddr + 1);
+    SM_actions.start = ((regHigh << 8) | regLow);
+    regHigh = I2C_readRegister16(SM_MEM_ADDRESS, SM_actions.start);
+    regLow = I2C_readRegister16(SM_MEM_ADDRESS, SM_actions.start + 1);
+    SM_actions.count = ((regHigh << 8) | regLow);
+    return SM_actions.start;
+}
+
 bool SM_changed(uint8_t *newState) {
     for (uint8_t i = 0; i < SM_STATE_SIZE; i++) {
         if (SM_currentState.io[i] != newState[i]) {
@@ -138,7 +152,7 @@ void SM_evaluate(bool enteringState, uint8_t *newState) {
                 uint16_t actionId = I2C_readRegister16(SM_MEM_ADDRESS, actionListStart + a * 2 + 1) << 8;
                 actionId = actionId | (I2C_readRegister16(SM_MEM_ADDRESS, actionListStart + a * 2 + 2) & 0xFF);
 
-                uint16_t actionAddrStart = SM_actions.start + actionId * 2 + 2;
+                uint16_t actionAddrStart = getActionStart() + actionId * 2 + 2;
                 uint16_t actionAddr = I2C_readRegister16(SM_MEM_ADDRESS, actionAddrStart) << 8;
                 actionAddr = actionAddr | (I2C_readRegister16(SM_MEM_ADDRESS, actionAddrStart + 1) & 0xFF);
 

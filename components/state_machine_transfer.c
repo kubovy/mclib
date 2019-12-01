@@ -126,7 +126,8 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) 
                         repeated = true;
                     }
                     
-                    // TODO: smStart();
+//                    SM_reset();
+//                    SM_init();
                 }
             }
             break;

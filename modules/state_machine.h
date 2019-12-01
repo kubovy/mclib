@@ -27,8 +27,8 @@
  * STA   - status
  * STC   - state count low
  * i     - SCH << 8 | SCL - state count
- * SSH   - state start high
- * SSL   - state start low
+ * SSHi  - state i start high
+ * SSLi  - state i start low
  * ASH   - action start high
  * ASL   - action start low
  * ECi   - evaluation count for state i (j)
@@ -142,6 +142,7 @@ extern "C" {
 
 // MCP23017        (  39 -    0 + 1 =   40)
 //                 (0x27 - 0x00 + 1 = 0x28)
+//                 (0x00 - 0x27)
 #define SM_DEVICE_MCP23017_START 0x00
 #define SM_DEVICE_MCP23017_END 0x27
 // MCP23017 input  (  31 -    0 + 1 =   32)
@@ -153,8 +154,9 @@ extern "C" {
 #define SM_DEVICE_MCP23017_OUT_START 0x20
 #define SM_DEVICE_MCP23017_OUT_END 0x27
 
-// WS281x output (  71 - 41   + 1 = 32)
-//               (0x47 - 0x28 + 1 = 20)
+// WS281x output (  71 -   41 + 1 =   32)
+//               (0x47 - 0x28 + 1 = 0x20)
+//               (0x28 - 0x47)
 #define SM_DEVICE_WS281x_START 0x28
 #define SM_DEVICE_WS281x_END 0x47
 

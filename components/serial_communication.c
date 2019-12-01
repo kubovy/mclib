@@ -219,9 +219,8 @@ inline void SCOM_sendLCDBacklight(SCOM_Channel_t channel, bool on) {
 
 #ifdef MCP23017_ENABLED
 inline void SCOM_sendMCP23017(SCOM_Channel_t channel, uint8_t address) {
-    if (SCOM_canEnqueue(channel)
-            && address >= MCP23017_START_ADDRESS
-            && address <= MCP23017_END_ADDRESS) {
+    if (SCOM_canEnqueue(channel)) {
+        if (address == SCOM_PARAM_ALL) address |= MCP23017_START_ADDRESS;
         SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, address);
     }
 }
@@ -247,8 +246,7 @@ inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index) {
 #ifdef WS281x_BUFFER
 #ifdef WS281x_INDICATORS
 inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led) {
-    if (SCOM_canEnqueue(channel) 
-            && (led & SCOM_PARAM_MASK) < WS281x_LED_COUNT) {
+    if (SCOM_canEnqueue(channel)) {
         SCOM_enqueue(channel, MESSAGE_KIND_WS281x, led);
     }
 }
@@ -301,7 +299,9 @@ void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param) {
     uint8_t index = SCOM_queue[channel].index;
     while (index != SCOM_queue[channel].tail) {
         // Will be transmitted in the future, don't add again.
-        if (SCOM_queue[channel].queue[index++] == what) return;
+        if (SCOM_queue[channel].queue[index] == what
+                && SCOM_queue[channel].param[index] == param) return;
+        index++;
     }
     if ((SCOM_queue[channel].tail + 1) != SCOM_queue[channel].index) { // Do nothing if queue is full.
         SCOM_queue[channel].queue[SCOM_queue[channel].tail] = what;
@@ -399,20 +399,22 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index]; 
                 if (param == SCOM_PARAM_LCD_BACKLIGH || param == SCOM_PARAM_LCD_NO_BACKLIGH) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD);  // Kind
-                    SCOM_addDataByte(channel, 1, LCD_backlight == LCD_BACKLIGHT);
-                    if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                    SCOM_addDataByte(channel, 1, 0); // Num - only one implemented
+                    SCOM_addDataByte(channel, 2, LCD_backlight == LCD_BACKLIGHT);
+                    if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
                 } else if ((param & SCOM_PARAM_MASK) < LCD_ROWS) { // Max. 127 lines
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD);  // Kind
-                    SCOM_addDataByte(channel, 1, LCD_backlight == LCD_BACKLIGHT);
-                    SCOM_addDataByte(channel, 2, param & SCOM_PARAM_MASK); // Line
-                    SCOM_addDataByte(channel, 3, LCD_COLS);               // Characters
+                    SCOM_addDataByte(channel, 1, 0); // Num - only one implemented
+                    SCOM_addDataByte(channel, 2, LCD_backlight == LCD_BACKLIGHT);
+                    SCOM_addDataByte(channel, 3, param & SCOM_PARAM_MASK); // Line
+                    SCOM_addDataByte(channel, 4, LCD_COLS);               // Characters
 
                     for (uint8_t line = 0; line < LCD_COLS; line++) {
-                        SCOM_addDataByte(channel, line + 4, 
+                        SCOM_addDataByte(channel, line + 5,
                                 LCD_getCache(param & SCOM_PARAM_MASK, line));
                     }
 
-                    if (SCOM_commitData(channel, LCD_COLS + 4, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, LCD_COLS + 5, BM78_MAX_SEND_RETRIES)) {
                         if (((param & SCOM_PARAM_MASK) + 1) < LCD_ROWS
                                 && (param & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
@@ -423,12 +425,19 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
 #endif
 #ifdef MCP23017_ENABLED
             case MESSAGE_KIND_MCP23017:
-                param = SCOM_queue[channel].param[SCOM_queue[channel].index];
-                SCOM_addDataByte(channel, 0, MESSAGE_KIND_MCP23017); // Kind
-                SCOM_addDataByte(channel, 1, param);                      // Address
-                SCOM_addDataByte(channel, 2, MCP23017_read(param, MCP23017_GPIOA)); // GPIO A
-                SCOM_addDataByte(channel, 3, MCP23017_read(param, MCP23017_GPIOB)); // GPIO B
-                if (SCOM_commitData(channel, 4, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK;
+                if (param >= MCP23017_START_ADDRESS && param <= MCP23017_END_ADDRESS) {
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_MCP23017);                // Kind
+                    SCOM_addDataByte(channel, 1, param);                                // Address
+                    SCOM_addDataByte(channel, 2, MCP23017_read(param, MCP23017_GPIOA)); // GPIO A
+                    SCOM_addDataByte(channel, 3, MCP23017_read(param, MCP23017_GPIOB)); // GPIO B
+                    if (SCOM_commitData(channel, 4, BM78_MAX_SEND_RETRIES)) {
+                        if ((SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)
+                                && param < MCP23017_END_ADDRESS) {
+                            SCOM_queue[channel].param[SCOM_queue[channel].index]++;
+                        } else SCOM_queue[channel].index++;
+                    }
+                } else SCOM_queue[channel].index++;
                 break;
 #endif
 #ifdef PIR_PORT
@@ -467,7 +476,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
 #ifdef WS281x_INDICATORS
             case MESSAGE_KIND_WS281x:
                 param = SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_MASK; // LED (max 128)
-                if ((param) < WS281x_LED_COUNT) {
+                if (param < WS281x_LED_COUNT) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_WS281x);
                     SCOM_addDataByte(channel, 1, 0);                       // Number - here just one light possible
                     SCOM_addDataByte(channel, 2, WS281x_LED_COUNT);        // LED Count
@@ -648,8 +657,8 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
 #endif
 #ifdef LCD_ADDRESS
         case MESSAGE_KIND_LCD:
-            if (length == 2) SCOM_sendLCD(channel, SCOM_PARAM_ALL);
-            else if (length == 3) switch (*(data + 2)) {
+            if (length == 3) SCOM_sendLCD(channel, SCOM_PARAM_ALL);
+            else if (length == 4) switch (*(data + 3)) {
                 case SCOM_PARAM_LCD_CLEAR:
                     LCD_clearCache();
                     LCD_displayCache();
@@ -659,19 +668,20 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
                     break;
                 case SCOM_PARAM_LCD_BACKLIGH:
                 case SCOM_PARAM_LCD_NO_BACKLIGH:
-                    LCD_setBacklight(*(data + 2) == SCOM_PARAM_LCD_BACKLIGH);
+                    LCD_setBacklight(*(data + 3) == SCOM_PARAM_LCD_BACKLIGH);
                     break;
                 default:
                     SCOM_sendLCD(channel, *(data + 2));
                     break;
             } else if (length > 4) {
-                LCD_setString("                    ", *(data + 2), true);
-                for (uint8_t i = 0; i < *(data + 3); i++) {
+                LCD_setBacklight(*(data + 3) == SCOM_PARAM_LCD_BACKLIGH);
+                LCD_setString("                    ", *(data + 4), true);
+                for (uint8_t i = 0; i < *(data + 5); i++) {
                     if (i < length && i < LCD_COLS) {
-                        LCD_replaceChar(*(data + i + 4), i, *(data + 2), false);
+                        LCD_replaceChar(*(data + i + 6), i, *(data + 4), false);
                     }
                 }
-                LCD_displayLine(*(data + 2));
+                LCD_displayLine(*(data + 4));
             }
             break;
 #endif

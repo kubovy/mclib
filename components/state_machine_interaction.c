@@ -3,6 +3,7 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "state_machine_interaction.h"
+#include "serial_communication.h"
 
 #ifdef SM_MEM_ADDRESS
 
@@ -11,7 +12,7 @@ struct {
     char content[SM_VALUE_MAX_SIZE + 1];
 } SMI_lcd = { false };
 
-bool SMI_shouldTrigger = false;
+bool shouldTrigger = false;
 
 Procedure_t SMI_BluetoothTrigger;
 
@@ -66,13 +67,19 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
                 byte &= 0x00 << (device - SM_DEVICE_MCP23017_OUT_START);
             }
             MCP23017_write(SM_OUT_ADDRESS, MCP23017_OLATA + SM_OUT_PORT, byte);
+            SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_OUT_ADDRESS);
         }
     } else
 #endif
 #ifdef WS281x_BUFFER
     if (device >= SM_DEVICE_WS281x_START && device <= SM_DEVICE_WS281x_END) {
-        if (length >= 4) {
-            WS281x_set(device - SM_DEVICE_WS281x_START, *value, *(value + 1), *(value + 2), *(value + 3), 10, 0, 50);
+        if (length >= 7) {
+            WS281x_set(device - SM_DEVICE_WS281x_START,
+                    *value, // Pattern
+                    *(value + 1), *(value + 2), *(value + 3), // RGB
+                    (*(value + 4) << 8) | (*(value + 5)), // Delay
+                    *(value + 6), *(value + 7)); // Min, Max
+            SCOM_sendWS281xLED(SCOM_CHANNEL_BT, device - SM_DEVICE_WS281x_START);
         }
     } else
 #endif
@@ -96,13 +103,19 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
         LCD_clear();
     } else
 #endif
-    if (device == SM_DEVICE_BT_TRIGGER) {
-        SMI_shouldTrigger = true;
+    if (device == SM_DEVICE_BT_CONNECTED) {
+        SCOM_sendMCP23017(SCOM_CHANNEL_BT, SCOM_PARAM_ALL);
+        SCOM_sendWS281xLED(SCOM_CHANNEL_BT, SCOM_PARAM_ALL);
+        SCOM_sendLCD(SCOM_CHANNEL_BT, SCOM_PARAM_ALL);
+    } else if (device == SM_DEVICE_BT_TRIGGER) {
+        shouldTrigger = true;
     } else if (device == SM_DEVICE_GOTO) {
         // Nothing to do, handled internally
     } else if (device == SM_DEVICE_ENTER) {
         
     }
+    SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_IN1_ADDRESS);
+    SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_IN2_ADDRESS);
 }
 
 void SMI_evaluatedHandler(void) {
@@ -112,10 +125,11 @@ void SMI_evaluatedHandler(void) {
         LCD_clearCache();
         LCD_setBacklight(true);
         LCD_setString(SMI_lcd.content, 0, true);
+        SCOM_sendLCD(SCOM_CHANNEL_BT, SCOM_PARAM_ALL);
 #endif
     }
-    if (SMI_shouldTrigger) {
-        SMI_shouldTrigger = false;
+    if (shouldTrigger) {
+        shouldTrigger = false;
         if (SMI_BluetoothTrigger) SMI_BluetoothTrigger();
     }
 }
@@ -127,6 +141,7 @@ void SMI_errorHandler(uint8_t error) {
             LCD_clearCache();
             LCD_setString("       ERROR        ", 0, true);
             LCD_setString("   Loop Detected!   ", 1, true);
+            LCD_setString("                    ", 2, true);
             LCD_setString("  Execution Halted  ", 3, true);
 #endif
             break;
