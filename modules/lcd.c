@@ -192,6 +192,12 @@ void LCD_setString(char *str, uint8_t line, bool display) {
             if (display) LCD_send(' ', Rs);
         }
 #endif
+        if (*str == '\n' && *(str + 1) == '\0' && line + 1 < LCD_ROWS) {
+            for (i = 0; i < LCD_COLS; i++) {
+                LCD_setCache(line + 1, i, ' ');
+                if (display) LCD_send(' ', Rs);
+            }
+        }
         if (*str == '\n') str++; // Skip new line character
 
         line++;

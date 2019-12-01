@@ -325,18 +325,22 @@ void SCOM_setNextMessageHandler(SCOM_NextMessageHandler_t handler) {
     nextMessageHandler = handler;
 }
 
+bool SCOM_isQueueEmpty(SCOM_Channel_t channel) {
+    return SCOM_queue[channel].index == SCOM_queue[channel].tail;
+}
+
 void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param) {
     uint8_t index = SCOM_queue[channel].index;
     while (index != SCOM_queue[channel].tail) {
         // Will be transmitted in the future, don't add again.
         if (SCOM_queue[channel].queue[index] == what
                 && SCOM_queue[channel].param[index] == param) return;
-        index++;
+        index = (index + 1) % SCOM_QUEUE_SIZE;
     }
-    if ((SCOM_queue[channel].tail + 1) != SCOM_queue[channel].index) { // Do nothing if queue is full.
+    if ((SCOM_queue[channel].tail + 1) % SCOM_QUEUE_SIZE != SCOM_queue[channel].index) { // Do nothing if queue is full.
         SCOM_queue[channel].queue[SCOM_queue[channel].tail] = what;
         SCOM_queue[channel].param[SCOM_queue[channel].tail] = param;
-        SCOM_queue[channel].tail++;
+        SCOM_queue[channel].tail = (SCOM_queue[channel].tail + 1) % SCOM_QUEUE_SIZE;
     }
     SCOM_messageSentHandler(channel);
 }
@@ -394,7 +398,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         SCOM_addDataByte(channel, 4, param);
 
                         if (SCOM_commitData(channel, 5, BM78_MAX_SEND_RETRIES)) 
-                            SCOM_queue[channel].index++;
+                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         break;
                     case 0x01: // IDD - Name
                         SCOM_addDataByte(channel, 0, MESSAGE_KIND_IDD);  // Kind
@@ -409,7 +413,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         }
 #endif
                         if (SCOM_commitData(channel, param + 3, BM78_MAX_SEND_RETRIES)) 
-                            SCOM_queue[channel].index++;
+                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         break;
                 }
                 break;
@@ -420,7 +424,9 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_DHT11);
                     SCOM_addDataByte(channel, 1, result.temp);
                     SCOM_addDataByte(channel, 2, result.rh);
-                    if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                    if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) {
+                        SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
+                    }
                 }
                 break;
 #endif
@@ -431,7 +437,9 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD);  // Kind
                     SCOM_addDataByte(channel, 1, 0); // Num - only one implemented
                     SCOM_addDataByte(channel, 2, LCD_backlight == LCD_BACKLIGHT);
-                    if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                    if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) {
+                        SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
+                    }
                 } else if ((param & SCOM_PARAM_MASK) < LCD_ROWS) { // Max. 127 lines
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD);  // Kind
                     SCOM_addDataByte(channel, 1, 0); // Num - only one implemented
@@ -448,9 +456,9 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         if (((param & SCOM_PARAM_MASK) + 1) < LCD_ROWS
                                 && (param & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
-                        } else SCOM_queue[channel].index++;
+                        } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
-                } else SCOM_queue[channel].index++; // Line overflow - consuming
+                } else SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE; // Line overflow - consuming
                 break;
 #endif
 #ifdef MCP23017_ENABLED
@@ -465,16 +473,16 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         if ((SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)
                                 && param < MCP23017_END_ADDRESS) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
-                        } else SCOM_queue[channel].index++;
+                        } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
-                } else SCOM_queue[channel].index++;
+                } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 break;
 #endif
 #ifdef PIR_PORT
             case MESSAGE_KIND_PIR:
                 SCOM_addDataByte(channel, 0, MESSAGE_KIND_PIR);
                 SCOM_addDataByte(channel, 1, PIR_PORT);
-                if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES))  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 break;
 #endif
 #ifdef RGB_ENABLED
@@ -497,9 +505,9 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         if ((param + 1) < RGB_list.size && (param + 1) < RGB_LIST_SIZE
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
-                        } else SCOM_queue[channel].index++;
+                        } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
-                } else SCOM_queue[channel].index++;
+                } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 break;
 #endif
 #ifdef WS281x_BUFFER
@@ -522,9 +530,9 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         if ((param + 1) < WS281x_LED_COUNT
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
-                        } else SCOM_queue[channel].index++;
+                        } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
-                } else SCOM_queue[channel].index++;
+                } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 break;
 #endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
@@ -567,9 +575,9 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         if ((param + 1) < WS281xLight_list.size && (param + 1) < WS281x_LIGHT_LIST_SIZE
                                 && (SCOM_queue[channel].param[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param[SCOM_queue[channel].index]++;
-                        } else SCOM_queue[channel].index++;
+                        } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
-                } else SCOM_queue[channel].index++;
+                } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 break;
 #endif
 #endif
@@ -579,7 +587,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 SCOM_addDataByte(channel, 1, BM78.pairingMode);
                 SCOM_addDataBytes(channel, 2, 6, (uint8_t *) BM78.pin);
                 SCOM_addDataBytes(channel, 8, 16, (uint8_t *) BM78.deviceName);
-                if (SCOM_commitData(channel, 24, BM78_MAX_SEND_RETRIES)) SCOM_queue[channel].index++;
+                if (SCOM_commitData(channel, 24, BM78_MAX_SEND_RETRIES))  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 break;
             case MESSAGE_KIND_BT_EEPROM:
                 switch (SCOM_BM78eeprom.stage) {
@@ -609,7 +617,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 SCOM_addDataByte(channel, 0, MESSAGE_KIND_DEBUG);
                 SCOM_addDataByte(channel, 1, param);
                 if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
-                    SCOM_queue[channel].index++;
+                     SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 }
                 break;
             case MESSAGE_KIND_NONE:
@@ -625,10 +633,10 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                             channel,
                             SCOM_queue[channel].queue[SCOM_queue[channel].index],
                             SCOM_queue[channel].param[SCOM_queue[channel].index])) {
-                        SCOM_queue[channel].index++;
+                         SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
                 } else { // Don't know what to do with the message - drop it
-                    SCOM_queue[channel].index++;
+                     SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 }
                 break;
         }

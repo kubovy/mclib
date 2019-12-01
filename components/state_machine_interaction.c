@@ -30,6 +30,7 @@ struct {
     char content[SM_VALUE_MAX_SIZE + 1];
 } SMI_lcd = { false };
 
+bool sendingUpdate = false;
 bool shouldTrigger = false;
 
 Procedure_t SMI_BluetoothTrigger;
@@ -80,13 +81,13 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
     if (device >= SM_DEVICE_MCP23017_OUT_START && device <= SM_DEVICE_MCP23017_OUT_END) {
         if (length >= 1) {
             uint8_t byte = MCP23017_read(SM_OUT_ADDRESS, MCP23017_GPIOA + SM_OUT_PORT);
-            if (*value & 0x01) {
+            if (*value) {
                 byte |= 0x01 << (device - SM_DEVICE_MCP23017_OUT_START);
             } else {
-                byte &= 0x00 << (device - SM_DEVICE_MCP23017_OUT_START);
+                byte &= ~(0x01 << (device - SM_DEVICE_MCP23017_OUT_START));
             }
             MCP23017_write(SM_OUT_ADDRESS, MCP23017_OLATA + SM_OUT_PORT, byte);
-            SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_OUT_ADDRESS);
+            //SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_OUT_ADDRESS);
         }
     } else
 #endif
@@ -98,19 +99,17 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
                     *(value + 1), *(value + 2), *(value + 3), // RGB
                     (*(value + 4) << 8) | (*(value + 5)), // Delay
                     *(value + 6), *(value + 7)); // Min, Max
-            SCOM_sendWS281xLED(SCOM_CHANNEL_BT, device - SM_DEVICE_WS281x_START);
+            //SCOM_sendWS281xLED(SCOM_CHANNEL_BT, device - SM_DEVICE_WS281x_START);
         }
     } else
 #endif
 #ifdef LCD_ADDRESS
     if (device == SM_DEVICE_LCD_MESSAGE) {
-        for (uint8_t i = 0; i < length; i++) {
-            if (i < SM_VALUE_MAX_SIZE) {
-                uint8_t ch = *(value + i);
-                // Visible chars: LF or SPACE till "~" otherwise SPACE
-                SMI_lcd.content[i] = (ch == '\n' || (ch >= 0x20 && ch <= 0x7E))
-                        ? ch : ' ';
-            }
+        for (uint8_t i = 0; i < length && i < SM_VALUE_MAX_SIZE; i++) {
+            uint8_t ch = *(value + i);
+            // Visible chars: LF or SPACE till "~" otherwise SPACE
+            SMI_lcd.content[i] = (ch == '\n' || (ch >= 0x20 && ch <= 0x7E))
+                    ? ch : ' ';
         }
         SMI_lcd.content[length] = '\0';
         SMI_lcd.available = true;
@@ -133,11 +132,13 @@ void SMI_actionHandler(uint8_t device, uint8_t length, uint8_t *value) {
     } else if (device == SM_DEVICE_ENTER) {
         
     }
-    SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_IN1_ADDRESS);
-    SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_IN2_ADDRESS);
+    //SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_IN1_ADDRESS);
+    //SCOM_sendMCP23017(SCOM_CHANNEL_BT, SM_IN2_ADDRESS);
 }
 
 void SMI_evaluatedHandler(void) {
+    SCOM_sendMCP23017(SCOM_CHANNEL_BT, SCOM_PARAM_ALL);
+    SCOM_sendWS281xLED(SCOM_CHANNEL_BT, SCOM_PARAM_ALL);
     if (SMI_lcd.available) {
         SMI_lcd.available = false;
 #ifdef LCD_ADDRESS

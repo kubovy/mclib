@@ -289,6 +289,14 @@ void SCOM_setAdditionalDataHandler(SCOM_DataHandler_t handler);
 void SCOM_setNextMessageHandler(SCOM_NextMessageHandler_t nextMessageHandler);
 
 /**
+ * Check whether channel's queue is empty
+ *
+ * @param channel Channel.
+ * @return True/false
+ */
+bool SCOM_isQueueEmpty(SCOM_Channel_t channel);
+
+/**
  * Enqueues transmission type with possible parameter.
  * 
  * @param channel Channel to use.
