@@ -50,11 +50,14 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
  * 
  * @param channel Channel.
  * @param what Type of message to send next.
- * @param param Parameter.
- * @return Whether the message type was sent, or not (e.g. something else was 
- *         being sent at the time).
+ * @param param1 Parameter 1.
+ * @param param2 Parameter 2.
+ * @return Whether all messages of this type were sent (e.g. some more will
+ *         be still sent). True will consume the item in the queue and proceed
+ *         with next one.
  */
-bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t param);
+bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what,
+        uint8_t param1, uint8_t param2);
 
 void SMT_setUploadStartCallback(Procedure_t callback);
 

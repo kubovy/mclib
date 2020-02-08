@@ -53,6 +53,13 @@ typedef enum {
 #endif
 } SCOM_Channel_t;
 
+struct {
+    uint8_t stage;
+    SCOM_Channel_t channel;
+    uint16_t start;
+    uint16_t end;
+} SCOM_dataTransfer = { 0x00, 0x00, 0x0000, 0x0000 };
+
 /**
  * Data handler.
  *
@@ -68,12 +75,14 @@ typedef void (*SCOM_DataHandler_t)(SCOM_Channel_t channel, uint8_t length, uint8
  *
  * @param channel Channel.
  * @param what What to send (message type)
- * @param param Message type parameter.
+ * @param param1 Message type parameter 1.
+ * @param param2 Message type parameter 2.
  * @return Whether the queue item should be consumed or not. In some cases this
  *         can be used to send one message types over multiple packets due to
  *         packet size limitation.
  */
-typedef bool (*SCOM_NextMessageHandler_t)(SCOM_Channel_t channel, uint8_t what, uint8_t param);
+typedef bool (*SCOM_NextMessageHandler_t)(SCOM_Channel_t channel, uint8_t what,
+        uint8_t param1, uint8_t param2);
 
 /**
  * Cancels any ongoing transmission.
@@ -104,6 +113,25 @@ bool SCOM_awatingConfirmation(SCOM_Channel_t channel);
  *         message
  */
 bool SCOM_isChecksumCorrect(SCOM_Channel_t channel);
+
+/**
+ * Checks if messages can be enqueued on the given channel. Usually messages
+ * cannot be enqueued when the given channel is disconnected.
+ * 
+ * @param channel Channel to check.
+ * @return Whether messages can be enqueued to the given channel.
+ */
+inline bool SCOM_canEnqueue(SCOM_Channel_t channel);
+
+/**
+ * Checks if messages can be send over the given channel. Usually messages
+ * cannot be send when the given channel is disconnected or awaiting something
+ * from the other side (e.g. confirmation).
+ * 
+ * @param channel Channel to check.
+ * @return  Whether messages can be send over the given channel.
+ */
+inline bool SCOM_canSend(SCOM_Channel_t channel);
 
 /**
  * Transparent data transmission retry trigger.
@@ -161,104 +189,17 @@ bool SCOM_commitData(SCOM_Channel_t channel, uint8_t length, uint8_t maxRetries)
  */
 void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, uint8_t maxRetries);
 
-#ifdef DHT11_PORT
-/**
- * Adds a DHT11 message to the send queue.
- * 
- * @param channel Channel to use.
- */
-inline void SCOM_sendDHT11(SCOM_Channel_t channel);
-#endif
-
-#ifdef LCD_ADDRESS
-/**
- * Adds a LCD message to the send queue.
- * 
- * @param channel Channel to use.
- * @param line Which line to send. Use SCOM_PARAM_ALL to send the while content.
- */
-inline void SCOM_sendLCD(SCOM_Channel_t channel, uint8_t line);
-
-/**
- * Adds a LCD's backlight status message to the send queue.
- * 
- * @param channel Channel to use.
- * @param on True if backlight is on, false otherwise.
- */
-inline void SCOM_sendLCDBacklight(SCOM_Channel_t channel, bool on);
-#endif
-
-#ifdef PIR_PORT
-/**
- * Adds a PIR message to the send queue.
- * 
- * @param channel Channel to use.
- */
-inline void SCOM_sendPIR(SCOM_Channel_t channel);
-#endif
-
-#ifdef MCP23017_ENABLED
-/**
- * Adds a MCP23017 message to the send queue.
- * 
- * @param channel Channel to use.
- * @param address I2C address of the MCP23017 chip.
- */
-inline void SCOM_sendMCP23017(SCOM_Channel_t channel, uint8_t address);
-#endif
-
-#ifdef RGB_ENABLED
-/** 
- * Adds a RGB message to the send queue.
- * 
- * @param channel Channel to use.
- * @param index Index of the configuration to send. Use SCOM_PARAM_ALL to send
- *              all configurations.
- */
-inline void SCOM_sendRGB(SCOM_Channel_t channel, uint8_t index);
-#endif
-
-#ifdef WS281x_BUFFER
-#ifdef WS281x_INDICATORS
-/**
- * Adds a WS281x LED message to the send queue.
- * 
- * @param channel Channel to use.
- * @param led LED of which to transfer the configuration. Use SCOM_PARAM_ALL to
- *            send all LED configurations of the whole strip.
- */
-inline void SCOM_sendWS281xLED(SCOM_Channel_t channel, uint8_t led);
-#endif
-
-#if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-/**
- * Adds a WS281x Light configuration to the send queue.
- * 
- * @param channel Channel to use.
- * @param index Configuration index to send. Use SCOM_PARAM_ALL to send all
- *              configurations.
- */
-inline void SCOM_sendWS281xLight(SCOM_Channel_t channel, uint8_t index);
-#endif
-#endif
-
 #ifdef BM78_ENABLED
-/**
- * Adds a bluetooth settings message to the send queue. 
- * 
- * @param channel Channel to use.
- * @param channel Channel to send the message over.
- */
-inline void SCOM_sendBluetoothSettings(SCOM_Channel_t channel);
 
 /**
- * Add a bluetooth EEPROM download message to the send queue.
+ * Data download message to the send queue.
  * 
  * @param channel Channel to use.
+ * @param num Data part/ID
  * @param start Start address.
  * @param length Data length.
  */
-inline void SCOM_sendBluetoothEEPROM(SCOM_Channel_t channel, uint16_t start, uint16_t length);
+inline void SCOM_sendData(SCOM_Channel_t channel, uint8_t num, uint16_t start, uint16_t length);
 #endif
 
 /**
@@ -275,10 +216,11 @@ void SCOM_setAdditionalDataHandler(SCOM_DataHandler_t handler);
  * Next message handler type should implement sending a message type define by
  * the "what" parameter. 
  * 
- * The prototype: bool SCOM_NextMessageHandler_t(SCOM_Channel_t channel, uint8_t what, uint8_t param)
+ * The prototype: bool SCOM_NextMessageHandler_t(SCOM_Channel_t channel, uint8_t what, uint8_t param1, uint8_t param2)
  * - param channel: Channel.
  * - param what   : What to send (message type)
- * - param param  : Message type parameter.
+ * - param param1  : Message type parameter 1.
+ * - param param2  : Message type parameter 2.
  * - return       : Whether the queue item should be consumed or not. In some 
  *                  cases this can be used to send one message types over
  *                  multiple packets due to packet size limitation.
@@ -301,9 +243,11 @@ bool SCOM_isQueueEmpty(SCOM_Channel_t channel);
  * 
  * @param channel Channel to use.
  * @param what Definition what to transmit.
- * @param param Possible parameter.
+ * @param param1 Possible parameter 1.
+ * @param param2 Possible parameter 2.
  */
-void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param);
+void SCOM_enqueue(SCOM_Channel_t channel, MessageKind_t what, uint8_t param1,
+        uint8_t param2);
 
 /**
  * Called when a BT message was sent. 

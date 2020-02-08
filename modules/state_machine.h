@@ -166,9 +166,11 @@ extern "C" {
 
 #define SM_DEVICE_BT_CONNECTED 0x60
 #define SM_DEVICE_BT_TRIGGER 0x61
-
+    
 #define SM_DEVICE_GOTO 0x70
 #define SM_DEVICE_ENTER 0x71
+
+#define SM_DEVICE_MAX 0x80
 
 /** Whether the state machine is enabled or not */
 uint8_t SM_status = SM_STATUS_ENABLED;

@@ -13,16 +13,6 @@
 
 #if defined SCOM_ENABLED && defined SM_MEM_ADDRESS
 
-/** State machine transmission state. */
-typedef struct {
-    uint16_t address;    // Start address to sent in next block.
-    uint16_t length;     // Total data length of the state machine. If set to 0
-                         // than transmission is aborted. Will be also set to 0
-                         // when transmission finishes.
-} SMT_TX_t; // = { 0x0000, 0x0000 };
-
-SMT_TX_t smTX[SCOM_CHANNEL_COUNT];
-
 Procedure_t uploadStartCallback = NULL;
 Procedure_t uploadFinishedCallback = NULL;
 
@@ -40,39 +30,44 @@ Procedure_t uploadFinishedCallback = NULL;
  * be aborted.
  */
 void transmitNextBlock(SCOM_Channel_t channel) {
-    if (BM78.status == BM78_STATUS_SPP_CONNECTED_MODE && !SCOM_awatingConfirmation(SCOM_CHANNEL_BT)) {
-        if (smTX[channel].length > 0) {
+    if (SCOM_canSend(channel)) {
+        if (SCOM_dataTransfer.end > 0) {
             // 32 = CRC(1) + reserve(1)  + MSGTYPE(1) + LEN(2) + ADR(2) + DATA(25)
-            smTX[channel].address = smTX[channel].address + (SMT_BLOCK_SIZE - 7);
+            SCOM_dataTransfer.start = SCOM_dataTransfer.start + (SMT_BLOCK_SIZE - 7);
         } else {
-            smTX[channel].length = SM_dataLength();
+            SCOM_dataTransfer.end = SM_dataLength();
         }
 
-        if (smTX[channel].length > 0 && smTX[channel].address < smTX[channel].length) {
-            SCOM_addDataByte(SCOM_CHANNEL_BT, 0, MESSAGE_KIND_SM_PUSH);
-            SCOM_addDataByte2(SCOM_CHANNEL_BT, 1, smTX[channel].length);
-            SCOM_addDataByte2(SCOM_CHANNEL_BT, 3, smTX[channel].address);
+        if (SCOM_dataTransfer.end > 0
+                && SCOM_dataTransfer.start < SCOM_dataTransfer.end) {
+            SCOM_addDataByte(channel, 0, MESSAGE_KIND_DATA);
+            SCOM_addDataByte(channel, 1, SM_DATA_PART);
+            SCOM_addDataByte2(channel, 2, SCOM_dataTransfer.start);
+            SCOM_addDataByte2(channel, 4, SCOM_dataTransfer.end);
 
             for (uint8_t i = 0; i < SMT_BLOCK_SIZE - 7; i++) { // 32 = 25 + 5 + 2
-                if ((smTX[channel].address + i) < smTX[channel].length) {
-                    SCOM_addDataByte(SCOM_CHANNEL_BT, i + 5,
-                            I2C_readRegister16(SM_MEM_ADDRESS, smTX[channel].address + i));
+                if ((SCOM_dataTransfer.start + i) < SCOM_dataTransfer.end) {
+                    SCOM_addDataByte(channel, i + 5,
+                            I2C_readRegister16(SM_MEM_ADDRESS,
+                            SCOM_dataTransfer.start + i));
                 }
             }
             
             // MSGTYPE(1) + LEN(2) + ADR(2)
-            SCOM_commitData(SCOM_CHANNEL_BT, 6 + min16(SMT_BLOCK_SIZE - 7, smTX[channel].length - smTX[channel].address), BM78_MAX_SEND_RETRIES);
+            SCOM_commitData(channel, 6 + min16(SMT_BLOCK_SIZE - 7,
+                    SCOM_dataTransfer.end - SCOM_dataTransfer.start),
+                    BM78_MAX_SEND_RETRIES);
 #ifdef LCD_ADDRESS
-            printProgress("    Downloading     ", smTX[channel].address + SMT_BLOCK_SIZE - 7, smTX[channel].length);
+            printProgress("    Downloading     ", SCOM_dataTransfer.start + SMT_BLOCK_SIZE - 7, SCOM_dataTransfer.end);
 #endif
-        } else if (smTX[channel].length > 0) {
-            smTX[channel].length = 0; // Cancel state machine transfer
+        } else if (SCOM_dataTransfer.stage != 0x00) {
+            SCOM_dataTransfer.stage = 0x00; // Finish state machine transfer
 #ifdef LCD_ADDRESS
             printProgress("    Downloading     ", 0, 0);
 #endif
         }
-    } else if (BM78.status != BM78_STATUS_SPP_CONNECTED_MODE) {
-        smTX[channel].length = 0; // Cancel state machine transfer
+    } else if (!SCOM_canEnqueue(channel)) {
+        SCOM_dataTransfer.stage = 0x00; // Cancel state machine transfer
     }
 }
 
@@ -81,7 +76,8 @@ void SMT_bm78AppModeResponseHandler(BM78_Response_t *response) {
         case BM78_EVENT_LE_CONNECTION_COMPLETE:
         case BM78_EVENT_DISCONNECTION_COMPLETE:
         case BM78_EVENT_SPP_CONNECTION_COMPLETE:
-            smTX[SCOM_CHANNEL_BT].length = 0; // Cancel state machine transfer
+            SCOM_dataTransfer.stage = 0x00;
+            SCOM_dataTransfer.end = 0; // Cancel state machine transfer
             break;
         default:
             break;
@@ -90,73 +86,85 @@ void SMT_bm78AppModeResponseHandler(BM78_Response_t *response) {
 
 void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     switch(*(data + 1)) {
-        case MESSAGE_KIND_SM_CONFIGURATION: // SM checksum requested
-            SCOM_enqueue(channel, MESSAGE_KIND_SM_CONFIGURATION, 0);
-            break;
-        case MESSAGE_KIND_SM_PULL: // SM pull requested
-            SCOM_enqueue(channel, MESSAGE_KIND_SM_PUSH, 0);
-            break;
-        case MESSAGE_KIND_SM_PUSH: // SM block pushed
-            if (length > 5) {
-                uint8_t byte, read;
-                uint16_t size = (*(data + 2) << 8) | (*(data + 3) & 0xFF);
-                uint16_t startReg = (*(data + 4) << 8) | (*(data + 5) & 0xFF);
-
-                if (startReg == 0 && uploadStartCallback) uploadStartCallback();
-
-                for(uint8_t i = 6; i < length; i++) {
-                    // Make sure 1st 2 bytes are 0xFF -> disable state machine
-                    if ((startReg + i - 6) == SM_MEM_START) {
-                        byte = SM_STATUS_DISABLED;
-                    } else {
-                        byte = *(data + i);
-                    }
-
-                    read = I2C_readRegister16(SM_MEM_ADDRESS, (startReg + i - 6));
-                    bool repeated = false;
-                    while(read != byte) {
-                        if (repeated) __delay_ms(100);
-                        I2C_writeRegister16(SM_MEM_ADDRESS, (startReg + i - 6), byte);
-                        read = I2C_readRegister16(SM_MEM_ADDRESS, (startReg + i - 6));
-                        repeated = true;
-                    }
-                }
-
-#ifdef LCD_ADDRESS
-                printProgress("     Uploading      ", startReg + length - 6, size);
-#endif
-
-                // Finished
-                if (startReg + length - 6 >= size) {
-                    // Set 1st 2 bytes on end of transmission -> enable state machine
-                    read = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
-                    bool repeated = false;
-                    while (read != SM_STATUS_ENABLED) {
-                        if (repeated) __delay_ms(100);
-                        I2C_writeRegister16(SM_MEM_ADDRESS, SM_MEM_START, SM_STATUS_ENABLED);
-                        read = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
-                        repeated = true;
-                    }
-                    
-                    if (uploadFinishedCallback) uploadFinishedCallback();
-                    SMI_start();
-                }
+        case MESSAGE_KIND_CONSISTENCY_CHECK: // SM checksum requested
+            if (length == 3) switch (*(data + 2)) {
+                case SM_DATA_PART:
+                    SCOM_enqueue(channel, MESSAGE_KIND_CONSISTENCY_CHECK,
+                            SM_DATA_PART, 0x00);
+                    break;
             }
             break;
-        case MESSAGE_KIND_SM_GET_STATE:
-            SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_IN1_ADDRESS);
-            SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_IN2_ADDRESS);
-            SCOM_enqueue(channel, MESSAGE_KIND_MCP23017, SM_OUT_ADDRESS);
-            SCOM_enqueue(channel, MESSAGE_KIND_SM_SET_STATE, 0);
+        case MESSAGE_KIND_DATA:
+            if (length >= 3) switch (*(data + 2)) {
+                case SM_DATA_PART:
+                    if (length == 3) { // Pull
+                        SCOM_sendData(channel, SM_DATA_PART, 0x0000, 0x0000);
+                    } else if (length == 6) { // Pull part
+                        // TODO JK: Not implemented
+                    } else if (length > 6) { // Push
+                        uint8_t byte, read;
+                        uint16_t startReg = (*(data + 3) << 8) | (*(data + 4) & 0xFF);
+                        uint16_t size = (*(data + 5) << 8) | (*(data + 6) & 0xFF);
+
+                        if (startReg == 0 && uploadStartCallback) uploadStartCallback();
+
+                        for(uint8_t i = 7; i < length; i++) {
+                            // Make sure 1st 2 bytes are 0xFF -> disable state machine
+                            if ((startReg + i - 7) == SM_MEM_START) {
+                                byte = SM_STATUS_DISABLED;
+                            } else {
+                                byte = *(data + i);
+                            }
+
+                            read = I2C_readRegister16(SM_MEM_ADDRESS, (startReg + i - 7));
+                            bool repeated = false;
+                            while(read != byte) {
+                                if (repeated) __delay_ms(100);
+                                I2C_writeRegister16(SM_MEM_ADDRESS, (startReg + i - 7), byte);
+                                read = I2C_readRegister16(SM_MEM_ADDRESS, (startReg + i - 7));
+                                repeated = true;
+                            }
+                        }
+
+        #ifdef LCD_ADDRESS
+                        printProgress("     Uploading      ", startReg + length - 7, size);
+        #endif
+
+                        // Finished
+                        if (startReg + length - 7 >= size) {
+                            // Set 1st 2 bytes on end of transmission -> enable state machine
+                            read = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
+                            bool repeated = false;
+                            while (read != SM_STATUS_ENABLED) {
+                                if (repeated) __delay_ms(100);
+                                I2C_writeRegister16(SM_MEM_ADDRESS, SM_MEM_START, SM_STATUS_ENABLED);
+                                read = I2C_readRegister16(SM_MEM_ADDRESS, SM_MEM_START);
+                                repeated = true;
+                            }
+
+                            if (uploadFinishedCallback) uploadFinishedCallback();
+                            SMI_start();
+                        }
+                    }
+                    break;
+            }
+            break;
+        case MESSAGE_KIND_SM_STATE_ACTION:
+            if (length == 2) { // Get state
+                SCOM_enqueue(channel, MESSAGE_KIND_REGISTRY,
+                        SM_IN1_ADDRESS, 0xFF);
+                SCOM_enqueue(channel, MESSAGE_KIND_REGISTRY,
+                        SM_IN2_ADDRESS, 0xFF);
+                SCOM_enqueue(channel, MESSAGE_KIND_REGISTRY,
+                        SM_OUT_ADDRESS, 0xFF);
 #ifdef WS281x_INDICATORS
-            SCOM_enqueue(channel, MESSAGE_KIND_WS281x, SCOM_PARAM_ALL);
+                SCOM_enqueue(channel, MESSAGE_KIND_INDICATORS,
+                        0x00, SCOM_PARAM_ALL);
 #endif
 #ifdef LCD_ADDRESS
-            SCOM_enqueue(channel, MESSAGE_KIND_LCD, SCOM_PARAM_ALL);
+                SCOM_enqueue(channel, MESSAGE_KIND_LCD, 0x00, SCOM_PARAM_ALL);
 #endif
-            break;
-        case MESSAGE_KIND_SM_ACTION:
-            if (SM_executeAction && length > 1) {
+            } else if (SM_executeAction && length > 4) { // Execute action
                 uint8_t count = *(data + 2);
                 uint8_t index = 3;
                 while (count > 0) {
@@ -175,30 +183,35 @@ void SMT_scomDataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) 
     }
 }
 
-bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what, uint8_t param) {
-    if (smTX[channel].length > 0) { // Transferring state machine
+bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what,
+        uint8_t param1, uint8_t param2) {
+    if (SCOM_dataTransfer.stage != 0x00 && what == MESSAGE_KIND_DATA) {
+        // Transferring
         transmitNextBlock(channel);
-        return smTX[channel].length == 0;
-    } else {
-        switch (what) {
-            case MESSAGE_KIND_SM_CONFIGURATION:
-                SCOM_addDataByte(channel, 0, MESSAGE_KIND_SM_CONFIGURATION);
-                SCOM_addDataByte(channel, 1, SM_checksum());
-                return SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES);
-                break;
-            case MESSAGE_KIND_SM_PUSH:
-                smTX[channel].address = 0;
-                smTX[channel].length = 0;
-                SCOM_resetChecksum(SCOM_CHANNEL_BT);
-                transmitNextBlock(channel);
-                return smTX[channel].length == 0; // Consume if nothing to send.
-                break;
-            case MESSAGE_KIND_SM_SET_STATE:
-                SCOM_addDataByte(channel, 0, MESSAGE_KIND_SM_SET_STATE);
-                //SCOM_addDataByte(1, )
-                break;
-        }
-        return true;
+        return SCOM_dataTransfer.stage == 0x00; // Consume if nothing to send
+    } else switch (what) {
+        case MESSAGE_KIND_CONSISTENCY_CHECK:
+            switch (param1) {
+                case SM_DATA_PART:
+                    SCOM_addDataByte(channel, 0, MESSAGE_KIND_CONSISTENCY_CHECK);
+                    SCOM_addDataByte(channel, 1, SM_DATA_PART);
+                    SCOM_addDataByte(channel, 2, SM_checksum());
+                    return SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES);
+                default:
+                    return true;  // I have nothing to contribute, consume IMHO
+            }
+        case MESSAGE_KIND_DATA:
+            switch (param1) {
+                case SM_DATA_PART:
+                    SCOM_resetChecksum(channel);
+                    transmitNextBlock(channel);
+                    // Consume if nothing to send
+                    return SCOM_dataTransfer.stage == 0x00;
+                default:
+                    return true; // I have nothing to contribute, consume IMHO
+            }
+        default:
+            return true; // I have nothing to contribute, consume IMHO
     }
 }
 

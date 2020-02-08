@@ -27,7 +27,19 @@ extern "C" {
 #if defined BM78_ENABLED || defined USB_ENABLED
 #define SCOM_ENABLED
 #endif
+    
+#if defined BM78_ENABLED && !defined BM78_DATA_PART
+#error "BM78_DATA_PART must to be defined!"
+#endif
+    
+#if defined SM_MEM_ADDRESS && !defined SM_DATA_PART
+#error "SM_DATA_PART must to be defined!"
+#endif
 
+#if defined PIR_PORT && !defined IO_PIR
+#error "IO_PIR needs to be define the PIR's IO port number"
+#endif
+    
 #if defined MCP2200_ENABLED || defined MCP2221_ENABLED
 #define USB_ENABLED
 #endif
@@ -82,40 +94,34 @@ extern "C" {
 typedef enum {
     MESSAGE_KIND_CRC = 0x00,
     MESSAGE_KIND_IDD = 0x01,
-    MESSAGE_KIND_PLAIN = 0x02,
+    MESSAGE_KIND_CONSISTENCY_CHECK = 0x02,
+    MESSAGE_KIND_DATA = 0x03,
+    MESSAGE_KIND_PLAIN = 0x0F,
     MESSAGE_KIND_IO = 0x10,
 #ifdef DHT11_PORT
-    MESSAGE_KIND_DHT11 = 0x11,
+    MESSAGE_KIND_TEMP = 0x11,
 #endif
 #ifdef LCD_ADDRESS
     MESSAGE_KIND_LCD = 0x12,
 #endif
-    MESSAGE_KIND_MCP23017 = 0x13,
-#ifdef PIR_PORT
-    MESSAGE_KIND_PIR = 0x14,
-#endif
+    MESSAGE_KIND_REGISTRY = 0x13,
 #ifdef RGB_ENABLED
     MESSAGE_KIND_RGB = 0x15,
 #endif
 #ifdef WS281x_BUFFER
 #ifdef WS281x_INDICATORS
-    MESSAGE_KIND_WS281x = 0x16,
+    MESSAGE_KIND_INDICATORS = 0x16,
 #endif
 #if defined WS281x_LIGHT_ROWS && defined WS281x_LIGHT_ROW_COUNT
-    MESSAGE_KIND_WS281x_LIGHT = 0x17,
+    MESSAGE_KIND_LIGHT = 0x17,
 #endif
 #endif
 #ifdef BM78_ENABLED
-    MESSAGE_KIND_BT_SETTINGS = 0x20,
-    MESSAGE_KIND_BT_EEPROM = 0x21,
+    MESSAGE_KIND_BLUETOOTH = 0x20,
 #endif
 #ifdef SM_MEM_ADDRESS
-    MESSAGE_KIND_SM_CONFIGURATION = 0x80,
-    MESSAGE_KIND_SM_PULL = 0x81,
-    MESSAGE_KIND_SM_PUSH = 0x82,
-    MESSAGE_KIND_SM_GET_STATE = 0x83,
-    MESSAGE_KIND_SM_SET_STATE = 0x84,
-    MESSAGE_KIND_SM_ACTION = 0x85,
+    MESSAGE_KIND_SM_STATE_ACTION = 0x80,
+    MESSAGE_KIND_SM_INPUT = 0x81,
 #endif
     MESSAGE_KIND_DEBUG = 0xFE,
     MESSAGE_KIND_NONE = 0xFF    
