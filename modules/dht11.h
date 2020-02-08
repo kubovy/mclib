@@ -26,8 +26,8 @@ extern "C" {
 #define DHT11_ERR_CHKSUM ((uint8_t) 2)
 
 typedef struct {
-    uint8_t temp;    // Temperature
-    uint8_t rh;      // Relative humidity
+    uint16_t temp;   // Temperature x 100
+    uint16_t rh;     // Relative humidity x 100
     uint8_t status;  // Status
     uint8_t retries; // Number of retries
 } DHT11_Result;

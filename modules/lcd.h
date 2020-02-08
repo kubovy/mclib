@@ -28,8 +28,10 @@ extern "C" {
 #define LCD_COLS 20
 #endif
 #ifndef LCD_ROWS
-#warning "LCD: Numer of rows defaults to 20"
+#warning "LCD: Numer of rows defaults to 4"
 #define LCD_ROWS 4
+#elif LCD_ROWS > 120
+#error "LCD: More than 120 rows! Limit due to commands and reserved HSB"
 #endif
 
 // Commands

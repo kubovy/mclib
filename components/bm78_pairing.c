@@ -35,32 +35,37 @@ void BMP_cancel(void) {
     BMP_waitingForPasskeyConfirmation = false;
 }
 
-void BMP_processKey(uint8_t key) {
+bool BMP_processKey(uint8_t key) {
     if (BMP_passkeyCodeIndex < 0xFF) { // Pairing Passkey
         if (key >= '0' && key <= '9') { // Digit
             BM78_execute(BM78_CMD_PASSKEY_ENTRY_RES, 2, BM78_PAIRING_PASSKEY_DIGIT_ENTERED, key);
 #ifdef LCD_ADDRESS
             LCD_replaceChar(key, (BMP_passkeyCodeIndex++) + 10, 1, true);
 #endif
+            return true;
         } else if (key == 'A') {
             //BM78_execute(BM78_CMD_PASSKEY_ENTRY_RES, 2, BM78_PAIRING_PASSKEY_DIGIT_ENTERED, 0x00);
+            return true;
         } else if (key == 'B') { // Clear
             BM78_execute(BM78_CMD_PASSKEY_ENTRY_RES, 2, BM78_PAIRING_PASSKEY_CLEARED, 0x00);
 #ifdef LCD_ADDRESS
             LCD_replaceString("          ", 10, 1, true);
 #endif
             BMP_passkeyCodeIndex = 0;
+            return true;
         } else if (key == 'C') { // Confirm
             BM78_execute(BM78_CMD_PASSKEY_ENTRY_RES, 2, BM78_PAIRING_PASSKEY_ENTRY_COMPLETED, 0x00);
 #ifdef LCD_ADDRESS
             LCD_clear();
 #endif
             BMP_passkeyCodeIndex = 0xFF;
+            return true;
         } else if (key == 'D') { // Delete
             BM78_execute(BM78_CMD_PASSKEY_ENTRY_RES, 2, BM78_PAIRING_PASSKEY_DIGIT_ERASED, 0x00);
 #ifdef LCD_ADDRESS
             LCD_replaceChar(' ', (--BMP_passkeyCodeIndex) + 10, 1, true);
 #endif
+            return true;
         }
     } else if (BMP_waitingForPasskeyConfirmation) {
         switch(key) { // Pairing Confirmation
@@ -71,7 +76,7 @@ void BMP_processKey(uint8_t key) {
 #endif
                 BM78_execute(BM78_CMD_USER_CONFIRM_RES, 1, BM78_PAIRING_USER_CONFIRM_YES);
                 BMP_waitingForPasskeyConfirmation = false;
-                break;
+                return true;
             case 'A': // Abort (NO)
 #ifdef LCD_ADDRESS
                 LCD_clear();
@@ -79,9 +84,10 @@ void BMP_processKey(uint8_t key) {
 #endif
                 BM78_execute(BM78_CMD_USER_CONFIRM_RES, 1, BM78_PAIRING_USER_CONFIRM_NO);
                 BMP_waitingForPasskeyConfirmation = false;
-                break;
+                return true;
         }
     }
+    return false;
 }
 
 inline void BMP_bm78PairingEventHandler(BM78_Response_t *response) {

@@ -35,8 +35,9 @@ void BMP_cancel(void);
  * Process key for pairing. Does nothing unless pairing request is waiting.
  * 
  * @param key Entered key. Accepts: 0-9, A-D, *, #
+ * @return Whether the key was processed
  */
-void BMP_processKey(uint8_t key);
+bool BMP_processKey(uint8_t key);
 
 #endif
 

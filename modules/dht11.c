@@ -85,16 +85,16 @@ DHT11_Response DHT11_read(void){
         }
         if (i % 8 == 7) switch(i / 8) {
             case 0:
-                result.rh_decimal = byte;
-                break;
-            case 1:
                 result.rh_integral = byte;
                 break;
+            case 1:
+                result.rh_decimal = byte;
+                break;
             case 2:
-                result.temp_decimal = byte;
+                result.temp_integral = byte;
                 break;
             case 3:
-                result.temp_integral = byte;
+                result.temp_decimal = byte;
                 break;
             case 4:
                 result.chksum = byte;
@@ -118,7 +118,9 @@ DHT11_Result DHT11_measure(void) {
     do {
         if (result.retries > 0) __delay_ms(50);
         data = DHT11_read();
-        isValid = (data.rh_decimal /*+ data.rh_integral*/ + data.temp_decimal /*+ data.temp_integral*/) == data.chksum;
+        isValid = (data.rh_integral + data.rh_decimal
+                + data.temp_integral + data.temp_decimal)
+                == data.chksum;
     } while(!isValid && result.retries++ < 5);
     
     DHT11_measuring = false;
@@ -126,8 +128,8 @@ DHT11_Result DHT11_measure(void) {
 
     if(data.chksum != 0) {
         if(isValid) {
-            result.temp = data.temp_decimal;
-            result.rh = data.rh_decimal;
+            result.temp = data.temp_integral * 100 + data.temp_decimal % 100;
+            result.rh = data.rh_integral * 100 + data.rh_decimal % 100;
             result.status = DHT11_OK;
         } else {
             result.status = DHT11_ERR_CHKSUM;
