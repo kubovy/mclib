@@ -13,7 +13,7 @@ extern "C" {
 
 #include "../lib/requirements.h"
 
-#ifdef I2C_ENABLED    
+#ifdef I2C_ENABLED
 
 #include <stdbool.h>
 #include <stdint.h>

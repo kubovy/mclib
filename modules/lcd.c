@@ -3,6 +3,7 @@
  * Author: Jan Kubovy &lt;jan@kubovy.eu&gt;
  */
 #include "lcd.h"
+#ifdef LCD_ADDRESS
 #include "i2c.h"
 
 #ifdef MEM_LCD_CACHE_START
@@ -238,3 +239,4 @@ void LCD_createChar(uint8_t location, uint8_t charmap[]) {
 	}
 }
 
+#endif

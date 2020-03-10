@@ -14,6 +14,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include "../lib/requirements.h"
+#include "../modules/bm78.h"
 
 #ifdef LCD_ADDRESS
 
