@@ -24,6 +24,10 @@ extern "C" {
 
 #include "../../config.h"
 
+#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
+#define USB_ENABLED
+#endif
+
 #if defined BM78_ENABLED || defined USB_ENABLED
 #define SCOM_ENABLED
 #endif
@@ -38,10 +42,6 @@ extern "C" {
 
 #if defined PIR_PORT && !defined IO_PIR
 #error "IO_PIR needs to be define the PIR's IO port number"
-#endif
-    
-#if defined MCP2200_ENABLED || defined MCP2221_ENABLED
-#define USB_ENABLED
 #endif
     
 #if (defined MCP23017_ENABLED || defined LCD_ENABLED) && !defined I2C_ENABLED

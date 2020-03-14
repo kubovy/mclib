@@ -56,7 +56,7 @@ void transmitNextBlock(SCOM_Channel_t channel) {
             // MSGTYPE(1) + LEN(2) + ADR(2)
             SCOM_commitData(channel, 6 + min16(SMT_BLOCK_SIZE - 7,
                     SCOM_dataTransfer.end - SCOM_dataTransfer.start),
-                    BM78_MAX_SEND_RETRIES);
+                    SCOM_MAX_SEND_RETRIES);
 #ifdef LCD_ADDRESS
             printProgress("    Downloading     ", SCOM_dataTransfer.start + SMT_BLOCK_SIZE - 7, SCOM_dataTransfer.end);
 #endif
@@ -196,7 +196,7 @@ bool SMT_scomNextMessageHandler(SCOM_Channel_t channel, uint8_t what,
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_CONSISTENCY_CHECK);
                     SCOM_addDataByte(channel, 1, SM_DATA_PART);
                     SCOM_addDataByte(channel, 2, SM_checksum());
-                    return SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES);
+                    return SCOM_commitData(channel, 3, SCOM_MAX_SEND_RETRIES);
                 default:
                     return true;  // I have nothing to contribute, consume IMHO
             }

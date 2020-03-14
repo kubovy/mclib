@@ -25,6 +25,24 @@ extern "C" {
 #error "SCOM: Max packet size must be defined!"
 #endif
 
+#ifndef SCOM_TRIGGER_PERIOD
+#ifndef TIMER_PERIOD
+#error "SCOM: SCOM_TRIGGER_PERIOD or TIMER_PERIOD is required!"
+#endif
+#warning "SCOM: Trigger period defaults to TIMER_PERIOD"
+#define SCOM_TRIGGER_PERIOD TIMER_PERIOD // Timer period in ms.
+#endif
+
+#ifndef SCOM_RESEND_TIMEOUT
+#warning "SCOM: Resend delay defaults to 3000ms"
+#define SCOM_RESEND_TIMEOUT 3000
+#endif
+
+#ifndef SCOM_MAX_SEND_RETRIES
+#warning "SCOM maximum number of retries defaults to 10"
+#define SCOM_MAX_SEND_RETRIES 10
+#endif
+
 #define SCOM_PARAM_MASK 0x7F
 #define SCOM_PARAM_ALL 0x80
 #ifdef LCD_ADDRESS
@@ -189,8 +207,6 @@ bool SCOM_commitData(SCOM_Channel_t channel, uint8_t length, uint8_t maxRetries)
  */
 void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, uint8_t maxRetries);
 
-#ifdef BM78_ENABLED
-
 /**
  * Data download message to the send queue.
  * 
@@ -200,7 +216,6 @@ void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, ui
  * @param length Data length.
  */
 inline void SCOM_sendData(SCOM_Channel_t channel, uint8_t num, uint16_t start, uint16_t length);
-#endif
 
 /**
  * Additional data handler setter.
@@ -283,6 +298,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel);
  */
 void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
 
+#ifdef BM78_ENABLED
 /**
  * BM78's test mode response handler for dealing with BM78's EEPROM.
  * 
@@ -291,6 +307,7 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data);
  * @param response The response.
  */
 void SCOM_bm78TestModeResponseHandler(BM78_Response_t *response);
+#endif
 
 #endif
 

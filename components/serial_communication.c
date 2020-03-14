@@ -136,7 +136,7 @@ void SCOM_retryTrigger(void) {
                 SCOM_tx[channel].retries--;
             }
 
-            SCOM_tx[channel].timeout = (uint16_t) BM78_RESEND_TIMEOUT / (uint16_t) BM78_TRIGGER_PERIOD;
+            SCOM_tx[channel].timeout = (uint16_t) SCOM_RESEND_TIMEOUT / (uint16_t) SCOM_TRIGGER_PERIOD;
 
             // (Re)calculate Transparent Checksum
             SCOM_tx[channel].chksumExpected = 0x00;
@@ -160,15 +160,15 @@ void SCOM_retryTrigger(void) {
             }
         } else if (SCOM_tx[channel].length == 0 && SCOM_tx[channel].timeout == 0) {
             // Periodically try message sent handler if someone has something to send
-            SCOM_tx[channel].timeout = (uint16_t) BM78_RESEND_TIMEOUT / (uint16_t) BM78_TRIGGER_PERIOD;
+            SCOM_tx[channel].timeout = (uint16_t) SCOM_RESEND_TIMEOUT / (uint16_t) SCOM_TRIGGER_PERIOD;
             SCOM_messageSentHandler(channel);
         } else if (SCOM_tx[channel].timeout > 0) {
             SCOM_tx[channel].timeout--;
         }
 
         // Just to make sure, weird behavior observed here
-        if (SCOM_tx[channel].timeout > BM78_RESEND_TIMEOUT / BM78_TRIGGER_PERIOD) {
-            SCOM_tx[channel].timeout = (uint16_t) BM78_RESEND_TIMEOUT / (uint16_t) BM78_TRIGGER_PERIOD;
+        if (SCOM_tx[channel].timeout > SCOM_RESEND_TIMEOUT / SCOM_TRIGGER_PERIOD) {
+            SCOM_tx[channel].timeout = (uint16_t) SCOM_RESEND_TIMEOUT / (uint16_t) SCOM_TRIGGER_PERIOD;
         }
     }
 }
@@ -211,8 +211,6 @@ void SCOM_transmitData(SCOM_Channel_t channel, uint8_t length, uint8_t *data, ui
     }
 }
 
-#ifdef BM78_ENABLED
-
 inline void SCOM_sendData(SCOM_Channel_t channel, uint8_t num, uint16_t start,
         uint16_t length) {
     if (SCOM_canEnqueue(channel)) {
@@ -225,7 +223,6 @@ inline void SCOM_sendData(SCOM_Channel_t channel, uint8_t num, uint16_t start,
         }
     }
 }
-#endif
 
 void SCOM_setAdditionalDataHandler(SCOM_DataHandler_t handler) {
     additionalDataHandler = handler;
@@ -312,7 +309,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
 #endif
                         SCOM_addDataByte(channel, 4, param1);
 
-                        if (SCOM_commitData(channel, 5, BM78_MAX_SEND_RETRIES)) {
+                        if (SCOM_commitData(channel, 5, SCOM_MAX_SEND_RETRIES)) {
                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         }
                         break;
@@ -328,7 +325,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                             param1++;
                         }
 #endif
-                        if (SCOM_commitData(channel, param1 + 3, BM78_MAX_SEND_RETRIES)) {
+                        if (SCOM_commitData(channel, param1 + 3, SCOM_MAX_SEND_RETRIES)) {
                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         }
                         break;
@@ -399,7 +396,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         SCOM_addDataByte(channel, 0, MESSAGE_KIND_PIR);
                         SCOM_addDataByte(channel, 1, IO_PIR);
                         SCOM_addDataByte(channel, 2, PIR_PORT);
-                        if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) {
+                        if (SCOM_commitData(channel, 3, SCOM_MAX_SEND_RETRIES)) {
                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         }
                         break;
@@ -420,7 +417,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                             SCOM_addDataByte(channel, 1, param1); // Number
                             SCOM_addDataByte2(channel, 2, result.temp);
                             SCOM_addDataByte2(channel, 4, result.rh);
-                            if (SCOM_commitData(channel, 6, BM78_MAX_SEND_RETRIES)) {
+                            if (SCOM_commitData(channel, 6, SCOM_MAX_SEND_RETRIES)) {
                                 SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                             }
                         }
@@ -429,7 +426,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         SCOM_addDataByte(channel, 0, MESSAGE_KIND_TEMP);
                         SCOM_addDataByte(channel, 1, 0xFF); // Differentiating byte
                         SCOM_addDataByte(channel, 2, 1); // Sensor count
-                        if (SCOM_commitData(channel, 3, BM78_MAX_SEND_RETRIES)) {
+                        if (SCOM_commitData(channel, 3, SCOM_MAX_SEND_RETRIES)) {
                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         }
                         break;
@@ -452,14 +449,14 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                         SCOM_addDataByte(channel, 1, param1);           // NUM: Only one implemented
                         SCOM_addDataByte(channel, 2, 0xFF);             // Differentiating byte
                         SCOM_addDataByte(channel, 3, param2);           // Command
-                        if (SCOM_commitData(channel, 4, BM78_MAX_SEND_RETRIES)) {
+                        if (SCOM_commitData(channel, 4, SCOM_MAX_SEND_RETRIES)) {
                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         }
                         break;
                     case 0xFF: // LCD count response
                         SCOM_addDataByte(channel, 0, MESSAGE_KIND_LCD); // Kind
                         SCOM_addDataByte(channel, 1, 1);                // Count
-                        if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
+                        if (SCOM_commitData(channel, 2, SCOM_MAX_SEND_RETRIES)) {
                             SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                         }
                         break;
@@ -476,7 +473,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                                         LCD_getCache(param2 & SCOM_PARAM_MASK, line));
                             }
 
-                            if (SCOM_commitData(channel, LCD_COLS + 5, BM78_MAX_SEND_RETRIES)) {
+                            if (SCOM_commitData(channel, LCD_COLS + 5, SCOM_MAX_SEND_RETRIES)) {
                                 if (((param2 & SCOM_PARAM_MASK) + 1) < LCD_ROWS
                                         && (param2 & SCOM_PARAM_ALL)) {
                                     SCOM_queue[channel].param2[SCOM_queue[channel].index]++;
@@ -515,7 +512,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     if (param2 == 0xFF) {
                         SCOM_addDataByte(channel, 5, MCP23017_read(param1, MCP23017_GPIOB));
                     }
-                    if (SCOM_commitData(channel, param2 == 0xFF ? 6 : 4, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, param2 == 0xFF ? 6 : 4, SCOM_MAX_SEND_RETRIES)) {
                         SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
                 } else  SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
@@ -529,7 +526,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 if (param1 == 0xFF && param2 == 0xFF) { // Send count
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_RGB);
                     SCOM_addDataByte(channel, 1, 1); // Only one implemented
-                    if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, 2, SCOM_MAX_SEND_RETRIES)) {
                         SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
                 } else if (param1 != 0x00) { // Ignore - only one strip
@@ -547,7 +544,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_addDataByte(channel, 10, RGB_items[param2].min);    // Min
                     SCOM_addDataByte(channel, 11, RGB_items[param2].max);    // Max
                     SCOM_addDataByte(channel, 12, RGB_items[param2].timeout);// Timeout
-                    if (SCOM_commitData(channel, 13, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, 13, SCOM_MAX_SEND_RETRIES)) {
                         if ((param2 + 1) < RGB_list.size && (param2 + 1) < RGB_LIST_SIZE
                                 && (SCOM_queue[channel].param2[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param2[SCOM_queue[channel].index]++;
@@ -565,7 +562,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 if (param1 == 0xFF && param2 == 0xFF) { // Strip count
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_INDICATORS);
                     SCOM_addDataByte(channel, 1, 1); // Only one implemented
-                    if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, 2, SCOM_MAX_SEND_RETRIES)) {
                         SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
                 } else if (param1 == 0x00 && param2 < WS281x_LED_COUNT) {
@@ -580,7 +577,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_addDataByte2(channel, 8, WS281x_ledDelay[param2] * WS281x_TIMER_PERIOD);
                     SCOM_addDataByte(channel, 10, WS281x_ledMin[param2]);
                     SCOM_addDataByte(channel, 11, WS281x_ledMax[param2]);
-                    if (SCOM_commitData(channel, 12, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, 12, SCOM_MAX_SEND_RETRIES)) {
                         if ((param2 + 1) < WS281x_LED_COUNT
                                 && (SCOM_queue[channel].param2[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param2[SCOM_queue[channel].index]++;
@@ -598,7 +595,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 if (param1 == 0xFF && param2 == 0xFF) {
                     SCOM_addDataByte(channel, 0, MESSAGE_KIND_LIGHT);
                     SCOM_addDataByte(channel, 1, 1); // Only one implemented
-                    if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, 2, SCOM_MAX_SEND_RETRIES)) {
                         SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                     }
                 } else if (param1 == 0x00 // NUM: Only one light implemented
@@ -636,7 +633,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                     SCOM_addDataByte(channel, 30, WS281xLight_items[param2].min);
                     SCOM_addDataByte(channel, 31, WS281xLight_items[param2].max);
                     SCOM_addDataByte(channel, 32, WS281xLight_items[param2].timeout);
-                    if (SCOM_commitData(channel, 33, BM78_MAX_SEND_RETRIES)) {
+                    if (SCOM_commitData(channel, 33, SCOM_MAX_SEND_RETRIES)) {
                         if ((param2 + 1) < WS281xLight_list.size && (param2 + 1) < WS281x_LIGHT_LIST_SIZE
                                 && (SCOM_queue[channel].param2[SCOM_queue[channel].index] & SCOM_PARAM_ALL)) {
                             SCOM_queue[channel].param2[SCOM_queue[channel].index]++;
@@ -652,7 +649,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 SCOM_addDataByte(channel, 1, BM78.pairingMode);
                 SCOM_addDataBytes(channel, 2, 6, (uint8_t *) BM78.pin);
                 SCOM_addDataBytes(channel, 8, 16, (uint8_t *) BM78.deviceName);
-                if (SCOM_commitData(channel, 24, BM78_MAX_SEND_RETRIES)) {
+                if (SCOM_commitData(channel, 24, SCOM_MAX_SEND_RETRIES)) {
                     SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 }
                 break;
@@ -661,7 +658,7 @@ void SCOM_messageSentHandler(SCOM_Channel_t channel) {
                 param1 = SCOM_queue[channel].param1[SCOM_queue[channel].index];
                 SCOM_addDataByte(channel, 0, MESSAGE_KIND_DEBUG);
                 SCOM_addDataByte(channel, 1, param1);
-                if (SCOM_commitData(channel, 2, BM78_MAX_SEND_RETRIES)) {
+                if (SCOM_commitData(channel, 2, SCOM_MAX_SEND_RETRIES)) {
                      SCOM_queue[channel].index = (SCOM_queue[channel].index + 1) % SCOM_QUEUE_SIZE;
                 }
                 break;
@@ -990,6 +987,7 @@ void SCOM_dataHandler(SCOM_Channel_t channel, uint8_t length, uint8_t *data) {
     }
 }
 
+#ifdef BM78_ENABLED
 void SCOM_bm78TestModeResponseHandler(BM78_Response_t *response) {
     if (SCOM_dataTransfer.stage > 0x00) switch (response->ISSC_Event.ogf) {
         case BM78_ISSC_OGF_COMMAND:
@@ -1032,4 +1030,5 @@ void SCOM_bm78TestModeResponseHandler(BM78_Response_t *response) {
             }
     }
 }
+#endif
 #endif

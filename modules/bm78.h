@@ -51,11 +51,6 @@ extern "C" {
 #define BM78_TRIGGER_PERIOD TIMER_PERIOD // Timer period in ms.
 #endif
 
-#ifndef BM78_RESEND_TIMEOUT
-#warning "BM78: Resend delay defaults to 3000ms"
-#define BM78_RESEND_TIMEOUT 3000
-#endif
-
 #ifndef BM78_INIT_CMD_TIMEOUT
 #warning "BM78: Initialization timout defaults to 1500ms"
 #define BM78_INIT_CMD_TIMEOUT 1500 // Time to let the device setup itself in ms.
@@ -69,11 +64,6 @@ extern "C" {
 #ifndef BM78_STATUS_MISS_MAX_COUNT
 #warning "BM78: Maximum status updates missed count defaults to 5"
 #define BM78_STATUS_MISS_MAX_COUNT 5 // Number of status refresh attempts before reseting the device.
-#endif
-
-#ifndef BM78_MAX_SEND_RETRIES
-#warning "BM78 maximum number of retries defaults to 10"
-#define BM78_MAX_SEND_RETRIES 10
 #endif
 
 #define BM78_EEPROM_SIZE 0x1FF0
